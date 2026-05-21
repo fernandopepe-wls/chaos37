@@ -4,8 +4,10 @@
 // versionCode  = total commit count on the current branch — monotonic +
 //                reproducible. Resets the legacy "MAJOR*10000+MINOR*100+PATCH"
 //                scheme that produced collisions like 1.0.0=10000 forever.
-// versionName  = "<package.json version>.<commitCount>-<shortSha>"
-//                e.g. "0.1.0.42-d2588ed"
+// versionName  = "<package.json version>.<commitCount>"  e.g. "0.1.0.42"
+//                Clean semver-style, no SHA suffix. The full SHA + branch
+//                + dirty flag still go into scripts/.build-info.json for
+//                anyone who needs the precise commit.
 //
 // Also writes scripts/.build-info.json so vite.config.js can inject the
 // build identity into the JS bundle (used by the diagnostic overlay).
@@ -39,7 +41,7 @@ const dirty       = git('status --porcelain', '').length > 0;
 const builtAt     = new Date().toISOString();
 
 const versionCode = commitCount > 0 ? commitCount : 1;
-const versionNameSuffix = `.${commitCount}-${shortSha}${dirty ? '-dirty' : ''}`;
+const versionNameSuffix = `.${commitCount}`;
 
 console.log(`bump-build → version ${version}${versionNameSuffix}  code ${versionCode}`);
 
