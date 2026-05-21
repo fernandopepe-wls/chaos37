@@ -9,6 +9,21 @@ const APP_NAME = capConfig.appName;
 const APP_VERSION = pkg.version;
 const BG_COLOR = capConfig.plugins?.SplashScreen?.backgroundColor || '#0a0a0f';
 
+// Build identity stamped by scripts/bump-build.js (npm prebuild hook).
+// Falls back to "dev" labels when the hook hasn't run (raw vite dev).
+let BUILD_INFO = {
+  versionCode: 0,
+  versionName: APP_VERSION,
+  shortSha: 'dev',
+  branch: 'dev',
+  commitCount: 0,
+  dirty: false,
+  builtAt: new Date().toISOString(),
+};
+try {
+  BUILD_INFO = JSON.parse(readFileSync(resolve('scripts/.build-info.json'), 'utf-8'));
+} catch { /* prebuild hasn't run — keep dev fallback. Run `npm run bump-build` to generate. */ }
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
@@ -26,6 +41,7 @@ export default defineConfig(({ mode }) => {
       __DEBUG_ENABLED__: mode !== 'production',
       __OTA_ENABLED__: JSON.stringify(otaEnabled),
       __OTA_MANIFEST_URL__: JSON.stringify(otaManifestUrl),
+      __BUILD_INFO__: JSON.stringify(BUILD_INFO),
     },
     build: {
       outDir: 'dist',

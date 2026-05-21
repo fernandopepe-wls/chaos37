@@ -1,14 +1,21 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 
-export function syncNativeVersion(version) {
+export function syncNativeVersion(version, opts = {}) {
+  // opts: { versionCode?: number, versionNameSuffix?: string }
+  // If versionCode is provided, use it verbatim. Otherwise derive from semver.
+  // versionNameSuffix is appended to versionName (e.g. ".42-a1b2c3d") so
+  // testers can identify the exact commit from a Firebase Distribution build.
   const parts = version.split('.').map(Number);
-  const versionCode = parts[0] * 10000 + (parts[1] || 0) * 100 + (parts[2] || 0);
+  const versionCode = opts.versionCode != null
+    ? Number(opts.versionCode)
+    : parts[0] * 10000 + (parts[1] || 0) * 100 + (parts[2] || 0);
+  const versionName = version + (opts.versionNameSuffix || '');
 
-  console.log(`Syncing native version: ${version} (code: ${versionCode})`);
+  console.log(`Syncing native version: ${versionName} (code: ${versionCode})`);
 
-  syncAndroid(version, versionCode);
-  syncIos(version, versionCode);
+  syncAndroid(versionName, versionCode);
+  syncIos(versionName, versionCode);
 }
 
 function syncAndroid(version, versionCode) {

@@ -4,6 +4,7 @@ node_modules
 # Build output
 dist
 releases
+scripts/.build-info.json
 
 # Environment (secrets) — .env.example is tracked
 .env

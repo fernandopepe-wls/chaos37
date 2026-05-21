@@ -9,6 +9,11 @@
   "scripts": {
     "dev": "vite --mode development",
     "preview": "vite preview --mode development",
+    "bump-build": "node scripts/bump-build.js",
+    "prebuild": "node scripts/bump-build.js",
+    "prebuild:dev": "node scripts/bump-build.js",
+    "prebuild:staging": "node scripts/bump-build.js",
+    "prebuild:production": "node scripts/bump-build.js",
     "build": "vite build --mode production",
     "build:dev": "vite build --mode development",
     "build:staging": "vite build --mode staging",

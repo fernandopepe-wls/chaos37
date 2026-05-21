@@ -98,8 +98,12 @@
     };
     // Wait for body to exist, then ensure the overlay is mounted and seeded
     function seed(){
-      add('BOOT', 'JS running. UA=' + navigator.userAgent);
+      // __BUILD_INFO__ is replaced by Vite at build time. The double-bracket
+      // fallback shape keeps raw `index.html` (no Vite) from throwing.
+      var info = (typeof __BUILD_INFO__ !== 'undefined') ? __BUILD_INFO__ : { versionName: 'pre-vite', versionCode: '?', shortSha: '?', branch: '?' };
+      add('BUILD', info.versionName + ' code=' + info.versionCode + ' sha=' + info.shortSha + ' branch=' + info.branch);
       add('SCREEN', window.innerWidth + 'x' + window.innerHeight + ' dpr=' + (window.devicePixelRatio || 1));
+      add('BOOT', 'JS running. UA=' + navigator.userAgent);
     }
     if (document.body) seed();
     else document.addEventListener('DOMContentLoaded', seed);
