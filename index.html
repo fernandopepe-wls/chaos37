@@ -104,6 +104,19 @@
       add('BUILD', info.versionName + ' code=' + info.versionCode + ' sha=' + info.shortSha + ' branch=' + info.branch);
       add('SCREEN', window.innerWidth + 'x' + window.innerHeight + ' dpr=' + (window.devicePixelRatio || 1));
       add('BOOT', 'JS running. UA=' + navigator.userAgent);
+      // Force-hide the Capacitor NATIVE splash. The plugin is configured
+      // with launchAutoHide:true, but this is a belt-and-suspenders call
+      // so if the timing is off (or the user keeps the false setting) the
+      // WebView still becomes visible. Wrapped in try because window.Capacitor
+      // only exists inside the native app — desktop dev throws here.
+      try {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen) {
+          window.Capacitor.Plugins.SplashScreen.hide();
+          add('CAPACITOR', 'native splash hide() called');
+        }
+      } catch (e) {
+        add('CAPACITOR', 'splash hide failed: ' + (e && e.message));
+      }
     }
     if (document.body) seed();
     else document.addEventListener('DOMContentLoaded', seed);

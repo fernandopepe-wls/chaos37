@@ -11,8 +11,10 @@
       "appReadyTimeout": 30000
     },
     "SplashScreen": {
-      "launchAutoHide": false,
-      "backgroundColor": "#0a0a0f"
+      "launchAutoHide": true,
+      "launchShowDuration": 500,
+      "backgroundColor": "#0a0a0f",
+      "showSpinner": false
     },
     "StatusBar": {
       "style": "DARK",
