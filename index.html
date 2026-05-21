@@ -6377,8 +6377,8 @@ function drawArenaHUD(){
   const bottomCapH = H - bottomCapY - bottomBottomGap;
   const bottomRadius = LAYOUT.bottomCapRadius;
   // 9-slice: cream parchment + dashed gold border + floral corners preservados.
-  // Insets calculados sobre o source 512x512 → ~80px por borda cobre dark frame + corner.
-  if(!draw9Slice(UI_PANEL_CARD, bottomCapX, bottomCapY, bottomCapW, bottomCapH, { left:80, right:80, top:80, bottom:80 })){
+  // Insets calculados sobre o source 1024x1024 → ~160px por borda cobre dark frame + corner.
+  if(!draw9Slice(UI_PANEL_CARD, bottomCapX, bottomCapY, bottomCapW, bottomCapH, { left:160, right:160, top:160, bottom:160 })){
     // Fallback enquanto a imagem carrega: card cream solido + borda manual
     ctx.save();
     if(ctx.roundRect){
