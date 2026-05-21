@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>bunny-chaos-37</title>
+</head>
+<body>
+  <!-- Loading overlay — shown during OTA check / download -->
+  <div id="loader" class="loader">
+    <div class="loader__particles" id="particles"></div>
+    <div class="loader__content">
+      <div class="loader__logo">
+        <svg class="loader__icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 4L58 18V46L32 60L6 46V18L32 4Z" stroke="currentColor" stroke-width="2"/>
+          <path d="M32 4L58 18L32 32L6 18L32 4Z" fill="currentColor" opacity="0.15"/>
+          <path d="M32 32V60L6 46V18L32 32Z" fill="currentColor" opacity="0.08"/>
+          <circle cx="32" cy="28" r="6" fill="currentColor" opacity="0.6"/>
+        </svg>
+      </div>
+      <h1 class="loader__title" id="loader-title">Loading</h1>
+      <div class="loader__progress">
+        <div class="loader__bar">
+          <div class="loader__bar-fill" id="progress-bar"></div>
+        </div>
+        <p class="loader__status" id="loader-status">Initializing...</p>
+      </div>
+    </div>
+    <div class="loader__versions" id="loader-versions">
+      <span id="loader-shell-version"></span>
+      <span class="version-sep">·</span>
+      <span id="loader-content-version"></span>
+      <span class="version-sep">·</span>
+      <span id="loader-bundle-checksum"></span>
+    </div>
+  </div>
+
+  <!-- Error overlay — shown on fatal errors -->
+  <div id="error-screen" class="error" hidden>
+    <div class="error__content">
+      <div class="error__icon">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2"/>
+          <path d="M24 14V28" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="24" cy="34" r="1.5" fill="currentColor"/>
+        </svg>
+      </div>
+      <h2 class="error__title">Something went wrong</h2>
+      <p class="error__message" id="error-message">An unexpected error occurred.</p>
+      <button class="error__retry" id="error-retry">Try Again</button>
+    </div>
+    <div class="error__versions" id="error-versions">
+      <span id="error-shell-version"></span>
+      <span class="version-sep">·</span>
+      <span id="error-content-version"></span>
+    </div>
+  </div>
+
+  <!-- Game canvas -->
+  <canvas id="game-canvas"></canvas>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

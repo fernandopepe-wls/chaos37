@@ -1,0 +1,45 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+releases
+
+# Environment (secrets) — .env.example is tracked
+.env
+.env.local
+.env.development
+.env.staging
+.env.production
+
+# Keystores & signing
+*.keystore
+*.jks
+!android/app/prototype.keystore
+
+# Temp files from OTA / build scripts
+manifest.json
+bundle-v*.zip
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE / Editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Claude Code local settings + runtime state
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# MCP server config (contains API keys)
+.mcp.json

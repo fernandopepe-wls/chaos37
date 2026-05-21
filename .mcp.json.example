@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "asset-hub": {
+      "type": "http",
+      "url": "https://assets.wildlifestudios.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_ASSET_HUB_KEY"
+      }
+    }
+  }
+}

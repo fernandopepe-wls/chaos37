@@ -1,0 +1,25 @@
+{
+  "appId": "com.hackathon37.group34.bunnychaos",
+  "appName": "bunny-chaos-37",
+  "webDir": "dist",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    },
+    "CapacitorUpdater": {
+      "autoUpdate": false,
+      "appReadyTimeout": 30000
+    },
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "backgroundColor": "#0a0a0f"
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0a0a0f"
+    }
+  },
+  "ios": {
+    "preferredContentMode": "mobile"
+  }
+}

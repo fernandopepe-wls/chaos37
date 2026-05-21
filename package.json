@@ -1,0 +1,41 @@
+{
+  "name": "bunny-chaos-37",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "capacitor": {
+    "minNativeVersion": "1.0.0"
+  },
+  "scripts": {
+    "dev": "vite --mode development",
+    "preview": "vite preview --mode development",
+    "build": "vite build --mode production",
+    "build:dev": "vite build --mode development",
+    "build:staging": "vite build --mode staging",
+    "build:production": "vite build --mode production",
+    "cap:sync": "npx cap sync",
+    "apk:dev": "node scripts/build-apk.js development",
+    "apk:staging": "node scripts/build-apk.js staging",
+    "apk:production": "node scripts/build-apk.js production",
+    "apk:dev:fresh": "node scripts/build-apk.js development --clean --install",
+    "apk:staging:fresh": "node scripts/build-apk.js staging --clean --install",
+    "apk:production:fresh": "node scripts/build-apk.js production --clean --install"
+  },
+  "dependencies": {
+    "@capacitor/app": "^7.0.1",
+    "@capacitor/core": "^7.2.0",
+    "@capacitor/splash-screen": "^7.0.1",
+    "@capacitor/status-bar": "^7.0.5",
+    "@capgo/capacitor-updater": "^7.0.52",
+    "@wildlife/platform-capacitor": "git+https://git.topfreegames.com/wazp/wildlife-platform-sdk-capacitor.git#v0.1.1",
+    "pixi.js": "^8.16.0",
+    "three": "^0.183.0"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^7.2.0",
+    "@capacitor/cli": "^7.2.0",
+    "@capacitor/ios": "^7.2.0",
+    "dotenv": "^16.4.7",
+    "vite": "^6.3.0"
+  }
+}

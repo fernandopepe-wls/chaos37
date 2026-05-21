@@ -1,0 +1,697 @@
+/* ── Debug Trigger ────────────────────────────────── */
+
+.dbg-trigger {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom) + 12px);
+  left: calc(env(safe-area-inset-left) + 12px);
+  z-index: 9998;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 212, 255, 0.12);
+  color: rgba(0, 212, 255, 0.6);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  touch-action: manipulation;
+}
+
+.dbg-trigger:active {
+  transform: scale(0.9);
+  background: rgba(0, 212, 255, 0.25);
+}
+
+.dbg-trigger svg {
+  width: 18px;
+  height: 18px;
+}
+
+.dbg-trigger.has-errors {
+  background: rgba(255, 71, 87, 0.2);
+  color: rgba(255, 71, 87, 0.8);
+  animation: dbgPulseError 2s ease-in-out infinite;
+}
+
+@keyframes dbgPulseError {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+  50% { box-shadow: 0 0 0 6px rgba(255, 71, 87, 0.15); }
+}
+
+/* ── Debug Overlay ───────────────────────────────── */
+
+.dbg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  background: rgba(6, 6, 12, 0.97);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  color: #d4d4d8;
+  opacity: 0;
+  transform: translateY(100%);
+  transition: opacity 0.25s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.dbg-overlay.open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ── Header ──────────────────────────────────────── */
+
+.dbg-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: calc(env(safe-area-inset-top) + 8px) 12px 0;
+  flex-shrink: 0;
+}
+
+.dbg-header__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #00d4ff;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.dbg-header__close {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #a1a1aa;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: background 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  z-index: 10;
+}
+
+.dbg-header__close:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Tabs ────────────────────────────────────────── */
+
+.dbg-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 12px 0;
+  flex-shrink: 0;
+}
+
+.dbg-tab {
+  flex: 1;
+  padding: 8px 4px;
+  border: none;
+  border-radius: 6px 6px 0 0;
+  background: rgba(255, 255, 255, 0.03);
+  color: #71717a;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.dbg-tab.active {
+  background: rgba(0, 212, 255, 0.1);
+  color: #00d4ff;
+}
+
+.dbg-tab__badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: rgba(255, 71, 87, 0.2);
+  color: #ff4757;
+  font-size: 9px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dbg-tab__badge:empty { display: none; }
+
+/* ── Content Area ────────────────────────────────── */
+
+.dbg-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 8px;
+}
+
+.dbg-panel {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 0 calc(env(safe-area-inset-bottom) + 8px);
+  display: none;
+}
+
+.dbg-panel.active { display: block; }
+
+/* ── System Tab ──────────────────────────────────── */
+
+.dbg-sys-section {
+  padding: 10px 12px 6px;
+}
+
+.dbg-sys-section__title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #00d4ff;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+}
+
+.dbg-sys-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 4px 0;
+  gap: 12px;
+}
+
+.dbg-sys-row__key {
+  color: #a1a1aa;
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dbg-sys-row__val {
+  color: #e4e4e7;
+  font-size: 11px;
+  text-align: right;
+  word-break: break-all;
+  max-width: 60%;
+}
+
+/* ── OTA Button ──────────────────────────────────── */
+
+.dbg-ota-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  border-radius: 6px;
+  background: rgba(74, 222, 128, 0.08);
+  color: #4ade80;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dbg-ota-btn:active {
+  transform: scale(0.98);
+  background: rgba(74, 222, 128, 0.15);
+}
+
+.dbg-ota-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+}
+
+.dbg-ota-status {
+  font-size: 10px;
+  color: #a1a1aa;
+  margin-top: 6px;
+  min-height: 14px;
+}
+
+.dbg-ota-status:empty {
+  display: none;
+}
+
+/* ── Console Tab ─────────────────────────────────── */
+
+.dbg-console-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  background: rgba(6, 6, 12, 0.95);
+  z-index: 2;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.dbg-console-filter {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #71717a;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dbg-console-filter.active {
+  background: rgba(0, 212, 255, 0.12);
+  color: #00d4ff;
+}
+
+.dbg-console-filter.level-error.active {
+  background: rgba(255, 71, 87, 0.12);
+  color: #ff4757;
+}
+
+.dbg-console-filter.level-warn.active {
+  background: rgba(255, 193, 7, 0.12);
+  color: #ffc107;
+}
+
+.dbg-console-search {
+  flex: 1;
+  min-width: 100px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #e4e4e7;
+  font-family: inherit;
+  font-size: 11px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.dbg-console-search:focus {
+  border-color: rgba(0, 212, 255, 0.3);
+}
+
+.dbg-console-search::placeholder {
+  color: #52525b;
+}
+
+.dbg-console-clear {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 71, 87, 0.1);
+  color: #ff4757;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dbg-console-clear:active {
+  background: rgba(255, 71, 87, 0.25);
+}
+
+.dbg-console-list {
+  padding: 0 8px;
+}
+
+.dbg-console-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  word-break: break-all;
+}
+
+.dbg-console-entry.level-error {
+  background: rgba(255, 71, 87, 0.04);
+  border-left: 2px solid rgba(255, 71, 87, 0.5);
+}
+
+.dbg-console-entry.level-warn {
+  background: rgba(255, 193, 7, 0.03);
+  border-left: 2px solid rgba(255, 193, 7, 0.4);
+}
+
+.dbg-console-entry.level-info {
+  border-left: 2px solid rgba(96, 165, 250, 0.4);
+}
+
+.dbg-console-entry.level-debug {
+  border-left: 2px solid rgba(139, 92, 246, 0.3);
+}
+
+.dbg-console-entry.level-log {
+  border-left: 2px solid rgba(255, 255, 255, 0.08);
+}
+
+.dbg-console-time {
+  color: #52525b;
+  font-size: 9px;
+  white-space: nowrap;
+  padding-top: 1px;
+  min-width: 55px;
+}
+
+.dbg-console-badge {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.level-log .dbg-console-badge    { color: #a1a1aa; background: rgba(255,255,255,0.05); }
+.level-warn .dbg-console-badge   { color: #ffc107; background: rgba(255,193,7,0.1); }
+.level-error .dbg-console-badge  { color: #ff4757; background: rgba(255,71,87,0.1); }
+.level-info .dbg-console-badge   { color: #60a5fa; background: rgba(96,165,250,0.1); }
+.level-debug .dbg-console-badge  { color: #8b5cf6; background: rgba(139,92,246,0.1); }
+
+.dbg-console-msg {
+  flex: 1;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: #d4d4d8;
+}
+
+.level-error .dbg-console-msg { color: #fca5a5; }
+.level-warn  .dbg-console-msg { color: #fde68a; }
+
+.dbg-console-count {
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: rgba(0, 212, 255, 0.15);
+  color: #00d4ff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dbg-console-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #52525b;
+  font-size: 12px;
+}
+
+/* ── Profiler Tab ────────────────────────────────── */
+
+.dbg-prof-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.dbg-prof-stat {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.dbg-prof-stat__value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #00d4ff;
+  line-height: 1;
+}
+
+.dbg-prof-stat__value.good { color: #4ade80; }
+.dbg-prof-stat__value.warn { color: #fbbf24; }
+.dbg-prof-stat__value.bad  { color: #f87171; }
+
+.dbg-prof-stat__label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #71717a;
+  margin-top: 4px;
+}
+
+.dbg-prof-graph-wrap {
+  padding: 8px 12px;
+}
+
+.dbg-prof-graph-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #71717a;
+  margin-bottom: 6px;
+}
+
+.dbg-prof-graph {
+  width: 100%;
+  height: 80px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.dbg-prof-graph canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.dbg-prof-mem {
+  padding: 8px 12px;
+}
+
+.dbg-prof-mem-bar-wrap {
+  margin-top: 6px;
+}
+
+.dbg-prof-mem-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #a1a1aa;
+  margin-bottom: 4px;
+}
+
+.dbg-prof-mem-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.dbg-prof-mem-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #4ade80, #fbbf24, #f87171);
+  transition: width 0.3s ease;
+}
+
+/* ── Native Memory Details ───────────────────────── */
+
+.dbg-prof-native-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 4px 0;
+  font-size: 10px;
+  color: #a1a1aa;
+}
+
+.dbg-prof-native-detail span {
+  white-space: nowrap;
+}
+
+/* ── Pin Overlay Button ──────────────────────────── */
+
+.dbg-prof-pin-row {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px 0;
+}
+
+.dbg-prof-pin {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.05);
+  color: #71717a;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dbg-prof-pin:active {
+  transform: scale(0.98);
+}
+
+.dbg-prof-pin.active {
+  background: rgba(0, 212, 255, 0.12);
+  color: #00d4ff;
+  border-color: rgba(0, 212, 255, 0.3);
+}
+
+.dbg-prof-bench {
+  border-color: rgba(251, 191, 36, 0.15);
+  background: rgba(251, 191, 36, 0.05);
+}
+
+.dbg-prof-bench.active {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+/* ── FPS Overlay (mini floating widget) ──────────── */
+
+.dbg-fps-overlay {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 10px);
+  right: calc(env(safe-area-inset-right) + 10px);
+  z-index: 9997;
+  width: 130px;
+  border-radius: 8px;
+  background: rgba(6, 6, 12, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  overflow: hidden;
+  opacity: 0;
+  transform: scale(0.8) translateY(-10px);
+  transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  touch-action: none;
+}
+
+.dbg-fps-overlay.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+
+.dbg-fps-overlay__header {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  padding: 5px 6px 3px 8px;
+  cursor: grab;
+  user-select: none;
+}
+
+.dbg-fps-overlay__header:active {
+  cursor: grabbing;
+}
+
+.dbg-fps-overlay__value {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  color: #00d4ff;
+}
+
+.dbg-fps-overlay__value.good { color: #4ade80; }
+.dbg-fps-overlay__value.warn { color: #fbbf24; }
+.dbg-fps-overlay__value.bad  { color: #f87171; }
+
+.dbg-fps-overlay__unit {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #52525b;
+  letter-spacing: 0.05em;
+}
+
+.dbg-fps-overlay__ft {
+  font-size: 9px;
+  color: #71717a;
+  margin-left: auto;
+}
+
+.dbg-fps-overlay__close {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #52525b;
+  font-size: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dbg-fps-overlay__close:active {
+  background: rgba(255, 71, 87, 0.2);
+  color: #ff4757;
+}
+
+.dbg-fps-overlay__graph {
+  height: 28px;
+  padding: 0 4px 4px;
+}
+
+.dbg-fps-overlay__graph canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 4px;
+}

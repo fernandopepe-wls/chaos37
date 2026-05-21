@@ -1,0 +1,76 @@
+# Capacitor template build pipeline (shared template).
+# Required GitLab CI/CD variables (Settings → CI/CD → Variables; masked + protected recommended):
+#   GITLAB_TOKEN — API token for git.topfreegames.com (pre_build metadata, pipeline vars, blocked-SDK check, retrigger).
+# Optional until you enable deploy/symbol jobs: FIREBASE_ANDROID_APP_ID, FIREBASE_IOS_APP_ID (Firebase console App ID).
+# iOS signing: vault secrets + APPLE_ACCOUNT; set APP_IDENTIFIER / APPLE_ACCOUNT to real values for provision profile cache keys.
+
+include:
+  - project: sre/gitlab-templates
+    file: gitlab-ci/game-build/pull-secrets.yml
+  - project: sre/gitlab-templates
+    file: gitlab-ci/game-build/fastlane.yml
+  - project: sre/gitlab-templates
+    file: gitlab-ci/game-build/build-capacitor-linux.yml
+
+variables:
+  GITLAB_TEMPLATES_REF: "master"
+  OTA_ENABLED: "true"
+  OTA_S3_BUCKET: "capacitor-games-ota"
+  OTA_S3_REGION: "us-east-1"
+  OTA_BASE_URL: "https://ota.games.wildlifestudios.com"
+
+stages:
+  - setup
+  - pre_build
+  - build
+  - post_build
+  - deploy
+  - publish
+
+# Hidden job: YAML anchor only. Does not add a top-level `variables:` (avoids merge/shadow with the included template).
+# Not run unless a job extends it.
+.default_vars:
+  variables: &default_vars
+    CAPACITOR_APP_ROOT: "."
+    CAPACITOR_PACKAGE_MANAGER: "npm"
+    CAPACITOR_WEB_BUILD_SCRIPT: "build"
+    CAPACITOR_WEB_DIST: "dist"
+    APP_IDENTIFIER: "com.hackathon37.group34.bunnychaos"
+    PACKAGE_NAME: "com.hackathon37.group34.bunnychaos"
+    TRACK_NAME: "internal --release_status draft"
+    APPLE_ACCOUNT: "Texas"
+    APP_NAME: "bunny-chaos-37"
+    FIREBASE_ANDROID_APP_ID: "1:297207498490:android:05c1abc9d81b199f9cab43"
+    FIREBASE_IOS_APP_ID: "1:297207498490:ios:5ee309d10b713d479cab43"
+    FIREBASE_DISTRIBUTION_PROJECT_ID: "bunny-chaos-37-3fef"
+    TRIGGER_FIREBASE_DISTRIBUTION: "false"
+    UPLOAD_SYMBOLS: "false"
+    TRIGGER_GOOGLEPLAY: "false"
+    TRIGGER_TESTFLIGHT: "false"
+    TRIGGER_ITC: "false"
+    LLM_LOG_ANALYZER_ENABLED: "false"
+    FIREBASE_DISTRIBUTION_INHOUSE_IPA: "false"
+    SKIP_INHOUSE_PROFILE_SYNC: "true"
+
+workflow:
+  name: $CI_COMMIT_TITLE
+  rules:
+    - if: '$CI_PIPELINE_SOURCE != "web" && $CI_PIPELINE_SOURCE != "schedule"'
+      variables:
+        <<: *default_vars
+        ENGINE: none
+    - if: $CI_ENVIRONMENT == "development"
+      variables:
+        <<: *default_vars
+        CAPACITOR_WEB_BUILD_SCRIPT: "build:dev"
+        RELEASE_NOTES: "Development - ${CI_COMMIT_REF_NAME}"
+    - if: $CI_ENVIRONMENT == "staging"
+      variables:
+        <<: *default_vars
+        CAPACITOR_WEB_BUILD_SCRIPT: "build:staging"
+        RELEASE_NOTES: "Staging - ${CI_COMMIT_REF_NAME}"
+    - if: $CI_ENVIRONMENT == "production"
+      variables:
+        <<: *default_vars
+        CAPACITOR_WEB_BUILD_SCRIPT: "build:production"
+        RELEASE_NOTES: "Production - ${CI_COMMIT_REF_NAME}"

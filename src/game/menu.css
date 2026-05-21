@@ -1,0 +1,268 @@
+/* ── Benchmark Menu ──────────────────────────────── */
+
+.bench-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 16px) calc(env(safe-area-inset-left) + 16px);
+  background: linear-gradient(160deg, #0a0a0f 0%, #1a1a2e 100%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bench-menu::before {
+  content: '';
+  flex: 1;
+}
+
+.bench-menu::after {
+  content: '';
+  flex: 1;
+}
+
+.bench-menu.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bench-menu__header {
+  text-align: center;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.bench-menu__close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #a1a1aa;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bench-menu__close:active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #e4e4e7;
+}
+
+.bench-menu__title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #e8e8f0;
+}
+
+.bench-menu__sub {
+  font-size: 0.75rem;
+  color: rgba(232, 232, 240, 0.4);
+  margin-top: 6px;
+}
+
+.bench-menu__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: min(360px, 100%);
+  justify-items: center;
+}
+
+.bench-menu__grid > .bench-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  max-width: calc(50% - 6px);
+}
+
+.bench-card {
+  position: relative;
+  padding: 16px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bench-card:active {
+  transform: scale(0.96);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bench-card__badge {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.bench-card__badge.badge-2d {
+  background: rgba(0, 212, 255, 0.12);
+  color: #00d4ff;
+}
+
+.bench-card__badge.badge-3d {
+  background: rgba(139, 92, 246, 0.12);
+  color: #8b5cf6;
+}
+
+.bench-card__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e8e8f0;
+  line-height: 1.2;
+}
+
+.bench-card__desc {
+  font-size: 0.65rem;
+  color: rgba(232, 232, 240, 0.4);
+  line-height: 1.4;
+}
+
+.bench-card__icon {
+  position: absolute;
+  bottom: -8px;
+  right: -4px;
+  font-size: 48px;
+  opacity: 0.04;
+  pointer-events: none;
+  line-height: 1;
+}
+
+/* ── In-Scene HUD ────────────────────────────────── */
+
+.bench-hud {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 10px);
+  left: calc(env(safe-area-inset-left) + 10px);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.bench-back {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(6, 6, 12, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #a1a1aa;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  transition: background 0.15s;
+  touch-action: manipulation;
+}
+
+.bench-back:active {
+  background: rgba(6, 6, 12, 0.9);
+  color: #e8e8f0;
+}
+
+.bench-back svg {
+  width: 16px;
+  height: 16px;
+}
+
+.bench-stats {
+  display: flex;
+  gap: 10px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(6, 6, 12, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 10px;
+  color: #a1a1aa;
+}
+
+.bench-stats__item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bench-stats__val {
+  color: #00d4ff;
+  font-weight: 700;
+}
+
+/* ── FPS Cap Selector ───────────────────────────── */
+
+.bench-fps-cap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 4px 3px 8px;
+  border-radius: 6px;
+  background: rgba(6, 6, 12, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: auto;
+}
+
+.bench-fps-label {
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #52525b;
+  margin-right: 2px;
+}
+
+.bench-fps-btn {
+  min-width: 28px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #71717a;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bench-fps-btn.active {
+  background: rgba(0, 212, 255, 0.15);
+  color: #00d4ff;
+}
+
+.bench-fps-btn:active {
+  transform: scale(0.92);
+}

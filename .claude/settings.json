@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__unity__read_console",
+      "mcp__UnityMCP__read_console",
+      "mcp__UnityMCP__get_test_job",
+      "Bash(dart analyze *)",
+      "Bash(flutter analyze *)"
+    ]
+  }
+}

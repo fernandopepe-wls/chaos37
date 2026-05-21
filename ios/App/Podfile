@@ -1,0 +1,53 @@
+require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
+
+source 'https://cdn.cocoapods.org/'
+source 'git@git.topfreegames.com:libs-frameworks/ios-podspecs.git'
+
+platform :ios, '14.0'
+use_frameworks!
+use_modular_headers!
+
+# workaround to avoid Xcode caching of Pods that requires
+# Product -> Clean Build Folder after new Cordova plugins installed
+# Requires CocoaPods 1.6 or newer
+install! 'cocoapods', :disable_input_output_paths => true
+
+def capacitor_pods
+  pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+  pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+  pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
+  pod 'CapacitorSplashScreen', :path => '../../node_modules/@capacitor/splash-screen'
+  pod 'CapacitorStatusBar', :path => '../../node_modules/@capacitor/status-bar'
+  pod 'CapgoCapacitorUpdater', :path => '../../node_modules/@capgo/capacitor-updater'
+  pod 'WildlifePlatformCapacitor', :path => '../../node_modules/@wildlife/platform-capacitor'
+end
+
+target 'App' do
+  capacitor_pods
+  # Add your Pods here
+end
+
+post_install do |installer|
+  assertDeploymentTarget(installer)
+
+  installer.pods_project.targets.each do |target|
+    # WildlifePlatform's .m files use `#import <WildlifePlatform-Swift.h>`,
+    # which doesn't resolve when the pod is built as a modular framework.
+    # Rewrite to the module-qualified form before the sources compile.
+    next unless target.name == 'WildlifePlatform'
+
+    target.build_configurations.each do |config|
+      config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+    end
+
+    phase = target.new_shell_script_build_phase('Fix Swift Header Imports')
+    phase.shell_script = <<-SCRIPT
+      find "${PODS_TARGET_SRCROOT}" -name "*.m" -type f -exec sed -i '' 's|#import <WildlifePlatform-Swift.h>|#import <WildlifePlatform/WildlifePlatform-Swift.h>|g' {} \\;
+      find "${PODS_TARGET_SRCROOT}" -name "*.mm" -type f -exec sed -i '' 's|#import <WildlifePlatform-Swift.h>|#import <WildlifePlatform/WildlifePlatform-Swift.h>|g' {} \\;
+      mkdir -p "$(dirname ${DERIVED_FILE_DIR}/WildlifePlatform-Swift-Imports.txt)"
+      echo "Script ran at $(date)" > "${DERIVED_FILE_DIR}/WildlifePlatform-Swift-Imports.txt"
+    SCRIPT
+    phase.output_paths = ['$(DERIVED_FILE_DIR)/WildlifePlatform-Swift-Imports.txt']
+    target.build_phases.unshift(target.build_phases.pop)
+  end
+end
