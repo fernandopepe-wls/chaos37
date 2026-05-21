@@ -6235,7 +6235,7 @@ function drawArenaHUD(){
   // Dest insets ~6% (≈26px num card de 360w) mantêm o canto pequeno e
   // proporcional, igual à referência — sem virar gigante na cápsula.
   const cardCornerSrc = 320;
-  const cardCornerDst = Math.round(Math.min(bottomCapW, bottomCapH) * 0.07);
+  const cardCornerDst = Math.round(Math.min(bottomCapW, bottomCapH) * 0.13);
   if(!draw9Slice(UI_PANEL_CARD, bottomCapX, bottomCapY, bottomCapW, bottomCapH,
        { left:cardCornerSrc, right:cardCornerSrc, top:cardCornerSrc, bottom:cardCornerSrc },
        { left:cardCornerDst, right:cardCornerDst, top:cardCornerDst, bottom:cardCornerDst })){
