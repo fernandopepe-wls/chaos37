@@ -902,7 +902,10 @@
     color:#fff7e0;
     border:0;
     text-shadow:0 1px 0 rgba(0,0,0,0.35);
-    filter:drop-shadow(0 2px 0 rgba(0,0,0,0.18));
+    /* boost de saturação + brilho no estado idle pra não parecer "apagado"
+       comparado ao .active (que tem saturate(1.2)). AUTO agora sempre abre
+       o popup, então não há mais estado "disabled". */
+    filter:saturate(1.15) brightness(1.05) drop-shadow(0 2px 0 rgba(0,0,0,0.18));
   }
   #arenaForgeAutoBtn.active{
     filter:hue-rotate(80deg) saturate(1.2) drop-shadow(0 2px 0 rgba(0,0,0,0.18));
@@ -910,14 +913,6 @@
     text-shadow:0 1px 0 rgba(255,255,255,0.35);
   }
   #arenaForgeAutoBtn:active{transform:translateY(1px);}
-  /* AUTO bloqueado até atingir o forge level mínimo (AUTO_UNLOCK_LEVEL).
-     `disabled` é setado por JS quando arena.forgeLevel < AUTO_UNLOCK_LEVEL. */
-  #arenaForgeAutoBtn[disabled]{
-    opacity:0.4;
-    cursor:not-allowed;
-    filter:grayscale(0.6);
-    pointer-events:none;
-  }
 
   /* === AUTO-FORGE POPUP === */
   #autoForgeLayer{align-items:center;justify-content:center;}
@@ -948,25 +943,58 @@
     text-transform:uppercase;
     margin:8px 0 4px 4px;
   }
-  .auto-forge-picker-row{
+  /* === V2 dropdowns expandable === */
+  .dd-trigger{
     display:flex;align-items:center;gap:6px;
     border:1.5px solid #3a2a18;border-radius:8px;
-    padding:4px;margin:0 0 10px;
-    background:rgba(255,247,224,0.5);
+    padding:8px 10px;margin:0 0 6px;cursor:pointer;
+    background:rgba(255,247,224,0.65);
     box-shadow:0 1px 0 rgba(255,255,255,0.6) inset, 0 2px 0 rgba(0,0,0,0.18);
+    user-select:none;
   }
-  .auto-forge-picker-row .picker-btn{
-    background:#3a8ad6;color:#fff;
-    border:1.5px solid #1a4e8c;border-radius:6px;
-    font-weight:bold;font-size:14px;line-height:1;
-    padding:4px 12px;cursor:pointer;
-    box-shadow:0 2px 0 #1a4e8c, 0 1px 0 rgba(255,255,255,0.3) inset;
+  .dd-trigger:active{transform:translateY(1px);box-shadow:0 1px 0 rgba(0,0,0,0.18);}
+  .dd-trigger.open{
+    background:rgba(255,247,224,0.85);
+    border-color:#b45a14;
   }
-  .auto-forge-picker-row .picker-btn:active{transform:translateY(1px);box-shadow:0 1px 0 #1a4e8c;}
-  .auto-forge-picker-row .picker-val{
-    flex:1;text-align:center;
-    font-weight:bold;color:#3a2a18;font-size:13px;
-    text-shadow:0 1px 0 rgba(255,255,255,0.5);
+  .dd-trigger-val{flex:1;font-weight:bold;color:#3a2a18;font-size:13px;text-shadow:0 1px 0 rgba(255,255,255,0.5);}
+  .dd-arrow{color:#8a7558;font-weight:bold;font-size:12px;margin-left:4px;}
+  .dd-list{
+    display:none;
+    border:1.5px solid rgba(58,42,24,0.35);border-radius:8px;
+    background:rgba(58,42,24,0.06);
+    padding:3px;margin:-2px 0 10px;
+    max-height:180px;overflow-y:auto;
+    flex-direction:column;gap:2px;
+  }
+  .dd-list.show{display:flex;}
+  .dd-option{
+    display:flex;align-items:center;gap:6px;
+    padding:6px 8px;
+    border:1.5px solid #3a2a18;border-radius:6px;
+    background:#fff9e8;
+    font-size:12px;color:#3a2a18;font-weight:bold;
+    cursor:pointer;
+    transition:background .08s;
+  }
+  .dd-option:hover{background:#fffce8;}
+  .dd-option.active{
+    background:linear-gradient(180deg,#aff067 0%,#7fc950 100%);
+    border-color:#3a8a20;color:#1a4d10;
+  }
+  .dd-option.locked{
+    background:rgba(58,42,24,0.10);
+    opacity:0.55;cursor:not-allowed;
+    color:#8a7558;
+  }
+  .dd-option .dd-label{flex:1;display:flex;align-items:center;gap:5px;}
+  .dd-option .dd-sub{opacity:0.65;font-size:11px;font-weight:normal;}
+  .dd-option .dd-lock{font-size:11px;color:#a04020;font-weight:bold;}
+  .dd-option .dd-check{font-size:14px;color:#1a4d10;font-weight:bold;margin-left:4px;}
+  .dd-dot{
+    display:inline-block;width:10px;height:10px;border-radius:50%;
+    border:1.5px solid #3a2a18;
+    box-shadow:0 1px 0 rgba(255,255,255,0.4) inset;
   }
   .auto-tier-list{
     display:flex;flex-direction:column;gap:3px;
@@ -3440,7 +3468,12 @@ const arena = {
   pendingForgeItem: null,
   forgeLevel: 1,
   autoForge: false,
-  autoForgeRarityMin: null,  // null = smart default; >=0 = threshold manual (era idx)
+  // === Auto-forge V2 settings ===
+  // null = smart/auto. Caso contrário, valores manuais setados pelo popup.
+  autoForgeRarityMin: null,   // (compat V1) — substituído por autoForgeKeepMin
+  autoForgeKeepMin: null,     // era idx mínima pra tentar equipar (>= equipa, < cai pro sell-check)
+  autoForgeSellMax: null,     // era idx máxima pra venda automática (<= vende direto)
+  autoForgeBatchOverride: null, // null = max do level; senão batch fixo escolhido
   carrots: 0, // moeda da forja (cenouras)
   power: 0,
   powerDelta: 0,
@@ -3564,6 +3597,9 @@ function initArena(){
   arena.forgeInterval = 900;
   arena.autoForge = false;
   arena.autoForgeRarityMin = null;
+  arena.autoForgeKeepMin = null;
+  arena.autoForgeSellMax = null;
+  arena.autoForgeBatchOverride = null;
   arena.forgeCooldown = forgeIntervalAtLevel(arena.forgeLevel);
   // Forge upgrade timer em andamento (se houver)
   arena.forgeUpgradeStartedAt = null;
@@ -7520,75 +7556,179 @@ function upgradeForgeLevel(){
   refreshForgeLevelPopup();
 }
 
-// ============== AUTO-FORGE POPUP ==============
-// Renderiza o conteúdo dinâmico do popup: stats atuais, picker de raridade
-// mínima, e a ladder de progressão (mesmo estilo do Magic Lamp do LoM).
+// ============== AUTO-FORGE POPUP V2 ==============
+// Três dropdowns expandable inline: Quantidade / Manter ≥ / Vender ≤
+// Cada um mostra todas as opções (válidas + travadas com nível de unlock).
+let _autoForgeOpenDropdown = null;  // 'batch' | 'keep' | 'sell' | null
+
+function _ddOptionRow(opts){
+  // opts: { label, locked, lockReason, active, value, kind }
+  const cls = ['dd-option'];
+  if(opts.active) cls.push('active');
+  if(opts.locked) cls.push('locked');
+  const lock = opts.locked ? `<span class="dd-lock">🔒 ${opts.lockReason}</span>` : '';
+  const check = opts.active ? '<span class="dd-check">✓</span>' : '';
+  return `<div class="${cls.join(' ')}" data-dd-kind="${opts.kind}" data-dd-value="${opts.value}">
+    <span class="dd-label">${opts.label}</span>
+    ${lock}${check}
+  </div>`;
+}
+
 function buildAutoForgeContent(){
   const lvl = arena.forgeLevel;
   const unlocked = lvl >= AUTO_UNLOCK_LEVEL;
-  const batchNow = autoForgeBatchSize(lvl);
-  const cycleFrames = forgeIntervalAtLevel(lvl);
-  const cycleSec = (cycleFrames / 60);
-  const itemsPerMin = batchNow > 0 ? Math.round(batchNow * 60 / cycleSec) : 0;
 
-  // Stats / locked state
+  // Header — locked banner ou stats compactas
   let head = '';
-  if(unlocked){
-    head = `
-      <div class="auto-forge-stats">
-        <div class="stat-block"><div class="lbl">Batch</div><div class="val">${batchNow}×</div></div>
-        <div class="stat-block"><div class="lbl">Ciclo</div><div class="val">${cycleSec.toFixed(1)}s</div></div>
-        <div class="stat-block"><div class="lbl">Vazão</div><div class="val">~${itemsPerMin}/min</div></div>
-      </div>`;
-  } else {
+  if(!unlocked){
     head = `
       <div class="auto-forge-locked-msg">
         🔒 Desbloqueia no <b>Forge Lv ${AUTO_UNLOCK_LEVEL}</b>
         <span class="small">Você está no Lv ${lvl}</span>
       </div>`;
-  }
-
-  // Rarity picker (smart default + cycle entre eras válidas)
-  let picker = '';
-  if(unlocked){
-    const smartIdx = autoForgeSmartThreshold();
-    const cur = arena.autoForgeRarityMin;  // null = smart
-    let label;
-    if(cur == null || cur < 0){
-      label = `🪄 Smart  <span style="opacity:0.65;font-size:11px">(≥ ${ERAS[smartIdx].name.replace(/^The /,'')})</span>`;
-    } else {
-      label = `≥ ${ERAS[Math.min(cur, ERAS.length-1)].name.replace(/^The /,'')}`;
-    }
-    picker = `
-      <div class="auto-forge-section-title">Manter raridade mínima</div>
-      <div class="auto-forge-picker-row">
-        <button class="picker-btn" id="autoForgeRarityPrev">◀</button>
-        <div class="picker-val">${label}</div>
-        <button class="picker-btn" id="autoForgeRarityNext">▶</button>
+  } else {
+    const batch = getAutoForgeEffectiveBatch();
+    const cycleSec = (forgeIntervalAtLevel(lvl) / 60);
+    const ipm = batch > 0 ? Math.round(batch * 60 / cycleSec) : 0;
+    head = `
+      <div class="auto-forge-stats">
+        <div class="stat-block"><div class="lbl">Batch</div><div class="val">${batch}×</div></div>
+        <div class="stat-block"><div class="lbl">Ciclo</div><div class="val">${cycleSec.toFixed(1)}s</div></div>
+        <div class="stat-block"><div class="lbl">Vazão</div><div class="val">~${ipm}/min</div></div>
       </div>`;
   }
+  if(!unlocked) return head + _buildBatchLadderReadOnly();
 
-  // Tier ladder (acquired / current / locked)
+  // === Dropdown 1: Quantidade por ciclo ===
+  const maxBatch = autoForgeBatchSize(lvl);
+  const effBatch = getAutoForgeEffectiveBatch();
+  let batchOpts = '';
+  // Sempre "Auto (max)" como primeira opção
+  const isAuto = arena.autoForgeBatchOverride == null;
+  batchOpts += _ddOptionRow({
+    kind:'batch', value:'auto',
+    label:`🪄 Automático <span class="dd-sub">(${maxBatch}× por ciclo)</span>`,
+    locked:false, active:isAuto,
+  });
+  // Lista todos os tiers
+  for(const tier of AUTO_FORGE_TIERS){
+    const locked = lvl < tier.fromLv;
+    const plural = tier.batch > 1 ? 'itens' : 'item';
+    batchOpts += _ddOptionRow({
+      kind:'batch', value:String(tier.batch),
+      label:`${tier.batch} ${plural}`,
+      locked, lockReason:locked ? `Lv ${tier.fromLv}` : '',
+      active: !isAuto && effBatch === tier.batch,
+    });
+  }
+  const batchOpen = _autoForgeOpenDropdown === 'batch';
+  const batchTriggerLabel = isAuto
+    ? `🪄 Auto (${maxBatch}× /ciclo)`
+    : `${effBatch} ${effBatch > 1 ? 'itens' : 'item'} /ciclo`;
+  const batchDD = `
+    <div class="auto-forge-section-title">Quantidade por ciclo</div>
+    <div class="dd-trigger ${batchOpen?'open':''}" data-dd-toggle="batch">
+      <span class="dd-trigger-val">${batchTriggerLabel}</span>
+      <span class="dd-arrow">${batchOpen?'▴':'▾'}</span>
+    </div>
+    <div class="dd-list ${batchOpen?'show':''}">${batchOpts}</div>`;
+
+  // === Dropdowns 2 & 3: Manter ≥ / Vender ≤ (eras) ===
+  const keepMin = getAutoForgeKeepMin();
+  const sellMax = getAutoForgeSellMax();
+  // helpers de label
+  const eraShort = (idx) => ERAS[idx] ? ERAS[idx].name.replace(/^The /,'') : '—';
+  const eraDot = (idx) => ERAS[idx] ? `<span class="dd-dot" style="background:${ERAS[idx].color}"></span>` : '';
+  const eraUnlockLvl = (idx) => (ERAS[idx] && ERAS[idx].unlock) ? ERAS[idx].unlock : 1;
+
+  let keepOpts = '';
+  // Smart default
+  const isKeepAuto = arena.autoForgeKeepMin == null && arena.autoForgeRarityMin == null;
+  keepOpts += _ddOptionRow({
+    kind:'keep', value:'auto',
+    label:`🪄 Automático <span class="dd-sub">(≥ ${eraShort(autoForgeSmartThreshold())})</span>`,
+    locked:false, active:isKeepAuto,
+  });
+  for(let i=0;i<ERAS.length;i++){
+    const ulvl = eraUnlockLvl(i);
+    const locked = lvl < ulvl;
+    keepOpts += _ddOptionRow({
+      kind:'keep', value:String(i),
+      label:`${eraDot(i)} ≥ ${eraShort(i)}`,
+      locked, lockReason: locked ? `Lv ${ulvl}` : '',
+      active: !isKeepAuto && keepMin === i,
+    });
+  }
+  const keepOpen = _autoForgeOpenDropdown === 'keep';
+  const keepTriggerLabel = isKeepAuto
+    ? `🪄 Auto (≥ ${eraShort(autoForgeSmartThreshold())})`
+    : `${eraDot(keepMin)} ≥ ${eraShort(keepMin)}`;
+  const keepDD = `
+    <div class="auto-forge-section-title">Manter (≥ tenta equipar)</div>
+    <div class="dd-trigger ${keepOpen?'open':''}" data-dd-toggle="keep">
+      <span class="dd-trigger-val">${keepTriggerLabel}</span>
+      <span class="dd-arrow">${keepOpen?'▴':'▾'}</span>
+    </div>
+    <div class="dd-list ${keepOpen?'show':''}">${keepOpts}</div>`;
+
+  let sellOpts = '';
+  // "Desligado" = não vende nada baseado nesse threshold
+  const isSellAuto = arena.autoForgeSellMax == null;
+  const smartSell = Math.max(-1, autoForgeSmartThreshold() - 2);
+  sellOpts += _ddOptionRow({
+    kind:'sell', value:'auto',
+    label:`🪄 Automático <span class="dd-sub">(${smartSell < 0 ? 'desligado' : '≤ ' + eraShort(smartSell)})</span>`,
+    locked:false, active:isSellAuto,
+  });
+  sellOpts += _ddOptionRow({
+    kind:'sell', value:'-1',
+    label:`🚫 Não vender por raridade`,
+    locked:false, active: !isSellAuto && (sellMax < 0),
+  });
+  for(let i=0;i<ERAS.length-1;i++){  // não inclui última era (não faz sentido vender tudo)
+    // sellMax precisa ser < keepMin pra fazer sentido
+    const conflict = i >= keepMin;
+    sellOpts += _ddOptionRow({
+      kind:'sell', value:String(i),
+      label:`${eraDot(i)} ≤ ${eraShort(i)}`,
+      locked:conflict, lockReason: conflict ? `Define Manter > ${eraShort(i)}` : '',
+      active: !isSellAuto && sellMax === i,
+    });
+  }
+  const sellOpen = _autoForgeOpenDropdown === 'sell';
+  const sellLabel = sellMax < 0 ? '🚫 Não vender por raridade' : `${eraDot(sellMax)} ≤ ${eraShort(sellMax)}`;
+  const sellTriggerLabel = isSellAuto
+    ? (smartSell < 0 ? `🪄 Auto (desligado)` : `🪄 Auto (≤ ${eraShort(smartSell)})`)
+    : sellLabel;
+  const sellDD = `
+    <div class="auto-forge-section-title">Vender (≤ instant sell)</div>
+    <div class="dd-trigger ${sellOpen?'open':''}" data-dd-toggle="sell">
+      <span class="dd-trigger-val">${sellTriggerLabel}</span>
+      <span class="dd-arrow">${sellOpen?'▴':'▾'}</span>
+    </div>
+    <div class="dd-list ${sellOpen?'show':''}">${sellOpts}</div>`;
+
+  return head + batchDD + keepDD + sellDD;
+}
+
+// Ladder read-only (mostrada quando o auto ainda não desbloqueou)
+function _buildBatchLadderReadOnly(){
+  const lvl = arena.forgeLevel;
   let rows = '';
   for(let i=0;i<AUTO_FORGE_TIERS.length;i++){
     const tier = AUTO_FORGE_TIERS[i];
     const acquired = lvl >= tier.fromLv;
-    const isCurrent = acquired && (i === AUTO_FORGE_TIERS.length-1 || lvl < AUTO_FORGE_TIERS[i+1].fromLv);
-    const cls = isCurrent ? 'current' : (acquired ? 'done' : 'locked');
-    const ico = isCurrent ? '▸' : (acquired ? '✓' : '·');
+    const cls = acquired ? 'done' : 'locked';
+    const ico = acquired ? '✓' : '·';
     const plural = tier.batch > 1 ? 'itens' : 'item';
-    rows += `
-      <div class="auto-tier-row ${cls}">
-        <span class="ico">${ico}</span>
-        <span class="lv">Lv ${tier.fromLv}</span>
-        <span class="batch">${tier.batch} ${plural} por ciclo</span>
-      </div>`;
+    rows += `<div class="auto-tier-row ${cls}">
+      <span class="ico">${ico}</span>
+      <span class="lv">Lv ${tier.fromLv}</span>
+      <span class="batch">${tier.batch} ${plural} por ciclo</span>
+    </div>`;
   }
-
-  return head + picker + `
-    <div class="auto-forge-section-title">Progressão da forja</div>
-    <div class="auto-tier-list">${rows}</div>
-  `;
+  return `<div class="auto-forge-section-title">Progressão da forja</div>
+    <div class="auto-tier-list">${rows}</div>`;
 }
 
 let _autoForgeRefreshInterval = null;
@@ -7603,62 +7743,114 @@ function refreshAutoForgePopup(){
     tgBtn.classList.toggle('red', arena.autoForge);
     tgBtn.classList.toggle('green', !arena.autoForge);
   }
-  // (re)wire picker buttons (innerHTML recria os nodes)
-  const prev = document.getElementById('autoForgeRarityPrev');
-  const next = document.getElementById('autoForgeRarityNext');
-  if(prev) prev.onclick = () => cycleAutoForgeRarity(-1);
-  if(next) next.onclick = () => cycleAutoForgeRarity(+1);
+  // (re)wire dropdowns — usa delegação no container pra sobreviver ao innerHTML
+  if(c){
+    c.onclick = (e) => {
+      const trig = e.target.closest('[data-dd-toggle]');
+      if(trig){
+        const kind = trig.getAttribute('data-dd-toggle');
+        _autoForgeOpenDropdown = (_autoForgeOpenDropdown === kind) ? null : kind;
+        refreshAutoForgePopup();
+        return;
+      }
+      const opt = e.target.closest('.dd-option');
+      if(opt && !opt.classList.contains('locked')){
+        const kind = opt.getAttribute('data-dd-kind');
+        const value = opt.getAttribute('data-dd-value');
+        _applyAutoForgeDropdownChoice(kind, value);
+        _autoForgeOpenDropdown = null;
+        refreshAutoForgePopup();
+      }
+    };
+  }
 }
 
-// Cicla o threshold de raridade. Sequência: smart → era 0 → era 1 → ... → era 9 → smart
-function cycleAutoForgeRarity(dir){
-  const cur = arena.autoForgeRarityMin;  // null = smart
-  let next;
-  if(cur == null || cur < 0){
-    next = dir > 0 ? 0 : ERAS.length - 1;
-  } else {
-    next = cur + dir;
-    if(next < 0 || next >= ERAS.length){
-      next = null;  // volta pro smart
+function _applyAutoForgeDropdownChoice(kind, value){
+  if(kind === 'batch'){
+    if(value === 'auto') arena.autoForgeBatchOverride = null;
+    else arena.autoForgeBatchOverride = parseInt(value, 10) || null;
+  } else if(kind === 'keep'){
+    if(value === 'auto'){ arena.autoForgeKeepMin = null; arena.autoForgeRarityMin = null; }
+    else {
+      const v = parseInt(value, 10);
+      arena.autoForgeKeepMin = isFinite(v) ? v : null;
+      arena.autoForgeRarityMin = null; // limpa o legado V1
+      // garante consistência: sellMax precisa ser < keepMin
+      if(arena.autoForgeSellMax != null && arena.autoForgeSellMax >= v){
+        arena.autoForgeSellMax = v - 1;
+        if(arena.autoForgeSellMax < 0) arena.autoForgeSellMax = -1;
+      }
     }
+  } else if(kind === 'sell'){
+    if(value === 'auto') arena.autoForgeSellMax = null;
+    else arena.autoForgeSellMax = parseInt(value, 10);
   }
-  arena.autoForgeRarityMin = next;
-  refreshAutoForgePopup();
 }
 
 function openAutoForgePopup(){
+  _autoForgeOpenDropdown = null;
   refreshAutoForgePopup();
   state = STATE.ARENA_TAB;
   showLayer('autoForgeLayer');
   if(_autoForgeRefreshInterval) clearInterval(_autoForgeRefreshInterval);
-  // re-render leve a cada 500ms — pega level-up enquanto popup tá aberto
-  _autoForgeRefreshInterval = setInterval(refreshAutoForgePopup, 500);
+  // re-render leve a cada 500ms — pega level-up enquanto popup tá aberto.
+  // Skippa quando dropdown tá aberto pra não fechar visual em cima do click.
+  _autoForgeRefreshInterval = setInterval(()=>{
+    if(_autoForgeOpenDropdown == null) refreshAutoForgePopup();
+  }, 500);
 }
 function closeAutoForgePopup(){
   if(_autoForgeRefreshInterval){
     clearInterval(_autoForgeRefreshInterval);
     _autoForgeRefreshInterval = null;
   }
+  _autoForgeOpenDropdown = null;
   hideAllLayers();
   state = STATE.ARENA_PLAY;
 }
 
-// Auto-forge MVP: roda N items por ciclo (batch escala com forge level),
-// auto-equipa upgrades, vende o resto pra carrots.
+// === Auto-forge V2 thresholds ===
+// Resolve os thresholds efetivos com fallback pro smart default.
+// keepMin: era idx mínima pra tentar equipar (>= keepMin → considera equip)
+// sellMax: era idx máxima pra venda direta (<= sellMax → instant sell, sem equip-check)
+// Garantia: sellMax < keepMin sempre (UI também impede). Items na faixa
+// intermediária (sellMax < idx < keepMin) também tentam equipar.
+function getAutoForgeKeepMin(){
+  const v = arena.autoForgeKeepMin;
+  if(v != null && v >= 0) return v;
+  // compat com V1: respeita autoForgeRarityMin se estava setado
+  const legacy = arena.autoForgeRarityMin;
+  if(legacy != null && legacy >= 0) return legacy;
+  return autoForgeSmartThreshold();
+}
+function getAutoForgeSellMax(){
+  const v = arena.autoForgeSellMax;
+  if(v != null && v >= 0) return v;
+  // smart default: vende uma era abaixo do keep (cria buffer band)
+  const km = getAutoForgeKeepMin();
+  return Math.max(-1, km - 2);
+}
+// Batch efetivo: respeita override (se válido), senão usa max do level.
+function getAutoForgeEffectiveBatch(){
+  const maxAvail = autoForgeBatchSize(arena.forgeLevel);
+  const ov = arena.autoForgeBatchOverride;
+  if(ov != null && ov > 0 && ov <= maxAvail) return ov;
+  return maxAvail;
+}
+
+// Auto-forge V2: roda batch (escolhido pelo player ou max do level), aplica
+// dois thresholds (keep + sell separados), auto-equipa upgrades, vende o resto.
 function autoForgeStep(){
   if(!arena.autoForge) return;
   if(arena.forgeLevel < AUTO_UNLOCK_LEVEL) return;
-  const batch = autoForgeBatchSize(arena.forgeLevel);
+  const batch = getAutoForgeEffectiveBatch();
   if(batch <= 0) return;
-  // não dispara se não tem alface pra ao menos 1 roll
   if(arena.lettuce < FORGE_BASE_COST) return;
-  // só usa o que tem disponível (cap pelo lettuce)
   const rolls = Math.min(batch, arena.lettuce);
   arena.lettuce -= rolls * FORGE_BASE_COST;
 
-  const rarityMin = (arena.autoForgeRarityMin != null && arena.autoForgeRarityMin >= 0)
-    ? arena.autoForgeRarityMin
-    : autoForgeSmartThreshold();
+  const keepMin = getAutoForgeKeepMin();
+  const sellMax = getAutoForgeSellMax();
 
   let equippedCount = 0;
   let soldCount = 0;
@@ -7667,18 +7859,20 @@ function autoForgeStep(){
   for(let i=0;i<rolls;i++){
     const item = rollItem();
     const itemEraIdx = (item && item.eraIdx) ? item.eraIdx : 0;
-    if(itemEraIdx < rarityMin){
+    if(itemEraIdx <= sellMax){
+      // banda "trash" — instant sell, sem tentar equipar
       carrotsGained += autoForgeSellValue(item);
       soldCount++;
-    } else {
+    } else if(itemEraIdx < keepMin){
+      // banda intermediária (entre sellMax e keepMin) — tenta equipar; sell se não for upgrade
       const equipped = arenaEquipItem(item);
-      if(equipped){
-        equippedCount++;
-        if(itemEraIdx > bestEquippedEra) bestEquippedEra = itemEraIdx;
-      } else {
-        carrotsGained += autoForgeSellValue(item);
-        soldCount++;
-      }
+      if(equipped){ equippedCount++; if(itemEraIdx > bestEquippedEra) bestEquippedEra = itemEraIdx; }
+      else { carrotsGained += autoForgeSellValue(item); soldCount++; }
+    } else {
+      // banda "keep" — tenta equipar; sell se não for upgrade
+      const equipped = arenaEquipItem(item);
+      if(equipped){ equippedCount++; if(itemEraIdx > bestEquippedEra) bestEquippedEra = itemEraIdx; }
+      else { carrotsGained += autoForgeSellValue(item); soldCount++; }
     }
   }
   if(carrotsGained > 0) arena.carrots += carrotsGained;
