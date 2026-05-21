@@ -3559,7 +3559,7 @@ function initArena(){
   arena.hp = 100; arena.maxHp = 100;
   arena.hurtTimer = 0; arena.shootTimer = 0;
   arena.enemies = []; arena.swings = []; arena.effects = [];
-  arena.gems = []; arena.particles = [];
+  arena.gems = []; arena.particles = []; arena.dmgNumbers = [];
   arena.autoMove = true; // começa com AUTO ligado por padrão
   arena._aiFrame = 0;
   arena._aiLastX = arena.bx; arena._aiLastY = arena.by;
@@ -5083,6 +5083,22 @@ function spawnArenaParticle(x,y,color,count){
   }
 }
 
+// Floating damage number — sobe do inimigo e some.
+// Spread horizontal pequeno pra evitar empilhar quando dois hits caem no mesmo frame.
+// Crit fica maior + cor rosa; normal cor laranja claro.
+function spawnArenaDamage(x, y, value, isCrit){
+  if(!arena.dmgNumbers) arena.dmgNumbers = [];
+  arena.dmgNumbers.push({
+    x: x + (Math.random()-0.5) * 6,
+    y: y - 8,
+    vy: -1.2,
+    life: 42, // ~0.7s @ 60fps
+    maxLife: 42,
+    value: Math.max(1, Math.round(value)),
+    isCrit: !!isCrit,
+  });
+}
+
 function arenaEquipItem(item){
   const cur = arena.items[item.slot];
   // se não tem item OU o novo é melhor (raridade > ou valor da mesma stat >)
@@ -5154,6 +5170,7 @@ function updateArenaEffects(){
           e.x += Math.cos(ang)*8;
           e.y += Math.sin(ang)*8;
           spawnArenaParticle(e.x, e.y, '#5fb0d8', 6);
+          spawnArenaDamage(e.x, e.y, ef.dmg, false);
           if(e.hp <= 0) killArenaEnemy(j, e);
         }
       }
@@ -5170,6 +5187,7 @@ function updateArenaEffects(){
           e.hurtTimer = 6;
           ef.hit.add(e);
           spawnArenaParticle(e.x, e.y, '#a86bff', 6);
+          spawnArenaDamage(e.x, e.y, ef.dmg, false);
           if(e.hp <= 0) killArenaEnemy(j, e);
         }
       }
@@ -5189,6 +5207,7 @@ function updateArenaEffects(){
           e.hurtTimer = 6;
           ef.hit.add(e);
           spawnArenaParticle(e.x, e.y, isCrit ? '#ff5fa2' : '#ff7a1a', 6);
+          spawnArenaDamage(e.x, e.y, dmg, isCrit);
           ef.frame = ef.lifeFrames; // marca pra remover
           if(e.hp <= 0) killArenaEnemy(j, e);
           break;
@@ -5215,6 +5234,7 @@ function updateArenaEffects(){
             e.hurtTimer = 6;
             ef.lastHit.set(e, ef.frame);
             spawnArenaParticle(e.x, e.y, '#5fb0d8', 4);
+            spawnArenaDamage(e.x, e.y, ef.dmg, false);
             if(e.hp <= 0) killArenaEnemy(j, e);
           }
         }
@@ -5237,6 +5257,7 @@ function updateArenaEffects(){
           if(d < ef.radius){
             e.hp -= ef.dmg;
             e.hurtTimer = 6;
+            spawnArenaDamage(e.x, e.y, ef.dmg, false);
             if(e.hp <= 0) killArenaEnemy(j, e);
           }
         }
@@ -5251,6 +5272,7 @@ function updateArenaEffects(){
           e.hp -= ef.dmg;
           e.hurtTimer = 6;
           spawnArenaParticle(e.x, e.y, '#fff7e0', 12);
+          spawnArenaDamage(e.x, e.y, ef.dmg, false);
           if(e.hp <= 0) killArenaEnemy(j, e);
         }
       }
@@ -5691,6 +5713,7 @@ function updateArena(){
       e.hp -= dmg;
       e.hurtTimer = 6;
       spawnArenaParticle(e.x, e.y, isCrit ? '#ff5fa2' : '#ff7a1a', isCrit ? 8 : 5);
+      spawnArenaDamage(e.x, e.y, dmg, isCrit);
       sw.hit.add(e);
       // knockback radial leve
       if(dist > 0.1){
@@ -5758,6 +5781,17 @@ function updateArena(){
     const pt = arena.particles[i];
     pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.1; pt.life--;
     if(pt.life<=0) arena.particles.splice(i,1);
+  }
+
+  // floating damage numbers — sobem em arco e somem
+  if(arena.dmgNumbers){
+    for(let i=arena.dmgNumbers.length-1;i>=0;i--){
+      const dn = arena.dmgNumbers[i];
+      dn.y += dn.vy;
+      dn.vy *= 0.94; // desacelera (efeito de arco no topo)
+      dn.life--;
+      if(dn.life<=0) arena.dmgNumbers.splice(i,1);
+    }
   }
 
   // morte → sem game over, respawn no stage atual com HP cheio
@@ -7006,6 +7040,29 @@ function renderArena(){
     ctx.fillRect(pt.x, pt.y, 2, 2);
   }
   ctx.globalAlpha = 1;
+
+  // floating damage numbers — crit maior + rosa, normal laranja, branco stroke pra leitura
+  if(arena.dmgNumbers){
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    for(const dn of arena.dmgNumbers){
+      const t = dn.life / dn.maxLife;
+      // fade-out: nos últimos 30% da vida, alpha desce de 1 → 0
+      ctx.globalAlpha = t < 0.3 ? (t / 0.3) : 1;
+      const size = dn.isCrit ? 14 : 10;
+      ctx.font = '800 ' + size + 'px Fredoka, Trebuchet MS, system-ui, sans-serif';
+      ctx.lineWidth = dn.isCrit ? 3.5 : 2.5;
+      ctx.strokeStyle = '#3a1d00';
+      ctx.fillStyle = dn.isCrit ? '#ff5fa2' : '#ffcc3d';
+      const txt = dn.isCrit ? (dn.value + '!') : String(dn.value);
+      ctx.strokeText(txt, dn.x, dn.y);
+      ctx.fillText(txt, dn.x, dn.y);
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
 
   drawArenaHUD();
 
