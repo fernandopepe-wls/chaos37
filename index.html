@@ -3348,6 +3348,7 @@ const arena = {
   powerDeltaTimer: 0,
   powerPulseTimer: 0,
   particles:[],
+  slashVFXs:[],
   items:{ weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null },
   // base stats (modificados por items + upgrades)
   baseDmg:5, baseAtkSpeed:1.0, baseMoveSpeed:0.616, baseMaxHp:100,
@@ -3450,7 +3451,7 @@ function initArena(){
   arena.hp = 100; arena.maxHp = 100;
   arena.hurtTimer = 0; arena.shootTimer = 0;
   arena.enemies = []; arena.swings = []; arena.effects = [];
-  arena.gems = []; arena.particles = []; arena.dmgNumbers = [];
+  arena.gems = []; arena.particles = []; arena.dmgNumbers = []; arena.slashVFXs = [];
   arena.autoMove = true; // começa com AUTO ligado por padrão
   arena._aiFrame = 0;
   arena._aiLastX = arena.bx; arena._aiLastY = arena.by;
@@ -4990,6 +4991,31 @@ function spawnArenaDamage(x, y, value, isCrit){
   });
 }
 
+function spawnSlashVFX(centerAngle, arc, range, isCrit){
+  if(!arena.slashVFXs) arena.slashVFXs = [];
+  const lifeFrames = 30;
+  const moteCount = isCrit ? 11 : 7;
+  const motes = [];
+  for(let i=0;i<moteCount;i++){
+    const a = centerAngle + (Math.random()-0.5)*arc*0.75;
+    const r = range*(0.45+Math.random()*0.55);
+    motes.push({
+      x: arena.bx+Math.cos(a)*r,
+      y: arena.by+Math.sin(a)*r,
+      vx: Math.cos(a)*(0.7+Math.random()*1.2),
+      vy: Math.sin(a)*(0.7+Math.random()*1.2)-Math.random()*0.8,
+      size: isCrit ? 2.5+Math.random()*1.5 : 1.5+Math.random()*1.5,
+      life: lifeFrames,
+    });
+  }
+  arena.slashVFXs.push({
+    cx:arena.bx, cy:arena.by,
+    centerAngle, arc, range, isCrit,
+    frame:0, lifeFrames,
+    motes,
+  });
+}
+
 function arenaEquipItem(item){
   const cur = arena.items[item.slot];
   // se não tem item OU o novo é melhor (raridade > ou valor da mesma stat >)
@@ -5224,6 +5250,7 @@ function arenaMeleeSwing(target){
     dir: Math.random()<0.5 ? -1 : 1,
     hit: new Set(),
   });
+  spawnSlashVFX(targetAngle, Math.PI*0.85+(bladeStat-1)*0.20, 38+bladeStat*6, false);
   // swish blast
   const startAngle = targetAngle - 0.4 * (Math.random()<0.5?-1:1);
   for(let i=0;i<6;i++){
@@ -5674,6 +5701,16 @@ function updateArena(){
     if(pt.life<=0) arena.particles.splice(i,1);
   }
 
+  // slash VFX motes
+  if(arena.slashVFXs){
+    for(let i=arena.slashVFXs.length-1;i>=0;i--){
+      const vfx=arena.slashVFXs[i];
+      vfx.frame++;
+      for(const m of vfx.motes){ m.x+=m.vx; m.y+=m.vy; m.vy+=0.06; m.life--; }
+      if(vfx.frame>=vfx.lifeFrames) arena.slashVFXs.splice(i,1);
+    }
+  }
+
   // floating damage numbers — sobem em arco e somem
   if(arena.dmgNumbers){
     for(let i=arena.dmgNumbers.length-1;i>=0;i--){
@@ -5785,6 +5822,50 @@ function drawCarrotSword(x, y, angle, range, t){
   ctx.fillStyle = '#fff7e0';
   ctx.fillRect(10, -3, 4, 1);
 
+  ctx.restore();
+}
+
+function drawSlashVFXs(){
+  if(!arena.slashVFXs||!arena.slashVFXs.length) return;
+  ctx.save();
+  ctx.lineCap='round';
+  for(const vfx of arena.slashVFXs){
+    const t=vfx.frame/vfx.lifeFrames;
+    // ramp-in easeOutCubic (first 12%), then easeOutQuart fade (80% of life after climax)
+    const rampT=Math.min(t/0.12,1);
+    const ramp=1-(1-rampT)**3;
+    const fadeT=t<0.20?0:(t-0.20)/0.80;
+    const fade=1-(1-fadeT)**4;
+    const alpha=ramp*(1-fade);
+    if(alpha<=0.01) continue;
+    const peakW=vfx.isCrit?16:11;
+    const r=vfx.range*0.82;
+    const sA=vfx.centerAngle-vfx.arc*0.5;
+    const eA=vfx.centerAngle+vfx.arc*0.5;
+    // outer glow — amber, wide
+    ctx.beginPath(); ctx.arc(vfx.cx,vfx.cy,r,sA,eA);
+    ctx.strokeStyle=`hsla(28,90%,58%,${(alpha*0.40).toFixed(3)})`;
+    ctx.lineWidth=peakW*3.5*alpha; ctx.stroke();
+    // mid — golden
+    ctx.beginPath(); ctx.arc(vfx.cx,vfx.cy,r,sA,eA);
+    ctx.strokeStyle=`hsla(44,95%,72%,${(alpha*0.78).toFixed(3)})`;
+    ctx.lineWidth=peakW*1.55*alpha; ctx.stroke();
+    // core — warm white
+    ctx.beginPath(); ctx.arc(vfx.cx,vfx.cy,r,sA,eA);
+    ctx.strokeStyle=`hsla(50,80%,96%,${alpha.toFixed(3)})`;
+    ctx.lineWidth=peakW*0.50*alpha; ctx.stroke();
+    // secondary motes
+    for(const m of vfx.motes){
+      const mt=1-m.life/vfx.lifeFrames;
+      const ma=(1-mt)*alpha;
+      if(ma<=0.01) continue;
+      ctx.globalAlpha=ma;
+      ctx.fillStyle=mt<0.4?'#fff7e0':'#ffcc3d';
+      const ms=m.size*(1-mt*0.4);
+      ctx.fillRect(m.x-ms*0.5,m.y-ms*0.5,ms,ms);
+    }
+    ctx.globalAlpha=1;
+  }
   ctx.restore();
 }
 
@@ -6857,6 +6938,9 @@ function renderArena(){
     const swingAngle = sw.centerAngle + sw.dir * (sw.arc/2 - sw.arc * t);
     drawCarrotSword(arena.bx, arena.by, swingAngle, sw.range, t);
   }
+
+  // slash VFX (stylized energy arc on every melee swing)
+  drawSlashVFXs();
 
   // efeitos especiais (habilidades de dados)
   for(const ef of arena.effects){
