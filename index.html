@@ -22,6 +22,56 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
 <title>Bunny Chaos! Loot Arena — MVP</title>
+<!-- ============ DEBUG: Eruda console overlay (TEMPORARY) ============
+     Adiciona DevTools no próprio iPhone. Toca o ícone do Eruda (canto da tela)
+     pra abrir. Aba "Console" mostra todos os errors/warnings, incluindo de
+     imagens que carregam silenciosamente errado.
+     REMOVER esse bloco antes de shippar pra produção. -->
+<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>
+  // Inicializa Eruda (overlay de devtools)
+  if (window.eruda) {
+    eruda.init();
+    console.log('[DEBUG] Eruda initialized — tap the icon to open devtools');
+  } else {
+    // Se CDN falhou (sem internet), mostra alert
+    document.addEventListener('DOMContentLoaded', () => {
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:8px;z-index:99999;font:14px monospace;';
+      banner.textContent = '⚠️ Eruda CDN failed — devtools indisponível. Verifique conexão.';
+      document.body.appendChild(banner);
+    });
+  }
+
+  // Captura erros globais que normalmente passariam batido
+  window.addEventListener('error', (e) => {
+    console.error('[GLOBAL ERROR]', e.message, 'at', e.filename + ':' + e.lineno, e.error);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('[UNHANDLED PROMISE]', e.reason);
+  });
+
+  // Patch global de Image.onerror — loga TODA falha de carregamento de imagem.
+  // O código original do jogo engole erros em img.onerror = () => {} sem logar.
+  // Aqui adicionamos um listener separado que SEMPRE roda antes do handler do jogo.
+  const _origImage = window.Image;
+  window.Image = function(...args) {
+    const img = new _origImage(...args);
+    img.addEventListener('error', (e) => {
+      console.error('[IMG FAIL]', img.src, '— natural size:', img.naturalWidth + 'x' + img.naturalHeight);
+    });
+    img.addEventListener('load', () => {
+      // Loga só uma vez por imagem pra não poluir o console com 50+ logs
+      if (img.naturalWidth === 0) {
+        console.warn('[IMG EMPTY]', img.src, '— loaded but 0×0 (decode failed?)');
+      }
+    });
+    return img;
+  };
+  window.Image.prototype = _origImage.prototype;
+
+  console.log('[DEBUG] Error capture installed. Build:', new Date().toISOString());
+</script>
 <style>
   :root{
     --bg:#0d0a1a; --panel:#1a1330; --panel2:#241a44;
