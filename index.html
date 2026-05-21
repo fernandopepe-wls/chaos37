@@ -6230,9 +6230,15 @@ function drawArenaHUD(){
   const bottomCapY = ARENA.BOT_Y + bottomTopOffset;
   const bottomCapH = H - bottomCapY - bottomBottomGap;
   const bottomRadius = LAYOUT.bottomCapRadius;
-  // 9-slice: cream parchment + dashed gold border + floral corners preservados.
-  // Insets calculados sobre o source 2048x2048 → ~320px por borda cobre dark frame + corner.
-  if(!draw9Slice(UI_PANEL_CARD, bottomCapX, bottomCapY, bottomCapW, bottomCapH, { left:320, right:320, top:320, bottom:320 })){
+  // 9-slice: cream parchment + dashed gold border + floral corners.
+  // Source insets 320 sobre 2048 (~16%) capturam toda a arte do canto.
+  // Dest insets ~6% (≈26px num card de 360w) mantêm o canto pequeno e
+  // proporcional, igual à referência — sem virar gigante na cápsula.
+  const cardCornerSrc = 320;
+  const cardCornerDst = Math.round(Math.min(bottomCapW, bottomCapH) * 0.07);
+  if(!draw9Slice(UI_PANEL_CARD, bottomCapX, bottomCapY, bottomCapW, bottomCapH,
+       { left:cardCornerSrc, right:cardCornerSrc, top:cardCornerSrc, bottom:cardCornerSrc },
+       { left:cardCornerDst, right:cardCornerDst, top:cardCornerDst, bottom:cardCornerDst })){
     // Fallback enquanto a imagem carrega: card cream solido + borda manual
     ctx.save();
     if(ctx.roundRect){
@@ -6603,24 +6609,33 @@ const UI_BG_BOTTOM    = _loadUI('assets/ui-bg-bottom.png');
 const UI_PANEL_CARD   = _loadUI('assets/ui-panel-card.webp');
 
 // === 9-SLICE helper ===
-// Desenha uma imagem como 9 regiões: 4 cantos fixos (não escalam),
-// 4 arestas (escalam em 1 eixo) e centro (escala em 2 eixos).
-// `insets` em pixels da imagem-fonte. Se não fornecido, usa proporção (img.w * 0.18).
-// Retorna false se a img ainda não terminou de carregar (igual drawUIImage).
-function draw9Slice(img, dx, dy, dw, dh, insets){
+// Desenha uma imagem como 9 regiões: 4 cantos fixos, 4 arestas (escalam em 1 eixo)
+// e centro (escala em 2 eixos).
+//
+// `insets`     — em pixels do SOURCE. Define qual quadrado do canto-amostra
+//                pegar. Use insets grandes p/ capturar arte detalhada de canto.
+// `destInsets` — opcional. Em pixels do DESTINO. Tamanho desenhado do canto.
+//                Se omitido, usa `insets` (canto desenhado no mesmo tamanho da
+//                amostra). Permite source HD (qualidade) + dest pequeno
+//                (proporção visual correta no UI).
+//
+// Retorna false se a img ainda não terminou de carregar.
+function draw9Slice(img, dx, dy, dw, dh, insets, destInsets){
   if(!img || !img.complete || !img.naturalWidth) return false;
   const sw = img.naturalWidth, sh = img.naturalHeight;
   const il = (insets && insets.left)   != null ? insets.left   : Math.round(sw * 0.18);
   const ir = (insets && insets.right)  != null ? insets.right  : Math.round(sw * 0.18);
   const it = (insets && insets.top)    != null ? insets.top    : Math.round(sh * 0.18);
   const ib = (insets && insets.bottom) != null ? insets.bottom : Math.round(sh * 0.18);
-  // Larguras das colunas/linhas no source
   const sLeft = il, sRight = ir, sTop = it, sBot = ib;
   const sMidW = Math.max(1, sw - sLeft - sRight);
   const sMidH = Math.max(1, sh - sTop - sBot);
-  // Destino: cantos fixos no tamanho do source insets (sem escala)
-  // Se o destino for menor que insets somados, reduz proporcionalmente
-  let dLeft = sLeft, dRight = sRight, dTop = sTop, dBot = sBot;
+  // Destino: usa destInsets se fornecido, senão espelha o source inset.
+  // Em ambos os casos, se a soma exceder o destino disponível, reduz proporcionalmente.
+  let dLeft  = (destInsets && destInsets.left)   != null ? destInsets.left   : sLeft;
+  let dRight = (destInsets && destInsets.right)  != null ? destInsets.right  : sRight;
+  let dTop   = (destInsets && destInsets.top)    != null ? destInsets.top    : sTop;
+  let dBot   = (destInsets && destInsets.bottom) != null ? destInsets.bottom : sBot;
   if(dLeft + dRight > dw){
     const k = dw / (dLeft + dRight);
     dLeft = dLeft * k;
