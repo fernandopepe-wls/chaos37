@@ -2441,7 +2441,7 @@ const SPLASH_ASSETS = [
   'assets/ui-forge-level.png',   // usado via CSS background
   'assets/ui-roll-forge.png',    // usado via CSS background
   'assets/ui-bg-bottom.png',     // usado via canvas drawUIImage
-  'assets/ui-panel-card.png',    // BOTTOM CARD 9-slice background (corners + edges + center)
+  'assets/ui-panel-card.webp',   // BOTTOM CARD 9-slice background (full-res 2048, ~96 KB)
 ];
 (function runSplashScreen(){
   const splash = document.getElementById('splashScreen');
@@ -6231,8 +6231,8 @@ function drawArenaHUD(){
   const bottomCapH = H - bottomCapY - bottomBottomGap;
   const bottomRadius = LAYOUT.bottomCapRadius;
   // 9-slice: cream parchment + dashed gold border + floral corners preservados.
-  // Insets calculados sobre o source 1024x1024 → ~160px por borda cobre dark frame + corner.
-  if(!draw9Slice(UI_PANEL_CARD, bottomCapX, bottomCapY, bottomCapW, bottomCapH, { left:160, right:160, top:160, bottom:160 })){
+  // Insets calculados sobre o source 2048x2048 → ~320px por borda cobre dark frame + corner.
+  if(!draw9Slice(UI_PANEL_CARD, bottomCapX, bottomCapY, bottomCapW, bottomCapH, { left:320, right:320, top:320, bottom:320 })){
     // Fallback enquanto a imagem carrega: card cream solido + borda manual
     ctx.save();
     if(ctx.roundRect){
@@ -6600,7 +6600,7 @@ const UI_PILL_CARROT  = _loadUI('assets/ui-pill-carrot.png');
 const UI_PILL_SWORD   = _loadUI('assets/ui-pill-sword.png');
 const UI_PILL_KILL    = _loadUI('assets/ui-pill-kill.png');
 const UI_BG_BOTTOM    = _loadUI('assets/ui-bg-bottom.png');
-const UI_PANEL_CARD   = _loadUI('assets/ui-panel-card.png');
+const UI_PANEL_CARD   = _loadUI('assets/ui-panel-card.webp');
 
 // === 9-SLICE helper ===
 // Desenha uma imagem como 9 regiões: 4 cantos fixos (não escalam),
