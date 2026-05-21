@@ -3640,15 +3640,15 @@ const LAYOUT_DEFAULTS = {
   arenaBotYRatio: 0.545,
   bgImageHeightPx: 640,
   // Play area (npc + bunny walk/spawn)
-  playInsetTop: 120,
-  playInsetBottom: 36,
-  playInsetLeft: 0,
-  playInsetRight: 0,
+  playInsetTop: 136,
+  playInsetBottom: 60,
+  playInsetLeft: 20,
+  playInsetRight: 20,
   // Corner radius do play area: 0 = retângulo perfeito.
   // > 0 = arredonda as 4 quinas. Subindo, o play area vira "stadium" e depois
   // "círculo/oval" (quando o radius = min(W/2, H/2) da PLAY box).
   // Bunny + inimigos respeitam essa shape pra não andar fora dos cantos.
-  playCornerRadius: 135,
+  playCornerRadius: 140,
   // Spawn zones — 2 retângulos espelhados nos cantos INFERIORES esquerdo +
   // direito (visualmente, as aberturas entre arbustos das eras). Inimigos
   // só nascem dentro dessas zonas — nunca do topo ou centro inferior.
@@ -3664,7 +3664,7 @@ const LAYOUT_DEFAULTS = {
   // HUD top (Sword pill — Power) — canto sup-esquerdo
   swordPillX: 10,
   swordPillY: 35,
-  swordPillW: 80,
+  swordPillW: 78,
   swordPillH: 30,
   swordPillTextOffsetX: 9,    // offset X do texto dentro do pill (icone fica baked-in à esq.)
   swordPillTextOffsetY: 0,    // offset Y fino — pra compensar ícone embedded descentrado no PNG
@@ -3687,27 +3687,27 @@ const LAYOUT_DEFAULTS = {
   itemsStripHeight: 104,
   itemSlotW: 48,
   itemSlotH: 48.5,             // derivado de itemsStripHeight (auto-sync); editável via aquele
-  itemGapX: 15,
-  itemGapY: 7,
-  itemStartYOffset: -10,
+  itemGapX: 5,
+  itemGapY: 6,
+  itemStartYOffset: -3,
   // Forge — TRAY (background afundado atrás dos dados) — INDEPENDENTE
   trayBottomY: 185,
   trayOffsetX: 0,
   trayW: 346,
   trayH: 80,
-  trayScale: 0.84,
+  trayScale: 0.75,
   // Forge — DICE STRIP (5 dados) — posicionado independente do tray
   diceBottomY: 195,        // px from frame bottom (anchor da borda inferior)
   diceOffsetX: 0,          // px horizontal offset from screen center (←/→)
   diceW: 340,              // largura do strip (logical px)
   diceH: 55,               // altura do strip
-  diceScale: 0.84,         // multiplicador uniforme de escala
+  diceScale: 0.75,         // multiplicador uniforme de escala
   // Forge — ACTION ROW (LV + ROLAR + AUTO) — independente dos dados
-  actionBottomY: 100,
+  actionBottomY: 112,
   actionOffsetX: 0,
   actionW: 340,
   actionH: 65,
-  actionScale: 0.97,       // gap entre row de dados e row de botões (CSS gap do stack)
+  actionScale: 0.85,       // gap entre row de dados e row de botões (CSS gap do stack)
   // Stage bar
   stageBarMaxW: 100,
   stageBarMaxRatio: 0.235,
