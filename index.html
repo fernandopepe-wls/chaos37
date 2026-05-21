@@ -2459,7 +2459,7 @@ Music.playSplash();
 const SPLASH_MIN_DURATION_MS = 3000;
 const SPLASH_ASSETS = [
   // Background da era 1 (entra direto no jogo)
-  'assets/env-era1-burrow-NEW.png',
+  'assets/env-era1-burrow-NEW.webp',
   // Bunny sprite sheets (5 estados) + weapon placeholder
   'assets/bunny/bunny_idle.png',
   'assets/bunny/bunny_walk.png',
@@ -2479,6 +2479,7 @@ const SPLASH_ASSETS = [
   'assets/ui-forge-level.png',   // usado via CSS background
   'assets/ui-roll-forge.png',    // usado via CSS background
   'assets/ui-bg-bottom.png',     // usado via canvas drawUIImage
+  'assets/ui-panel-card.png',    // BOTTOM CARD 9-slice background (corners + edges + center)
 ];
 (function runSplashScreen(){
   const splash = document.getElementById('splashScreen');
@@ -6233,34 +6234,39 @@ function drawArenaHUD(){
   const bottomCapY = ARENA.BOT_Y + bottomTopOffset;
   const bottomCapH = H - bottomCapY - bottomBottomGap;
   const bottomRadius = LAYOUT.bottomCapRadius;
-  ctx.save();
-  if(ctx.roundRect){
+  // 9-slice: cantos decorativos (florais + bracket dourado) preservados; arestas/centro escalam.
+  // Insets calculados sobre o source 512x512 → ~80px por borda cobre o swirl gold + flor.
+  if(!draw9Slice(UI_PANEL_CARD, bottomCapX, bottomCapY, bottomCapW, bottomCapH, { left:80, right:80, top:80, bottom:80 })){
+    // Fallback enquanto a imagem carrega: card cream solido + borda manual
+    ctx.save();
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(bottomCapX, bottomCapY, bottomCapW, bottomCapH, bottomRadius);
+    } else {
+      const r = bottomRadius, x=bottomCapX, y=bottomCapY, w=bottomCapW, h=bottomCapH;
+      ctx.beginPath();
+      ctx.moveTo(x+r, y);
+      ctx.arcTo(x+w, y,   x+w, y+h, r);
+      ctx.arcTo(x+w, y+h, x,   y+h, r);
+      ctx.arcTo(x,   y+h, x,   y,   r);
+      ctx.arcTo(x,   y,   x+w, y,   r);
+      ctx.closePath();
+    }
+    ctx.clip();
+    if(!drawUIImage(UI_BG_BOTTOM, bottomCapX, bottomCapY, bottomCapW, bottomCapH)){
+      ctx.fillStyle = 'rgba(13,10,26,0.92)';
+      ctx.fillRect(bottomCapX, bottomCapY, bottomCapW, bottomCapH);
+    }
+    ctx.restore();
+    ctx.strokeStyle = '#b07a3a';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.roundRect(bottomCapX, bottomCapY, bottomCapW, bottomCapH, bottomRadius);
-  } else {
-    const r = bottomRadius, x=bottomCapX, y=bottomCapY, w=bottomCapW, h=bottomCapH;
-    ctx.beginPath();
-    ctx.moveTo(x+r, y);
-    ctx.arcTo(x+w, y,   x+w, y+h, r);
-    ctx.arcTo(x+w, y+h, x,   y+h, r);
-    ctx.arcTo(x,   y+h, x,   y,   r);
-    ctx.arcTo(x,   y,   x+w, y,   r);
-    ctx.closePath();
+    if(ctx.roundRect){
+      ctx.roundRect(bottomCapX, bottomCapY, bottomCapW, bottomCapH, bottomRadius);
+    }
+    ctx.stroke();
   }
-  ctx.clip();
-  if(!drawUIImage(UI_BG_BOTTOM, bottomCapX, bottomCapY, bottomCapW, bottomCapH)){
-    ctx.fillStyle = 'rgba(13,10,26,0.92)';
-    ctx.fillRect(bottomCapX, bottomCapY, bottomCapW, bottomCapH);
-  }
-  ctx.restore();
-  ctx.strokeStyle = '#b07a3a';
-  ctx.lineWidth = 2.5;
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  if(ctx.roundRect){
-    ctx.roundRect(bottomCapX, bottomCapY, bottomCapW, bottomCapH, bottomRadius);
-  }
-  ctx.stroke();
 
   // === ITEMS STRIP — grid 2×5 (10 posições) ===
   // 8 slots de equipamento + 1 placeholder vazio + 1 slot SPECIAL (last) que ainda
@@ -6504,16 +6510,16 @@ function _drawBanditSprite(e, x, y){
 // Pra usar vídeo, ponha um {video:'caminho.mp4'} no slot da era. O renderer
 // canvas drawImage() aceita ambos (Image | HTMLVideoElement).
 const ERA_FULL_BG_SRC = [
-  { video: 'assets/backgrounds/env-era1-burrow-NEW.mp4', poster: 'assets/env-era1-burrow-NEW.png' }, // 0 — Burrow Age (vídeo loop)
-  { video: 'assets/backgrounds/env-era2-meadow-NEW.mp4', poster: 'assets/env-era2-meadow-NEW.png' }, // 1 — The Meadow Kingdom (vídeo loop)
-  { video: 'assets/backgrounds/env-era3-hutch-NEW.mp4', poster: 'assets/env-era3-hutch-NEW.png' },   // 2 — The Industrial Hutch (vídeo loop)
-  'assets/env-era4-skyhop-NEW.png',       // 3 — The Skyhop Era
-  'assets/env-era5-cosmic-NEW.png',       // 4 — The Cosmic Carrot Age
-  'assets/env-era6-glimmerwarp-NEW.png',  // 5 — The Glimmerwarp
-  'assets/env-era7-dreamburrow-NEW.png',  // 6 — The Dreamburrow
-  'assets/env-era8-hollow-NEW.png',       // 7 — The Hollow Realm
-  'assets/env-era9-emberforge-NEW.png',   // 8 — The Emberforge Underdeep
-  'assets/env-era10-verdant-NEW.png',     // 9 — The Verdant Eternal
+  { video: 'assets/backgrounds/env-era1-burrow-NEW.mp4', poster: 'assets/env-era1-burrow-NEW.webp' }, // 0 — Burrow Age (vídeo loop)
+  { video: 'assets/backgrounds/env-era2-meadow-NEW.mp4', poster: 'assets/env-era2-meadow-NEW.webp' }, // 1 — The Meadow Kingdom (vídeo loop)
+  { video: 'assets/backgrounds/env-era3-hutch-NEW.mp4', poster: 'assets/env-era3-hutch-NEW.webp' },   // 2 — The Industrial Hutch (vídeo loop)
+  'assets/env-era4-skyhop-NEW.webp',       // 3 — The Skyhop Era
+  'assets/env-era5-cosmic-NEW.webp',       // 4 — The Cosmic Carrot Age
+  'assets/env-era6-glimmerwarp-NEW.webp',  // 5 — The Glimmerwarp
+  'assets/env-era7-dreamburrow-NEW.webp',  // 6 — The Dreamburrow
+  'assets/env-era8-hollow-NEW.webp',       // 7 — The Hollow Realm
+  'assets/env-era9-emberforge-NEW.webp',   // 8 — The Emberforge Underdeep
+  'assets/env-era10-verdant-NEW.webp',     // 9 — The Verdant Eternal
 ];
 const ERA_FULL_BG_MEDIA = ERA_FULL_BG_SRC.map(src => {
   if(!src) return null;
@@ -6598,6 +6604,59 @@ const UI_PILL_CARROT  = _loadUI('assets/ui-pill-carrot.png');
 const UI_PILL_SWORD   = _loadUI('assets/ui-pill-sword.png');
 const UI_PILL_KILL    = _loadUI('assets/ui-pill-kill.png');
 const UI_BG_BOTTOM    = _loadUI('assets/ui-bg-bottom.png');
+const UI_PANEL_CARD   = _loadUI('assets/ui-panel-card.png');
+
+// === 9-SLICE helper ===
+// Desenha uma imagem como 9 regiões: 4 cantos fixos (não escalam),
+// 4 arestas (escalam em 1 eixo) e centro (escala em 2 eixos).
+// `insets` em pixels da imagem-fonte. Se não fornecido, usa proporção (img.w * 0.18).
+// Retorna false se a img ainda não terminou de carregar (igual drawUIImage).
+function draw9Slice(img, dx, dy, dw, dh, insets){
+  if(!img || !img.complete || !img.naturalWidth) return false;
+  const sw = img.naturalWidth, sh = img.naturalHeight;
+  const il = (insets && insets.left)   != null ? insets.left   : Math.round(sw * 0.18);
+  const ir = (insets && insets.right)  != null ? insets.right  : Math.round(sw * 0.18);
+  const it = (insets && insets.top)    != null ? insets.top    : Math.round(sh * 0.18);
+  const ib = (insets && insets.bottom) != null ? insets.bottom : Math.round(sh * 0.18);
+  // Larguras das colunas/linhas no source
+  const sLeft = il, sRight = ir, sTop = it, sBot = ib;
+  const sMidW = Math.max(1, sw - sLeft - sRight);
+  const sMidH = Math.max(1, sh - sTop - sBot);
+  // Destino: cantos fixos no tamanho do source insets (sem escala)
+  // Se o destino for menor que insets somados, reduz proporcionalmente
+  let dLeft = sLeft, dRight = sRight, dTop = sTop, dBot = sBot;
+  if(dLeft + dRight > dw){
+    const k = dw / (dLeft + dRight);
+    dLeft = dLeft * k;
+    dRight = dRight * k;
+  }
+  if(dTop + dBot > dh){
+    const k = dh / (dTop + dBot);
+    dTop = dTop * k;
+    dBot = dBot * k;
+  }
+  const dMidW = Math.max(0, dw - dLeft - dRight);
+  const dMidH = Math.max(0, dh - dTop - dBot);
+  // 4 cantos
+  ctx.drawImage(img, 0, 0, sLeft, sTop,                         dx, dy, dLeft, dTop);
+  ctx.drawImage(img, sw-sRight, 0, sRight, sTop,                dx+dw-dRight, dy, dRight, dTop);
+  ctx.drawImage(img, 0, sh-sBot, sLeft, sBot,                   dx, dy+dh-dBot, dLeft, dBot);
+  ctx.drawImage(img, sw-sRight, sh-sBot, sRight, sBot,          dx+dw-dRight, dy+dh-dBot, dRight, dBot);
+  // 4 arestas (escalam em 1 eixo)
+  if(dMidW > 0){
+    ctx.drawImage(img, sLeft, 0, sMidW, sTop,                   dx+dLeft, dy, dMidW, dTop);
+    ctx.drawImage(img, sLeft, sh-sBot, sMidW, sBot,             dx+dLeft, dy+dh-dBot, dMidW, dBot);
+  }
+  if(dMidH > 0){
+    ctx.drawImage(img, 0, sTop, sLeft, sMidH,                   dx, dy+dTop, dLeft, dMidH);
+    ctx.drawImage(img, sw-sRight, sTop, sRight, sMidH,          dx+dw-dRight, dy+dTop, dRight, dMidH);
+  }
+  // Centro (escala em 2 eixos)
+  if(dMidW > 0 && dMidH > 0){
+    ctx.drawImage(img, sLeft, sTop, sMidW, sMidH,               dx+dLeft, dy+dTop, dMidW, dMidH);
+  }
+  return true;
+}
 // (vars removidas — JS não rendezirava, mas ALGUMAS PNGs continuam usadas via CSS):
 //   UI_ROLL_FORGE / UI_FORGE_LEVEL / UI_PILL_AUTO → arquivos referenciados por
 //     background:url() nas regras .forge-main-btn / #arenaForgeLevelBtn / #arenaForgeAutoBtn.
