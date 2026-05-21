@@ -919,6 +919,86 @@
     pointer-events:none;
   }
 
+  /* === AUTO-FORGE POPUP === */
+  #autoForgeLayer{align-items:center;justify-content:center;}
+  .auto-forge-card{max-width:380px;padding:24px 16px 16px;}
+  .auto-forge-stats{
+    display:flex;gap:6px;margin:0 0 12px;justify-content:center;
+  }
+  .auto-forge-stats .stat-block{
+    flex:1;text-align:center;
+    border:1.5px solid #3a2a18;border-radius:8px;
+    padding:6px 4px;
+    background:rgba(255,247,224,0.5);
+    box-shadow:0 1px 0 rgba(255,255,255,0.55) inset, 0 2px 0 rgba(0,0,0,0.18);
+  }
+  .auto-forge-stats .lbl{font-size:9px;color:#8a7558;font-weight:bold;letter-spacing:.4px;text-transform:uppercase;}
+  .auto-forge-stats .val{font-size:14px;color:#3a2a18;font-weight:bold;margin-top:2px;line-height:1.1;}
+  .auto-forge-locked-msg{
+    text-align:center;padding:18px 10px;
+    border:1.5px solid #c43030;border-radius:8px;
+    background:rgba(255,90,90,0.15);
+    color:#7a1818;font-weight:bold;font-size:13px;
+    margin-bottom:12px;
+    box-shadow:0 1px 0 rgba(255,255,255,0.4) inset;
+  }
+  .auto-forge-locked-msg .small{font-size:11px;color:#8a7558;font-weight:normal;margin-top:2px;display:block;}
+  .auto-forge-section-title{
+    font-size:10px;font-weight:bold;letter-spacing:.6px;color:#8a7558;
+    text-transform:uppercase;
+    margin:8px 0 4px 4px;
+  }
+  .auto-forge-picker-row{
+    display:flex;align-items:center;gap:6px;
+    border:1.5px solid #3a2a18;border-radius:8px;
+    padding:4px;margin:0 0 10px;
+    background:rgba(255,247,224,0.5);
+    box-shadow:0 1px 0 rgba(255,255,255,0.6) inset, 0 2px 0 rgba(0,0,0,0.18);
+  }
+  .auto-forge-picker-row .picker-btn{
+    background:#3a8ad6;color:#fff;
+    border:1.5px solid #1a4e8c;border-radius:6px;
+    font-weight:bold;font-size:14px;line-height:1;
+    padding:4px 12px;cursor:pointer;
+    box-shadow:0 2px 0 #1a4e8c, 0 1px 0 rgba(255,255,255,0.3) inset;
+  }
+  .auto-forge-picker-row .picker-btn:active{transform:translateY(1px);box-shadow:0 1px 0 #1a4e8c;}
+  .auto-forge-picker-row .picker-val{
+    flex:1;text-align:center;
+    font-weight:bold;color:#3a2a18;font-size:13px;
+    text-shadow:0 1px 0 rgba(255,255,255,0.5);
+  }
+  .auto-tier-list{
+    display:flex;flex-direction:column;gap:3px;
+    max-height:165px;overflow-y:auto;
+    padding:2px;
+    border:1.5px solid rgba(58,42,24,0.25);border-radius:8px;
+    background:rgba(58,42,24,0.04);
+  }
+  .auto-tier-row{
+    display:flex;align-items:center;gap:8px;
+    padding:5px 8px;
+    border:1.5px solid #3a2a18;border-radius:6px;
+    font-size:12px;background:#fff9e8;
+  }
+  .auto-tier-row .ico{width:16px;text-align:center;font-weight:bold;}
+  .auto-tier-row .lv{font-weight:bold;color:#3a2a18;min-width:42px;}
+  .auto-tier-row .batch{flex:1;color:#6f5a3a;font-weight:bold;}
+  .auto-tier-row.done{
+    background:linear-gradient(180deg,#aff067 0%,#7fc950 100%);
+    border-color:#3a8a20;
+  }
+  .auto-tier-row.done .ico,.auto-tier-row.done .lv,.auto-tier-row.done .batch{color:#1a4d10;}
+  .auto-tier-row.current{
+    background:linear-gradient(180deg,#ffe89a 0%,#ffcc3d 100%);
+    border-color:#b45a14;
+    box-shadow:0 0 8px rgba(255,204,61,0.55), 0 2px 0 rgba(0,0,0,0.18);
+  }
+  .auto-tier-row.locked{
+    background:rgba(58,42,24,0.10);
+    opacity:0.55;
+  }
+
   /* forge level probabilities — agora dentro do forge-popup-card cream */
   /* Layer overrides pro popup nivel: centraliza horizontalmente o card */
   #forgeLevelLayer{align-items:center;justify-content:center;}
@@ -1904,6 +1984,23 @@
       </div>
     </div>
 
+    <!-- auto-forge popup — config + progression ladder (LoM / Merge Master style) -->
+    <div class="layer" id="autoForgeLayer">
+      <div class="forge-popup-card auto-forge-card">
+        <div class="forge-popup-tag">⚙ Auto-Forja</div>
+
+        <h2 class="forge-level-title">Auto-Forja</h2>
+        <p class="forge-level-desc">Forja items em ciclo, equipa upgrades automaticamente e converte o resto em cenoura.</p>
+
+        <div id="autoForgeContent"></div>
+
+        <div class="forge-popup-actions">
+          <button class="forge-popup-btn red"   id="autoForgeCloseBtn">Voltar</button>
+          <button class="forge-popup-btn green" id="autoForgeToggleBtn">Ligar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- forge LEVEL upgrade popup — mesmo design system dos outros (forge-popup-card) -->
     <div class="layer" id="forgeLevelLayer">
       <div class="forge-popup-card forge-level-card">
@@ -2514,7 +2611,7 @@ const STATE = { ARENA_PLAY:8, ARENA_GAMEOVER:10, ARENA_TAB:11 };
 let state = STATE.ARENA_PLAY;
 
 function hideAllLayers(){
-  for(const id of ['arenaGameover','arenaTab','forgeCompare','forgeLevelLayer']){
+  for(const id of ['arenaGameover','arenaTab','forgeCompare','forgeLevelLayer','autoForgeLayer']){
     const el = document.getElementById(id);
     if(el) el.classList.remove('show');
   }
@@ -7135,17 +7232,29 @@ function forgeIntervalAtLevel(lvl){
 // de raridade (smart default = era atual menos 1) viram carrots automático.
 const AUTO_UNLOCK_LEVEL = 3;
 
+// Tier ladder do auto-forge — fonte única de verdade pra batch + popup.
+// Inspirado no Magic Lamp do LoM: cada tier define a partir de qual
+// forge level destrava aquele batch.
+const AUTO_FORGE_TIERS = [
+  { fromLv: 3,  batch: 1  },
+  { fromLv: 5,  batch: 2  },
+  { fromLv: 8,  batch: 3  },
+  { fromLv: 12, batch: 4  },
+  { fromLv: 16, batch: 6  },
+  { fromLv: 20, batch: 8  },
+  { fromLv: 25, batch: 12 },
+  { fromLv: 30, batch: 16 },
+  { fromLv: 35, batch: 20 },
+];
+
 function autoForgeBatchSize(lvl){
   if(lvl < AUTO_UNLOCK_LEVEL) return 0;
-  if(lvl < 5)  return 1;
-  if(lvl < 8)  return 2;
-  if(lvl < 12) return 3;
-  if(lvl < 16) return 4;
-  if(lvl < 20) return 6;
-  if(lvl < 25) return 8;
-  if(lvl < 30) return 12;
-  if(lvl < 35) return 16;
-  return 20;
+  let batch = 0;
+  for(const t of AUTO_FORGE_TIERS){
+    if(lvl >= t.fromLv) batch = t.batch;
+    else break;
+  }
+  return batch;
 }
 
 // Carrots ganhos ao vender um item via auto-forge. Cresce ~quadraticamente
@@ -7411,6 +7520,129 @@ function upgradeForgeLevel(){
   refreshForgeLevelPopup();
 }
 
+// ============== AUTO-FORGE POPUP ==============
+// Renderiza o conteúdo dinâmico do popup: stats atuais, picker de raridade
+// mínima, e a ladder de progressão (mesmo estilo do Magic Lamp do LoM).
+function buildAutoForgeContent(){
+  const lvl = arena.forgeLevel;
+  const unlocked = lvl >= AUTO_UNLOCK_LEVEL;
+  const batchNow = autoForgeBatchSize(lvl);
+  const cycleFrames = forgeIntervalAtLevel(lvl);
+  const cycleSec = (cycleFrames / 60);
+  const itemsPerMin = batchNow > 0 ? Math.round(batchNow * 60 / cycleSec) : 0;
+
+  // Stats / locked state
+  let head = '';
+  if(unlocked){
+    head = `
+      <div class="auto-forge-stats">
+        <div class="stat-block"><div class="lbl">Batch</div><div class="val">${batchNow}×</div></div>
+        <div class="stat-block"><div class="lbl">Ciclo</div><div class="val">${cycleSec.toFixed(1)}s</div></div>
+        <div class="stat-block"><div class="lbl">Vazão</div><div class="val">~${itemsPerMin}/min</div></div>
+      </div>`;
+  } else {
+    head = `
+      <div class="auto-forge-locked-msg">
+        🔒 Desbloqueia no <b>Forge Lv ${AUTO_UNLOCK_LEVEL}</b>
+        <span class="small">Você está no Lv ${lvl}</span>
+      </div>`;
+  }
+
+  // Rarity picker (smart default + cycle entre eras válidas)
+  let picker = '';
+  if(unlocked){
+    const smartIdx = autoForgeSmartThreshold();
+    const cur = arena.autoForgeRarityMin;  // null = smart
+    let label;
+    if(cur == null || cur < 0){
+      label = `🪄 Smart  <span style="opacity:0.65;font-size:11px">(≥ ${ERAS[smartIdx].name.replace(/^The /,'')})</span>`;
+    } else {
+      label = `≥ ${ERAS[Math.min(cur, ERAS.length-1)].name.replace(/^The /,'')}`;
+    }
+    picker = `
+      <div class="auto-forge-section-title">Manter raridade mínima</div>
+      <div class="auto-forge-picker-row">
+        <button class="picker-btn" id="autoForgeRarityPrev">◀</button>
+        <div class="picker-val">${label}</div>
+        <button class="picker-btn" id="autoForgeRarityNext">▶</button>
+      </div>`;
+  }
+
+  // Tier ladder (acquired / current / locked)
+  let rows = '';
+  for(let i=0;i<AUTO_FORGE_TIERS.length;i++){
+    const tier = AUTO_FORGE_TIERS[i];
+    const acquired = lvl >= tier.fromLv;
+    const isCurrent = acquired && (i === AUTO_FORGE_TIERS.length-1 || lvl < AUTO_FORGE_TIERS[i+1].fromLv);
+    const cls = isCurrent ? 'current' : (acquired ? 'done' : 'locked');
+    const ico = isCurrent ? '▸' : (acquired ? '✓' : '·');
+    const plural = tier.batch > 1 ? 'itens' : 'item';
+    rows += `
+      <div class="auto-tier-row ${cls}">
+        <span class="ico">${ico}</span>
+        <span class="lv">Lv ${tier.fromLv}</span>
+        <span class="batch">${tier.batch} ${plural} por ciclo</span>
+      </div>`;
+  }
+
+  return head + picker + `
+    <div class="auto-forge-section-title">Progressão da forja</div>
+    <div class="auto-tier-list">${rows}</div>
+  `;
+}
+
+let _autoForgeRefreshInterval = null;
+function refreshAutoForgePopup(){
+  const c = document.getElementById('autoForgeContent');
+  if(c) c.innerHTML = buildAutoForgeContent();
+  const tgBtn = document.getElementById('autoForgeToggleBtn');
+  if(tgBtn){
+    const unlocked = arena.forgeLevel >= AUTO_UNLOCK_LEVEL;
+    tgBtn.disabled = !unlocked;
+    tgBtn.textContent = arena.autoForge ? '⏸ Desligar' : '▶ Ligar';
+    tgBtn.classList.toggle('red', arena.autoForge);
+    tgBtn.classList.toggle('green', !arena.autoForge);
+  }
+  // (re)wire picker buttons (innerHTML recria os nodes)
+  const prev = document.getElementById('autoForgeRarityPrev');
+  const next = document.getElementById('autoForgeRarityNext');
+  if(prev) prev.onclick = () => cycleAutoForgeRarity(-1);
+  if(next) next.onclick = () => cycleAutoForgeRarity(+1);
+}
+
+// Cicla o threshold de raridade. Sequência: smart → era 0 → era 1 → ... → era 9 → smart
+function cycleAutoForgeRarity(dir){
+  const cur = arena.autoForgeRarityMin;  // null = smart
+  let next;
+  if(cur == null || cur < 0){
+    next = dir > 0 ? 0 : ERAS.length - 1;
+  } else {
+    next = cur + dir;
+    if(next < 0 || next >= ERAS.length){
+      next = null;  // volta pro smart
+    }
+  }
+  arena.autoForgeRarityMin = next;
+  refreshAutoForgePopup();
+}
+
+function openAutoForgePopup(){
+  refreshAutoForgePopup();
+  state = STATE.ARENA_TAB;
+  showLayer('autoForgeLayer');
+  if(_autoForgeRefreshInterval) clearInterval(_autoForgeRefreshInterval);
+  // re-render leve a cada 500ms — pega level-up enquanto popup tá aberto
+  _autoForgeRefreshInterval = setInterval(refreshAutoForgePopup, 500);
+}
+function closeAutoForgePopup(){
+  if(_autoForgeRefreshInterval){
+    clearInterval(_autoForgeRefreshInterval);
+    _autoForgeRefreshInterval = null;
+  }
+  hideAllLayers();
+  state = STATE.ARENA_PLAY;
+}
+
 // Auto-forge MVP: roda N items por ciclo (batch escala com forge level),
 // auto-equipa upgrades, vende o resto pra carrots.
 function autoForgeStep(){
@@ -7479,17 +7711,24 @@ setInterval(()=>{
     applyForgeUpgradeIfReady();
   }
 }, 1000);
+// AUTO button = launcher do popup. Toggle real fica DENTRO do popup
+// (padrão Magic Lamp / Merge Master).
 document.getElementById('arenaForgeAutoBtn').addEventListener('click', ()=>{
-  // gate de unlock — botão `disabled` já bloqueia mouse, mas defensive
+  if(state !== STATE.ARENA_PLAY && state !== STATE.ARENA_TAB) return;
+  openAutoForgePopup();
+});
+document.getElementById('autoForgeCloseBtn').addEventListener('click', closeAutoForgePopup);
+document.getElementById('autoForgeToggleBtn').addEventListener('click', ()=>{
   if(arena.forgeLevel < AUTO_UNLOCK_LEVEL) return;
   arena.autoForge = !arena.autoForge;
-  document.getElementById('arenaForgeAutoBtn').classList.toggle('active', arena.autoForge);
-  // Ao ligar: reseta cooldown pra evitar primeiro batch instantâneo se já
-  //   estava com cooldown zerado de uma sessão anterior. Primeiro ciclo
-  //   sempre respeita o intervalo do nível atual.
+  // primeiro ciclo sempre respeita o intervalo (evita batch instantâneo)
   if(arena.autoForge){
     arena.forgeCooldown = forgeIntervalAtLevel(arena.forgeLevel);
   }
+  // sincroniza a classe active no botão externo (CSS já cuida do visual)
+  const extBtn = document.getElementById('arenaForgeAutoBtn');
+  if(extBtn) extBtn.classList.toggle('active', arena.autoForge);
+  refreshAutoForgePopup();
 });
 
 function eraOfItem(item){
@@ -7680,21 +7919,21 @@ function renderForgeDice(){
   const showSideBtns = forgeRoll.phase !== 'after-roll';
   if(lvBtn)   lvBtn.style.display   = showSideBtns ? '' : 'none';
   if(autoBtn) autoBtn.style.display = showSideBtns ? '' : 'none';
-  // AUTO unlock gating: bloqueia o botão enquanto o forge level não atinge
-  // AUTO_UNLOCK_LEVEL. Visual = disabled + tooltip explicativo.
+  // AUTO sempre habilitado — o popup mostra o estado lock/unlock + ladder.
+  // Tooltip dinâmico ajuda o player a entender o que o botão faz.
   if(autoBtn){
     const unlocked = arena.forgeLevel >= AUTO_UNLOCK_LEVEL;
-    if(autoBtn.disabled !== !unlocked) autoBtn.disabled = !unlocked;
     const wantTitle = unlocked
-      ? `Auto-forge (${autoForgeBatchSize(arena.forgeLevel)}× por ciclo)`
-      : `🔒 Desbloqueia no forge Lv ${AUTO_UNLOCK_LEVEL}`;
+      ? `Auto-forja (${autoForgeBatchSize(arena.forgeLevel)}× por ciclo)`
+      : `Auto-forja — bloqueado até Lv ${AUTO_UNLOCK_LEVEL} (toque pra ver ladder)`;
     if(autoBtn.title !== wantTitle) autoBtn.title = wantTitle;
-    // se acabou de bloquear (rollback de level), desliga auto pra não ficar travado
+    // se rollback de level: desliga auto pra não ficar travado
     if(!unlocked && arena.autoForge){
       arena.autoForge = false;
       autoBtn.classList.remove('active');
     }
-    autoBtn.classList.toggle('locked', !unlocked);
+    // mantém active class em sync com o estado real
+    autoBtn.classList.toggle('active', arena.autoForge);
   }
   // CRÍTICO: renderForgeDice() roda a cada frame (60fps) — atribuir innerHTML
   // toda vez DESTRÓI e recria os filhos do botão. Se o usuário aperta justamente
@@ -7899,14 +8138,28 @@ function openForgeCompare(){
   if(newLv)   newLv.textContent   = `Nv.${newItem.currentLevel || newItem.level || 1}`;
   if(newName) newName.innerHTML   = _itemNameHTML(newItem);
   if(newPrim){
-    // primary value + delta arrow vs old (se mesma stat)
+    // Delta arrow vs equipado.
+    // Regra:
+    //   - sem item equipado     → sempre ▲ (primeiro do slot)
+    //   - era nova > era antiga → ▲ (raridade maior = sempre melhor)
+    //   - era nova < era antiga → ▼ (raridade menor = sempre pior, mesmo com stat diferente)
+    //   - mesma era + mesma stat → compara valor direto
+    //   - mesma era + stat diferente → sidegrade, sem seta (jogador decide)
     let deltaHtml = '';
-    if(oldItem && oldItem.stat === newItem.stat){
-      const delta = newItem.value - oldItem.value;
-      if(delta > 0.005)      deltaHtml = ` <span class="delta up">▲</span>`;
-      else if(delta < -0.005)deltaHtml = ` <span class="delta down">▼</span>`;
-    } else if(!oldItem){
+    if(!oldItem){
       deltaHtml = ` <span class="delta up">▲</span>`;
+    } else {
+      const newEra = (newItem.eraIdx != null) ? newItem.eraIdx : 0;
+      const oldEra = (oldItem.eraIdx != null) ? oldItem.eraIdx : 0;
+      if(newEra > oldEra){
+        deltaHtml = ` <span class="delta up">▲</span>`;
+      } else if(newEra < oldEra){
+        deltaHtml = ` <span class="delta down">▼</span>`;
+      } else if(oldItem.stat === newItem.stat){
+        const delta = newItem.value - oldItem.value;
+        if(delta > 0.005)       deltaHtml = ` <span class="delta up">▲</span>`;
+        else if(delta < -0.005) deltaHtml = ` <span class="delta down">▼</span>`;
+      }
     }
     newPrim.innerHTML = _itemPrimaryHTML(newItem) + deltaHtml;
   }
