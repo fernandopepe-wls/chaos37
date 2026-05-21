@@ -6235,7 +6235,7 @@ function drawArenaHUD(){
   // Dest insets ~6% (≈26px num card de 360w) mantêm o canto pequeno e
   // proporcional, igual à referência — sem virar gigante na cápsula.
   const cardCornerSrc = 320;
-  const cardCornerDst = Math.round(Math.min(bottomCapW, bottomCapH) * 0.13);
+  const cardCornerDst = Math.round(Math.min(bottomCapW, bottomCapH) * 0.25);
   if(!draw9Slice(UI_PANEL_CARD, bottomCapX, bottomCapY, bottomCapW, bottomCapH,
        { left:cardCornerSrc, right:cardCornerSrc, top:cardCornerSrc, bottom:cardCornerSrc },
        { left:cardCornerDst, right:cardCornerDst, top:cardCornerDst, bottom:cardCornerDst })){
@@ -6622,6 +6622,13 @@ const UI_PANEL_CARD   = _loadUI('assets/ui-panel-card.webp');
 // Retorna false se a img ainda não terminou de carregar.
 function draw9Slice(img, dx, dy, dw, dh, insets, destInsets){
   if(!img || !img.complete || !img.naturalWidth) return false;
+  // Canvas roda em pixel-art mode (imageSmoothingEnabled=false em 2666).
+  // Pra UI HD a gente quer bilinear+high — caso contrário o downscale do
+  // source 2048px vira nearest-neighbor e fica pixelado.
+  const prevSmooth = ctx.imageSmoothingEnabled;
+  const prevQuality = ctx.imageSmoothingQuality;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   const sw = img.naturalWidth, sh = img.naturalHeight;
   const il = (insets && insets.left)   != null ? insets.left   : Math.round(sw * 0.18);
   const ir = (insets && insets.right)  != null ? insets.right  : Math.round(sw * 0.18);
@@ -6666,6 +6673,8 @@ function draw9Slice(img, dx, dy, dw, dh, insets, destInsets){
   if(dMidW > 0 && dMidH > 0){
     ctx.drawImage(img, sLeft, sTop, sMidW, sMidH,               dx+dLeft, dy+dTop, dMidW, dMidH);
   }
+  ctx.imageSmoothingEnabled = prevSmooth;
+  ctx.imageSmoothingQuality = prevQuality;
   return true;
 }
 // (vars removidas — JS não rendezirava, mas ALGUMAS PNGs continuam usadas via CSS):
