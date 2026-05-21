@@ -910,7 +910,8 @@
     text-shadow:0 1px 0 rgba(255,255,255,0.35);
   }
   #arenaForgeAutoBtn:active{transform:translateY(1px);}
-  /* desabilitado temporariamente (bug com proximas waves) */
+  /* AUTO bloqueado até atingir o forge level mínimo (AUTO_UNLOCK_LEVEL).
+     `disabled` é setado por JS quando arena.forgeLevel < AUTO_UNLOCK_LEVEL. */
   #arenaForgeAutoBtn[disabled]{
     opacity:0.4;
     cursor:not-allowed;
@@ -1854,7 +1855,7 @@
         </button>
         <button id="arenaForgeRollBtn" class="forge-main-btn">ROLAR</button>
         <button id="arenaForgeConfirmBtn" class="forge-main-btn confirm">FORJAR</button>
-        <button id="arenaForgeAutoBtn" title="Auto-forge (desabilitado temporariamente)" disabled>AUTO</button>
+        <button id="arenaForgeAutoBtn" title="Auto-forge">AUTO</button>
       </div>
       <!-- Combo info-row removida — combo agora é comunicado via banner
            overlay (#forgeComboBanner) que sobe acima do strip de dados.
@@ -3342,6 +3343,7 @@ const arena = {
   pendingForgeItem: null,
   forgeLevel: 1,
   autoForge: false,
+  autoForgeRarityMin: null,  // null = smart default; >=0 = threshold manual (era idx)
   carrots: 0, // moeda da forja (cenouras)
   power: 0,
   powerDelta: 0,
@@ -3464,6 +3466,8 @@ function initArena(){
   arena.forgeLevel = (typeof loadForgeLevel === 'function') ? loadForgeLevel() : 1;
   arena.forgeInterval = 900;
   arena.autoForge = false;
+  arena.autoForgeRarityMin = null;
+  arena.forgeCooldown = forgeIntervalAtLevel(arena.forgeLevel);
   // Forge upgrade timer em andamento (se houver)
   arena.forgeUpgradeStartedAt = null;
   arena.forgeUpgradeTargetLevel = null;
@@ -5521,10 +5525,16 @@ function updateArena(){
   bumpArenaPower();
   // (idle income só acumula OFFLINE — via lastSeen timestamp. Não tem tick
   //  passivo enquanto joga; recompensa é coletada pelo botão ZZZ)
-  // auto-forge: desabilitado temporariamente (bug nas waves seguintes)
-  // if(arena.autoForge && arena.lettuce >= FORGE_COST){
-  //   autoForgeStep();
-  // }
+  // auto-forge MVP: cooldown decrementa a cada frame; quando 0, dispara
+  // um batch (escala com forge level) e reseta o cooldown.
+  if(arena.autoForge && arena.forgeLevel >= AUTO_UNLOCK_LEVEL && arena.lettuce >= FORGE_BASE_COST){
+    if(arena.forgeCooldown == null) arena.forgeCooldown = forgeIntervalAtLevel(arena.forgeLevel);
+    arena.forgeCooldown--;
+    if(arena.forgeCooldown <= 0){
+      autoForgeStep();
+      arena.forgeCooldown = forgeIntervalAtLevel(arena.forgeLevel);
+    }
+  }
 
   // update efeitos especiais
   updateArenaEffects();
@@ -5838,22 +5848,22 @@ function drawSlashVFXs(){
     const fade=1-(1-fadeT)**4;
     const alpha=ramp*(1-fade);
     if(alpha<=0.01) continue;
-    const peakW=vfx.isCrit?16:11;
+    const peakW=vfx.isCrit?10:7;
     const r=vfx.range*0.82;
     const sA=vfx.centerAngle-vfx.arc*0.5;
     const eA=vfx.centerAngle+vfx.arc*0.5;
     // outer glow — amber, wide
     ctx.beginPath(); ctx.arc(vfx.cx,vfx.cy,r,sA,eA);
     ctx.strokeStyle=`hsla(28,90%,58%,${(alpha*0.40).toFixed(3)})`;
-    ctx.lineWidth=peakW*3.5*alpha; ctx.stroke();
+    ctx.lineWidth=peakW*2.8*alpha; ctx.stroke();
     // mid — golden
     ctx.beginPath(); ctx.arc(vfx.cx,vfx.cy,r,sA,eA);
     ctx.strokeStyle=`hsla(44,95%,72%,${(alpha*0.78).toFixed(3)})`;
-    ctx.lineWidth=peakW*1.55*alpha; ctx.stroke();
+    ctx.lineWidth=peakW*1.3*alpha; ctx.stroke();
     // core — warm white
     ctx.beginPath(); ctx.arc(vfx.cx,vfx.cy,r,sA,eA);
     ctx.strokeStyle=`hsla(50,80%,96%,${alpha.toFixed(3)})`;
-    ctx.lineWidth=peakW*0.50*alpha; ctx.stroke();
+    ctx.lineWidth=peakW*0.42*alpha; ctx.stroke();
     // secondary motes
     for(const m of vfx.motes){
       const mt=1-m.life/vfx.lifeFrames;
@@ -7118,6 +7128,45 @@ function forgeIntervalAtLevel(lvl){
   return Math.max(180, Math.round(900 - (lvl-1) * 30));
 }
 
+// ============== AUTO-FORGE (MVP) ==============
+// Unlock baseado em progressão + batch escalonado por forge level.
+// Inspirado no Magic Lamp do Legend of Mushroom: cada upgrade da forja
+// aumenta quantos items são forjados por ciclo. Items abaixo do threshold
+// de raridade (smart default = era atual menos 1) viram carrots automático.
+const AUTO_UNLOCK_LEVEL = 3;
+
+function autoForgeBatchSize(lvl){
+  if(lvl < AUTO_UNLOCK_LEVEL) return 0;
+  if(lvl < 5)  return 1;
+  if(lvl < 8)  return 2;
+  if(lvl < 12) return 3;
+  if(lvl < 16) return 4;
+  if(lvl < 20) return 6;
+  if(lvl < 25) return 8;
+  if(lvl < 30) return 12;
+  if(lvl < 35) return 16;
+  return 20;
+}
+
+// Carrots ganhos ao vender um item via auto-forge. Cresce ~quadraticamente
+// com a era (primitive=1, divine=42) — segue padrão do LoM.
+function autoForgeSellValue(item){
+  const eraIdx = (item && item.eraIdx) ? item.eraIdx : 0;
+  return Math.max(1, Math.round(1 + eraIdx*eraIdx*0.5));
+}
+
+// Smart default: mantém items na era do MELHOR item equipado menos 1.
+// Evita vender peças que ainda podem ser sidegrade pra slots fracos.
+function autoForgeSmartThreshold(){
+  let bestEraIdx = 0;
+  for(const slot of ARENA_SLOTS){
+    const it = arena.items[slot];
+    const idx = (it && it.eraIdx) ? it.eraIdx : 0;
+    if(idx > bestEraIdx) bestEraIdx = idx;
+  }
+  return Math.max(0, bestEraIdx - 1);
+}
+
 // === MULTIPLICADORES GLOBAIS DE BALANCEAMENTO ===
 // Ajuste estes dois valores pra calibrar TODA a curva da forja em um lugar.
 // Valores < 1 deixam o jogo mais barato/rápido; valores > 1 mais caro/lento.
@@ -7362,15 +7411,52 @@ function upgradeForgeLevel(){
   refreshForgeLevelPopup();
 }
 
+// Auto-forge MVP: roda N items por ciclo (batch escala com forge level),
+// auto-equipa upgrades, vende o resto pra carrots.
 function autoForgeStep(){
-  if(arena.lettuce < FORGE_COST) return; // não auto-forja sem cenoura
-  arena.lettuce -= FORGE_COST;
-  const newItem = rollItem();
-  const equipped = arenaEquipItem(newItem);
-  if(equipped){
-    spawnArenaParticle(arena.bx, arena.by, RARITY[newItem.rarity].color, 12);
-  } else {
-    spawnArenaParticle(arena.bx, arena.by, '#5a4499', 4);
+  if(!arena.autoForge) return;
+  if(arena.forgeLevel < AUTO_UNLOCK_LEVEL) return;
+  const batch = autoForgeBatchSize(arena.forgeLevel);
+  if(batch <= 0) return;
+  // não dispara se não tem alface pra ao menos 1 roll
+  if(arena.lettuce < FORGE_BASE_COST) return;
+  // só usa o que tem disponível (cap pelo lettuce)
+  const rolls = Math.min(batch, arena.lettuce);
+  arena.lettuce -= rolls * FORGE_BASE_COST;
+
+  const rarityMin = (arena.autoForgeRarityMin != null && arena.autoForgeRarityMin >= 0)
+    ? arena.autoForgeRarityMin
+    : autoForgeSmartThreshold();
+
+  let equippedCount = 0;
+  let soldCount = 0;
+  let carrotsGained = 0;
+  let bestEquippedEra = -1;
+  for(let i=0;i<rolls;i++){
+    const item = rollItem();
+    const itemEraIdx = (item && item.eraIdx) ? item.eraIdx : 0;
+    if(itemEraIdx < rarityMin){
+      carrotsGained += autoForgeSellValue(item);
+      soldCount++;
+    } else {
+      const equipped = arenaEquipItem(item);
+      if(equipped){
+        equippedCount++;
+        if(itemEraIdx > bestEquippedEra) bestEquippedEra = itemEraIdx;
+      } else {
+        carrotsGained += autoForgeSellValue(item);
+        soldCount++;
+      }
+    }
+  }
+  if(carrotsGained > 0) arena.carrots += carrotsGained;
+
+  // feedback visual proporcional
+  if(equippedCount > 0){
+    const eraColor = bestEquippedEra >= 0 ? ERAS[bestEquippedEra].color : '#4cf08e';
+    spawnArenaParticle(arena.bx, arena.by, eraColor, Math.min(20, 4 + 2*equippedCount));
+  } else if(soldCount > 0){
+    spawnArenaParticle(arena.bx, arena.by, '#ff9b3a', Math.min(10, 2 + soldCount));
   }
 }
 
@@ -7394,8 +7480,16 @@ setInterval(()=>{
   }
 }, 1000);
 document.getElementById('arenaForgeAutoBtn').addEventListener('click', ()=>{
+  // gate de unlock — botão `disabled` já bloqueia mouse, mas defensive
+  if(arena.forgeLevel < AUTO_UNLOCK_LEVEL) return;
   arena.autoForge = !arena.autoForge;
   document.getElementById('arenaForgeAutoBtn').classList.toggle('active', arena.autoForge);
+  // Ao ligar: reseta cooldown pra evitar primeiro batch instantâneo se já
+  //   estava com cooldown zerado de uma sessão anterior. Primeiro ciclo
+  //   sempre respeita o intervalo do nível atual.
+  if(arena.autoForge){
+    arena.forgeCooldown = forgeIntervalAtLevel(arena.forgeLevel);
+  }
 });
 
 function eraOfItem(item){
@@ -7586,6 +7680,22 @@ function renderForgeDice(){
   const showSideBtns = forgeRoll.phase !== 'after-roll';
   if(lvBtn)   lvBtn.style.display   = showSideBtns ? '' : 'none';
   if(autoBtn) autoBtn.style.display = showSideBtns ? '' : 'none';
+  // AUTO unlock gating: bloqueia o botão enquanto o forge level não atinge
+  // AUTO_UNLOCK_LEVEL. Visual = disabled + tooltip explicativo.
+  if(autoBtn){
+    const unlocked = arena.forgeLevel >= AUTO_UNLOCK_LEVEL;
+    if(autoBtn.disabled !== !unlocked) autoBtn.disabled = !unlocked;
+    const wantTitle = unlocked
+      ? `Auto-forge (${autoForgeBatchSize(arena.forgeLevel)}× por ciclo)`
+      : `🔒 Desbloqueia no forge Lv ${AUTO_UNLOCK_LEVEL}`;
+    if(autoBtn.title !== wantTitle) autoBtn.title = wantTitle;
+    // se acabou de bloquear (rollback de level), desliga auto pra não ficar travado
+    if(!unlocked && arena.autoForge){
+      arena.autoForge = false;
+      autoBtn.classList.remove('active');
+    }
+    autoBtn.classList.toggle('locked', !unlocked);
+  }
   // CRÍTICO: renderForgeDice() roda a cada frame (60fps) — atribuir innerHTML
   // toda vez DESTRÓI e recria os filhos do botão. Se o usuário aperta justamente
   // num desses microssegundos, o pointerdown target some do DOM e o click
