@@ -1,0 +1,526 @@
+{
+  "character": "bunny",
+  "state": "melee",
+  "frames": 20,
+  "fps": 30,
+  "frame_width": 256,
+  "frame_height": 256,
+  "cols": 6,
+  "rows": 4,
+  "sheet_width": 1536,
+  "sheet_height": 1024,
+  "loop": false,
+  "method": "procedural-v1-bunny+weapon",
+  "weapon_baked_in": false,
+  "weapon": null,
+  "hand_anchor_norm_in_bunny_bbox": [
+    0.85,
+    0.62
+  ],
+  "track": [
+    {
+      "frame": 0,
+      "bunny": {
+        "dx": -0.0,
+        "dy": -0.0,
+        "rot_deg": -0.0,
+        "sx": 1.0,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        164.8,
+        171.6
+      ],
+      "weapon": {
+        "offset_x": -0.0,
+        "offset_y": -0.0,
+        "rot_local_deg": 8.0,
+        "rot_world_deg": 8.0
+      }
+    },
+    {
+      "frame": 1,
+      "bunny": {
+        "dx": -1.28,
+        "dy": -0.96,
+        "rot_deg": -3.84,
+        "sx": 1.0,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        165.2,
+        171.3
+      ],
+      "weapon": {
+        "offset_x": -1.28,
+        "offset_y": -1.92,
+        "rot_local_deg": -29.77,
+        "rot_world_deg": -33.61
+      }
+    },
+    {
+      "frame": 2,
+      "bunny": {
+        "dx": -2.31,
+        "dy": -1.74,
+        "rot_deg": -6.94,
+        "sx": 1.0,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        165.4,
+        171.2
+      ],
+      "weapon": {
+        "offset_x": -2.31,
+        "offset_y": -3.47,
+        "rot_local_deg": -60.28,
+        "rot_world_deg": -67.22
+      }
+    },
+    {
+      "frame": 3,
+      "bunny": {
+        "dx": -3.1,
+        "dy": -2.33,
+        "rot_deg": -9.31,
+        "sx": 1.0,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        165.5,
+        171.2
+      ],
+      "weapon": {
+        "offset_x": -3.1,
+        "offset_y": -4.65,
+        "rot_local_deg": -83.52,
+        "rot_world_deg": -92.83
+      }
+    },
+    {
+      "frame": 4,
+      "bunny": {
+        "dx": -3.64,
+        "dy": -2.73,
+        "rot_deg": -10.93,
+        "sx": 1.0,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        165.5,
+        171.2
+      ],
+      "weapon": {
+        "offset_x": -3.64,
+        "offset_y": -5.47,
+        "rot_local_deg": -99.5,
+        "rot_world_deg": -110.44
+      }
+    },
+    {
+      "frame": 5,
+      "bunny": {
+        "dx": -3.94,
+        "dy": -2.95,
+        "rot_deg": -11.82,
+        "sx": 1.0,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        165.5,
+        171.2
+      ],
+      "weapon": {
+        "offset_x": -3.94,
+        "offset_y": -5.91,
+        "rot_local_deg": -108.22,
+        "rot_world_deg": -120.04
+      }
+    },
+    {
+      "frame": 6,
+      "bunny": {
+        "dx": -3.94,
+        "dy": -2.87,
+        "rot_deg": -11.88,
+        "sx": 1.003,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        165.6,
+        171.8
+      ],
+      "weapon": {
+        "offset_x": -3.93,
+        "offset_y": -5.49,
+        "rot_local_deg": -109.2,
+        "rot_world_deg": -121.08
+      }
+    },
+    {
+      "frame": 7,
+      "bunny": {
+        "dx": -2.95,
+        "dy": -2.45,
+        "rot_deg": -9.75,
+        "sx": 1.014,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        166.4,
+        172.2
+      ],
+      "weapon": {
+        "offset_x": -2.65,
+        "offset_y": -3.81,
+        "rot_local_deg": -95.02,
+        "rot_world_deg": -104.77
+      }
+    },
+    {
+      "frame": 8,
+      "bunny": {
+        "dx": -0.72,
+        "dy": -2.03,
+        "rot_deg": -4.97,
+        "sx": 1.024,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        168.1,
+        170.8
+      ],
+      "weapon": {
+        "offset_x": 0.22,
+        "offset_y": -2.13,
+        "rot_local_deg": -63.11,
+        "rot_world_deg": -68.07
+      }
+    },
+    {
+      "frame": 9,
+      "bunny": {
+        "dx": 2.76,
+        "dy": -1.61,
+        "rot_deg": 2.48,
+        "sx": 1.035,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        170.2,
+        168.0
+      ],
+      "weapon": {
+        "offset_x": 4.69,
+        "offset_y": -0.44,
+        "rot_local_deg": -13.47,
+        "rot_world_deg": -10.99
+      }
+    },
+    {
+      "frame": 10,
+      "bunny": {
+        "dx": 7.47,
+        "dy": -1.19,
+        "rot_deg": 12.59,
+        "sx": 1.045,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        172.1,
+        164.8
+      ],
+      "weapon": {
+        "offset_x": 10.75,
+        "offset_y": 1.24,
+        "rot_local_deg": 53.9,
+        "rot_world_deg": 66.49
+      }
+    },
+    {
+      "frame": 11,
+      "bunny": {
+        "dx": 9.42,
+        "dy": -1,
+        "rot_deg": 17.13,
+        "sx": 1.043,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        172.4,
+        163.8
+      ],
+      "weapon": {
+        "offset_x": 13.42,
+        "offset_y": 2,
+        "rot_local_deg": 88.55,
+        "rot_world_deg": 105.68
+      }
+    },
+    {
+      "frame": 12,
+      "bunny": {
+        "dx": 8.37,
+        "dy": -1,
+        "rot_deg": 15.55,
+        "sx": 1.03,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        171.8,
+        164.4
+      ],
+      "weapon": {
+        "offset_x": 12.37,
+        "offset_y": 2,
+        "rot_local_deg": 85.92,
+        "rot_world_deg": 101.47
+      }
+    },
+    {
+      "frame": 13,
+      "bunny": {
+        "dx": 7.32,
+        "dy": -1,
+        "rot_deg": 13.97,
+        "sx": 1.016,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        171.2,
+        165.1
+      ],
+      "weapon": {
+        "offset_x": 11.32,
+        "offset_y": 2,
+        "rot_local_deg": 83.29,
+        "rot_world_deg": 97.26
+      }
+    },
+    {
+      "frame": 14,
+      "bunny": {
+        "dx": 6.26,
+        "dy": -1,
+        "rot_deg": 12.39,
+        "sx": 1.003,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        170.5,
+        165.8
+      ],
+      "weapon": {
+        "offset_x": 10.26,
+        "offset_y": 2,
+        "rot_local_deg": 80.66,
+        "rot_world_deg": 93.05
+      }
+    },
+    {
+      "frame": 15,
+      "bunny": {
+        "dx": 5.6,
+        "dy": 0,
+        "rot_deg": 11.2,
+        "sx": 1.0,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        170.0,
+        167.0
+      ],
+      "weapon": {
+        "offset_x": 9.33,
+        "offset_y": 1.68,
+        "rot_local_deg": 75.18,
+        "rot_world_deg": 86.38
+      }
+    },
+    {
+      "frame": 16,
+      "bunny": {
+        "dx": 4.16,
+        "dy": 0,
+        "rot_deg": 8.31,
+        "sx": 1.0,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        168.8,
+        168.0
+      ],
+      "weapon": {
+        "offset_x": 6.93,
+        "offset_y": 1.26,
+        "rot_local_deg": 57.88,
+        "rot_world_deg": 66.2
+      }
+    },
+    {
+      "frame": 17,
+      "bunny": {
+        "dx": 2.3,
+        "dy": 0,
+        "rot_deg": 4.59,
+        "sx": 1.0,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        167.1,
+        169.6
+      ],
+      "weapon": {
+        "offset_x": 3.83,
+        "offset_y": 0.84,
+        "rot_local_deg": 35.54,
+        "rot_world_deg": 40.14
+      }
+    },
+    {
+      "frame": 18,
+      "bunny": {
+        "dx": 0.69,
+        "dy": 0,
+        "rot_deg": 1.37,
+        "sx": 1.0,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        165.5,
+        171.2
+      ],
+      "weapon": {
+        "offset_x": 1.14,
+        "offset_y": 0.42,
+        "rot_local_deg": 16.23,
+        "rot_world_deg": 17.6
+      }
+    },
+    {
+      "frame": 19,
+      "bunny": {
+        "dx": 0.0,
+        "dy": 0,
+        "rot_deg": 0.0,
+        "sx": 1.0,
+        "sy": 1.0,
+        "alpha": 1.0,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        164.8,
+        171.6
+      ],
+      "weapon": {
+        "offset_x": 0.0,
+        "offset_y": 0.0,
+        "rot_local_deg": 8.0,
+        "rot_world_deg": 8.0
+      }
+    }
+  ],
+  "files": {
+    "spritesheet": "bunny_melee.png",
+    "webp": "bunny_melee.webp"
+  }
+}

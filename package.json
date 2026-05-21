@@ -1,7 +1,7 @@
 {
-  "name": "bunny-chaos-37",
+  "name": "bunny-chaos",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "module",
   "capacitor": {
     "minNativeVersion": "1.0.0"

@@ -1,0 +1,60 @@
+{
+  "character": "beaver_01_bandit",
+  "states": {
+    "walk": {
+      "character": "beaver_01_bandit",
+      "state": "walk",
+      "frames": 30,
+      "fps": 30,
+      "frame_width": 256,
+      "frame_height": 256,
+      "cols": 6,
+      "rows": 5,
+      "sheet_width": 1536,
+      "sheet_height": 1280,
+      "loop": true,
+      "method": "procedural-v1",
+      "files": {
+        "spritesheet": "beaver_01_bandit_walk.png",
+        "webp": "beaver_01_bandit_walk.webp"
+      }
+    },
+    "attack": {
+      "character": "beaver_01_bandit",
+      "state": "attack",
+      "frames": 20,
+      "fps": 30,
+      "frame_width": 256,
+      "frame_height": 256,
+      "cols": 6,
+      "rows": 4,
+      "sheet_width": 1536,
+      "sheet_height": 1024,
+      "loop": false,
+      "method": "procedural-v1",
+      "files": {
+        "spritesheet": "beaver_01_bandit_attack.png",
+        "webp": "beaver_01_bandit_attack.webp"
+      }
+    },
+    "death": {
+      "character": "beaver_01_bandit",
+      "state": "death",
+      "frames": 15,
+      "fps": 30,
+      "frame_width": 256,
+      "frame_height": 256,
+      "cols": 6,
+      "rows": 3,
+      "sheet_width": 1536,
+      "sheet_height": 768,
+      "loop": false,
+      "method": "procedural-v1",
+      "files": {
+        "spritesheet": "beaver_01_bandit_death.png",
+        "webp": "beaver_01_bandit_death.webp"
+      },
+      "ends_at_full_transparency": true
+    }
+  }
+}
