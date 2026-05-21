@@ -30,6 +30,7 @@
         even if a preload hangs forever.
      REMOVER esse bloco antes de shippar pra produção. -->
 <style>
+  /* Visible by DEFAULT — proves HTML+CSS rendered. JS appends error text later. */
   #_critErrorBox {
     position: fixed; top: 0; left: 0; right: 0;
     max-height: 60vh; overflow: auto;
@@ -38,37 +39,38 @@
     font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace;
     z-index: 2147483647; /* on top of EVERYTHING incl. eruda + splash */
     white-space: pre-wrap; word-break: break-word;
-    display: none;
+    display: block; /* shown by default — JS can hide once boot is healthy */
     box-shadow: 0 4px 16px rgba(0,0,0,0.5);
   }
-  #_critErrorBox.show { display: block; }
+  #_critErrorBox.hide { display: none; }
   #_critErrorBox button {
     position: absolute; top: 6px; right: 8px;
     background: #fff; color: #c00; border: 0; border-radius: 4px;
     padding: 4px 10px; font-weight: 700; cursor: pointer;
   }
 </style>
-<div id="_critErrorBox"><button id="_critErrorClear">CLEAR</button><span id="_critErrorMsg"></span></div>
 <script>
   // ===== 1) Visible error overlay (runs FIRST, before anything else) =====
+  // Uses ES5 only — no arrows, no let/const, no template strings. Older
+  // Android WebViews will SyntaxError on ES2015+ and skip the whole script.
   (function(){
-    var box = document.getElementById('_critErrorBox');
-    var msg = document.getElementById('_critErrorMsg');
-    var btn = document.getElementById('_critErrorClear');
     var lines = [];
+    function getBox(){ return document.getElementById('_critErrorBox'); }
+    function getMsg(){ return document.getElementById('_critErrorMsg'); }
+    function pad(n){ return n < 10 ? '0' + n : '' + n; }
     function add(prefix, text) {
-      var stamp = new Date().toISOString().slice(11,19);
+      var d = new Date();
+      var stamp = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
       lines.unshift('[' + stamp + '] ' + prefix + ': ' + text);
       if (lines.length > 40) lines.length = 40;
+      var msg = getMsg();
+      var box = getBox();
       if (msg) msg.textContent = lines.join('\n\n');
-      if (box) box.classList.add('show');
+      if (box) box.className = box.className.replace(' hide', '');
     }
     window._critErrorAdd = add;
-    if (btn) btn.addEventListener('click', function(){
-      lines = []; if (msg) msg.textContent = ''; if (box) box.classList.remove('show');
-    });
     window.addEventListener('error', function(e){
-      var s = (e && e.message) || 'unknown';
+      var s = (e && e.message) || 'unknown error';
       if (e && e.filename) s += '\n  at ' + e.filename + ':' + e.lineno + ':' + e.colno;
       if (e && e.error && e.error.stack) s += '\n' + e.error.stack;
       add('ERROR', s);
@@ -78,21 +80,29 @@
       var s = (r && r.stack) || (r && r.message) || String(r);
       add('UNHANDLED PROMISE', s);
     });
-    // Patch console.error to surface
     var origErr = console.error;
     console.error = function(){
       try {
         var args = Array.prototype.slice.call(arguments);
-        var txt = args.map(function(a){
-          if (a && a.stack) return a.stack;
-          if (typeof a === 'object') { try { return JSON.stringify(a); } catch(_) { return String(a); } }
-          return String(a);
-        }).join(' ');
-        add('console.error', txt);
+        var parts = [];
+        for (var i = 0; i < args.length; i++) {
+          var a = args[i];
+          if (a && a.stack) parts.push(a.stack);
+          else if (typeof a === 'object') {
+            try { parts.push(JSON.stringify(a)); } catch(_) { parts.push(String(a)); }
+          } else parts.push(String(a));
+        }
+        add('console.error', parts.join(' '));
       } catch(_) {}
       return origErr.apply(console, arguments);
     };
-    add('BOOT', 'Diagnostic overlay live. Build: ' + new Date().toISOString());
+    // Wait for body to exist, then ensure the overlay is mounted and seeded
+    function seed(){
+      add('BOOT', 'JS running. UA=' + navigator.userAgent);
+      add('SCREEN', window.innerWidth + 'x' + window.innerHeight + ' dpr=' + (window.devicePixelRatio || 1));
+    }
+    if (document.body) seed();
+    else document.addEventListener('DOMContentLoaded', seed);
   })();
 </script>
 <script src="assets/vendor/eruda.min.js"></script>
@@ -1877,6 +1887,16 @@
 </style>
 </head>
 <body>
+<!-- DIAGNOSTIC overlay — visible by DEFAULT. If you see this red box but no
+     errors below the BOOT line, HTML+CSS are rendering correctly. If you see
+     this box but no BOOT/SCREEN lines, the first <script> failed to parse
+     (likely a SyntaxError from ES2015+ on an old WebView). -->
+<div id="_critErrorBox">
+  <button id="_critErrorClear" onclick="document.getElementById('_critErrorBox').className='hide';">HIDE</button>
+  <strong>DIAGNOSTIC ACTIVE</strong><br>
+  HTML+CSS rendered OK. Waiting for JS...
+  <pre id="_critErrorMsg" style="margin-top:8px;font-size:11px;"></pre>
+</div>
 <!-- Splash screen — cobre tudo no boot enquanto pré-carrega assets críticos.
      Hide via JS (runSplashScreen) com fade out após min 3s + assets ready. -->
 <div id="splashScreen">
