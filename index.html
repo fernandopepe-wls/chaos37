@@ -22,153 +22,17 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
 <title>Bunny Chaos! Loot Arena — MVP</title>
-<!-- ============ DEBUG: Diagnostic overlay (TEMPORARY) ============
-     1) Visible red error box (above everything, inc. splash) — captures any
-        runtime error even if Eruda fails to init. Toggleable via tap.
-     2) Eruda DevTools bundled locally (no CDN dep, works offline).
-     3) Splash watchdog: force-hides splash after 8s so Eruda is reachable
-        even if a preload hangs forever.
-     REMOVER esse bloco antes de shippar pra produção. -->
-<style>
-  /* Visible by DEFAULT — proves HTML+CSS rendered. JS appends error text later. */
-  #_critErrorBox {
-    position: fixed; top: 0; left: 0; right: 0;
-    max-height: 60vh; overflow: auto;
-    background: rgba(220, 0, 0, 0.95); color: #fff;
-    padding: 12px 16px; padding-top: calc(env(safe-area-inset-top, 0) + 12px);
-    font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace;
-    z-index: 2147483647; /* on top of EVERYTHING incl. eruda + splash */
-    white-space: pre-wrap; word-break: break-word;
-    display: block; /* shown by default — JS can hide once boot is healthy */
-    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-  }
-  #_critErrorBox.hide { display: none; }
-  #_critErrorBox button {
-    position: absolute; top: 6px; right: 8px;
-    background: #fff; color: #c00; border: 0; border-radius: 4px;
-    padding: 4px 10px; font-weight: 700; cursor: pointer;
-  }
-</style>
 <script>
-  // ===== 1) Visible error overlay (runs FIRST, before anything else) =====
-  // Uses ES5 only — no arrows, no let/const, no template strings. Older
-  // Android WebViews will SyntaxError on ES2015+ and skip the whole script.
-  (function(){
-    var lines = [];
-    function getBox(){ return document.getElementById('_critErrorBox'); }
-    function getMsg(){ return document.getElementById('_critErrorMsg'); }
-    function pad(n){ return n < 10 ? '0' + n : '' + n; }
-    function add(prefix, text) {
-      var d = new Date();
-      var stamp = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
-      lines.unshift('[' + stamp + '] ' + prefix + ': ' + text);
-      if (lines.length > 40) lines.length = 40;
-      var msg = getMsg();
-      var box = getBox();
-      if (msg) msg.textContent = lines.join('\n\n');
-      if (box) box.className = box.className.replace(' hide', '');
-    }
-    window._critErrorAdd = add;
-    window.addEventListener('error', function(e){
-      var s = (e && e.message) || 'unknown error';
-      if (e && e.filename) s += '\n  at ' + e.filename + ':' + e.lineno + ':' + e.colno;
-      if (e && e.error && e.error.stack) s += '\n' + e.error.stack;
-      add('ERROR', s);
-    });
-    window.addEventListener('unhandledrejection', function(e){
-      var r = e && e.reason;
-      var s = (r && r.stack) || (r && r.message) || String(r);
-      add('UNHANDLED PROMISE', s);
-    });
-    var origErr = console.error;
-    console.error = function(){
-      try {
-        var args = Array.prototype.slice.call(arguments);
-        var parts = [];
-        for (var i = 0; i < args.length; i++) {
-          var a = args[i];
-          if (a && a.stack) parts.push(a.stack);
-          else if (typeof a === 'object') {
-            try { parts.push(JSON.stringify(a)); } catch(_) { parts.push(String(a)); }
-          } else parts.push(String(a));
-        }
-        add('console.error', parts.join(' '));
-      } catch(_) {}
-      return origErr.apply(console, arguments);
-    };
-    // Wait for body to exist, then ensure the overlay is mounted and seeded
-    function seed(){
-      // __BUILD_INFO__ is replaced by Vite at build time. The double-bracket
-      // fallback shape keeps raw `index.html` (no Vite) from throwing.
-      var info = (typeof __BUILD_INFO__ !== 'undefined') ? __BUILD_INFO__ : { versionName: 'pre-vite', versionCode: '?', shortSha: '?', branch: '?' };
-      add('BUILD', info.versionName + ' code=' + info.versionCode + ' sha=' + info.shortSha + ' branch=' + info.branch);
-      add('SCREEN', window.innerWidth + 'x' + window.innerHeight + ' dpr=' + (window.devicePixelRatio || 1));
-      add('BOOT', 'JS running. UA=' + navigator.userAgent);
-      // Force-hide the Capacitor NATIVE splash. The plugin is configured
-      // with launchAutoHide:true, but this is a belt-and-suspenders call
-      // so if the timing is off (or the user keeps the false setting) the
-      // WebView still becomes visible. Wrapped in try because window.Capacitor
-      // only exists inside the native app — desktop dev throws here.
-      try {
-        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen) {
-          window.Capacitor.Plugins.SplashScreen.hide();
-          add('CAPACITOR', 'native splash hide() called');
-        }
-      } catch (e) {
-        add('CAPACITOR', 'splash hide failed: ' + (e && e.message));
-      }
-    }
-    if (document.body) seed();
-    else document.addEventListener('DOMContentLoaded', seed);
-  })();
-</script>
-<script src="assets/vendor/eruda.min.js"></script>
-<script>
-  // ===== 2) Eruda local =====
+  // Hide Capacitor's native splash screen as soon as JS runs. The plugin is
+  // configured with launchAutoHide:true so it would self-dismiss anyway,
+  // but this call removes the small visible delay between WebView paint
+  // and the splash's own timer firing. window.Capacitor only exists inside
+  // the native app — desktop dev silently skips.
   try {
-    if (window.eruda) {
-      eruda.init();
-      // Auto-open devtools so user doesn't need to find the icon
-      try { eruda.show(); eruda.show('console'); } catch(_) {}
-      console.log('[DEBUG] Eruda initialized locally');
-    } else {
-      window._critErrorAdd('ERUDA', 'Local bundle not found at assets/vendor/eruda.min.js');
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen) {
+      window.Capacitor.Plugins.SplashScreen.hide();
     }
-  } catch (e) {
-    window._critErrorAdd('ERUDA INIT', (e && e.stack) || String(e));
-  }
-
-  // ===== 3) Image.onerror patch =====
-  try {
-    const _origImage = window.Image;
-    window.Image = function(...args) {
-      const img = new _origImage(...args);
-      img.addEventListener('error', () => {
-        console.error('[IMG FAIL]', img.src, '— natural:', img.naturalWidth + 'x' + img.naturalHeight);
-      });
-      img.addEventListener('load', () => {
-        if (img.naturalWidth === 0) console.warn('[IMG EMPTY]', img.src);
-      });
-      return img;
-    };
-    window.Image.prototype = _origImage.prototype;
-  } catch(e) {
-    window._critErrorAdd('IMG PATCH', String(e));
-  }
-
-  // ===== 4) Splash watchdog — force hide after 8s no matter what =====
-  setTimeout(function(){
-    try {
-      var sp = document.getElementById('splashScreen');
-      if (sp && !sp.classList.contains('gone')) {
-        window._critErrorAdd('WATCHDOG', 'Splash still visible after 8s — forcing hide. Some preload hung.');
-        sp.classList.add('hide');
-        setTimeout(function(){ sp.classList.add('gone'); }, 700);
-      }
-    } catch(e) {}
-  }, 8000);
-
-  console.log('[DEBUG] Error capture + watchdog installed. Build:', new Date().toISOString());
+  } catch (e) { /* no-op */ }
 </script>
 <style>
   :root{
@@ -1904,16 +1768,6 @@
 </style>
 </head>
 <body>
-<!-- DIAGNOSTIC overlay — visible by DEFAULT. If you see this red box but no
-     errors below the BOOT line, HTML+CSS are rendering correctly. If you see
-     this box but no BOOT/SCREEN lines, the first <script> failed to parse
-     (likely a SyntaxError from ES2015+ on an old WebView). -->
-<div id="_critErrorBox">
-  <button id="_critErrorClear" onclick="document.getElementById('_critErrorBox').className='hide';">HIDE</button>
-  <strong>DIAGNOSTIC ACTIVE</strong><br>
-  HTML+CSS rendered OK. Waiting for JS...
-  <pre id="_critErrorMsg" style="margin-top:8px;font-size:11px;"></pre>
-</div>
 <!-- Splash screen — cobre tudo no boot enquanto pré-carrega assets críticos.
      Hide via JS (runSplashScreen) com fade out após min 3s + assets ready. -->
 <div id="splashScreen">
