@@ -22,55 +22,126 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
 <title>Bunny Chaos! Loot Arena — MVP</title>
-<!-- ============ DEBUG: Eruda console overlay (TEMPORARY) ============
-     Adiciona DevTools no próprio iPhone. Toca o ícone do Eruda (canto da tela)
-     pra abrir. Aba "Console" mostra todos os errors/warnings, incluindo de
-     imagens que carregam silenciosamente errado.
+<!-- ============ DEBUG: Diagnostic overlay (TEMPORARY) ============
+     1) Visible red error box (above everything, inc. splash) — captures any
+        runtime error even if Eruda fails to init. Toggleable via tap.
+     2) Eruda DevTools bundled locally (no CDN dep, works offline).
+     3) Splash watchdog: force-hides splash after 8s so Eruda is reachable
+        even if a preload hangs forever.
      REMOVER esse bloco antes de shippar pra produção. -->
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<style>
+  #_critErrorBox {
+    position: fixed; top: 0; left: 0; right: 0;
+    max-height: 60vh; overflow: auto;
+    background: rgba(220, 0, 0, 0.95); color: #fff;
+    padding: 12px 16px; padding-top: calc(env(safe-area-inset-top, 0) + 12px);
+    font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace;
+    z-index: 2147483647; /* on top of EVERYTHING incl. eruda + splash */
+    white-space: pre-wrap; word-break: break-word;
+    display: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+  #_critErrorBox.show { display: block; }
+  #_critErrorBox button {
+    position: absolute; top: 6px; right: 8px;
+    background: #fff; color: #c00; border: 0; border-radius: 4px;
+    padding: 4px 10px; font-weight: 700; cursor: pointer;
+  }
+</style>
+<div id="_critErrorBox"><button id="_critErrorClear">CLEAR</button><span id="_critErrorMsg"></span></div>
 <script>
-  // Inicializa Eruda (overlay de devtools)
-  if (window.eruda) {
-    eruda.init();
-    console.log('[DEBUG] Eruda initialized — tap the icon to open devtools');
-  } else {
-    // Se CDN falhou (sem internet), mostra alert
-    document.addEventListener('DOMContentLoaded', () => {
-      const banner = document.createElement('div');
-      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:8px;z-index:99999;font:14px monospace;';
-      banner.textContent = '⚠️ Eruda CDN failed — devtools indisponível. Verifique conexão.';
-      document.body.appendChild(banner);
+  // ===== 1) Visible error overlay (runs FIRST, before anything else) =====
+  (function(){
+    var box = document.getElementById('_critErrorBox');
+    var msg = document.getElementById('_critErrorMsg');
+    var btn = document.getElementById('_critErrorClear');
+    var lines = [];
+    function add(prefix, text) {
+      var stamp = new Date().toISOString().slice(11,19);
+      lines.unshift('[' + stamp + '] ' + prefix + ': ' + text);
+      if (lines.length > 40) lines.length = 40;
+      if (msg) msg.textContent = lines.join('\n\n');
+      if (box) box.classList.add('show');
+    }
+    window._critErrorAdd = add;
+    if (btn) btn.addEventListener('click', function(){
+      lines = []; if (msg) msg.textContent = ''; if (box) box.classList.remove('show');
     });
+    window.addEventListener('error', function(e){
+      var s = (e && e.message) || 'unknown';
+      if (e && e.filename) s += '\n  at ' + e.filename + ':' + e.lineno + ':' + e.colno;
+      if (e && e.error && e.error.stack) s += '\n' + e.error.stack;
+      add('ERROR', s);
+    });
+    window.addEventListener('unhandledrejection', function(e){
+      var r = e && e.reason;
+      var s = (r && r.stack) || (r && r.message) || String(r);
+      add('UNHANDLED PROMISE', s);
+    });
+    // Patch console.error to surface
+    var origErr = console.error;
+    console.error = function(){
+      try {
+        var args = Array.prototype.slice.call(arguments);
+        var txt = args.map(function(a){
+          if (a && a.stack) return a.stack;
+          if (typeof a === 'object') { try { return JSON.stringify(a); } catch(_) { return String(a); } }
+          return String(a);
+        }).join(' ');
+        add('console.error', txt);
+      } catch(_) {}
+      return origErr.apply(console, arguments);
+    };
+    add('BOOT', 'Diagnostic overlay live. Build: ' + new Date().toISOString());
+  })();
+</script>
+<script src="assets/vendor/eruda.min.js"></script>
+<script>
+  // ===== 2) Eruda local =====
+  try {
+    if (window.eruda) {
+      eruda.init();
+      // Auto-open devtools so user doesn't need to find the icon
+      try { eruda.show(); eruda.show('console'); } catch(_) {}
+      console.log('[DEBUG] Eruda initialized locally');
+    } else {
+      window._critErrorAdd('ERUDA', 'Local bundle not found at assets/vendor/eruda.min.js');
+    }
+  } catch (e) {
+    window._critErrorAdd('ERUDA INIT', (e && e.stack) || String(e));
   }
 
-  // Captura erros globais que normalmente passariam batido
-  window.addEventListener('error', (e) => {
-    console.error('[GLOBAL ERROR]', e.message, 'at', e.filename + ':' + e.lineno, e.error);
-  });
-  window.addEventListener('unhandledrejection', (e) => {
-    console.error('[UNHANDLED PROMISE]', e.reason);
-  });
+  // ===== 3) Image.onerror patch =====
+  try {
+    const _origImage = window.Image;
+    window.Image = function(...args) {
+      const img = new _origImage(...args);
+      img.addEventListener('error', () => {
+        console.error('[IMG FAIL]', img.src, '— natural:', img.naturalWidth + 'x' + img.naturalHeight);
+      });
+      img.addEventListener('load', () => {
+        if (img.naturalWidth === 0) console.warn('[IMG EMPTY]', img.src);
+      });
+      return img;
+    };
+    window.Image.prototype = _origImage.prototype;
+  } catch(e) {
+    window._critErrorAdd('IMG PATCH', String(e));
+  }
 
-  // Patch global de Image.onerror — loga TODA falha de carregamento de imagem.
-  // O código original do jogo engole erros em img.onerror = () => {} sem logar.
-  // Aqui adicionamos um listener separado que SEMPRE roda antes do handler do jogo.
-  const _origImage = window.Image;
-  window.Image = function(...args) {
-    const img = new _origImage(...args);
-    img.addEventListener('error', (e) => {
-      console.error('[IMG FAIL]', img.src, '— natural size:', img.naturalWidth + 'x' + img.naturalHeight);
-    });
-    img.addEventListener('load', () => {
-      // Loga só uma vez por imagem pra não poluir o console com 50+ logs
-      if (img.naturalWidth === 0) {
-        console.warn('[IMG EMPTY]', img.src, '— loaded but 0×0 (decode failed?)');
+  // ===== 4) Splash watchdog — force hide after 8s no matter what =====
+  setTimeout(function(){
+    try {
+      var sp = document.getElementById('splashScreen');
+      if (sp && !sp.classList.contains('gone')) {
+        window._critErrorAdd('WATCHDOG', 'Splash still visible after 8s — forcing hide. Some preload hung.');
+        sp.classList.add('hide');
+        setTimeout(function(){ sp.classList.add('gone'); }, 700);
       }
-    });
-    return img;
-  };
-  window.Image.prototype = _origImage.prototype;
+    } catch(e) {}
+  }, 8000);
 
-  console.log('[DEBUG] Error capture installed. Build:', new Date().toISOString());
+  console.log('[DEBUG] Error capture + watchdog installed. Build:', new Date().toISOString());
 </script>
 <style>
   :root{
