@@ -6376,9 +6376,9 @@ function drawArenaHUD(){
   const bottomCapY = ARENA.BOT_Y + bottomTopOffset;
   const bottomCapH = H - bottomCapY - bottomBottomGap;
   const bottomRadius = LAYOUT.bottomCapRadius;
-  // 9-slice: moldura de madeira + flor coral nos 4 cantos preservada; arestas/centro escalam.
-  // Insets calculados sobre o source 512x512 → ~110px por borda cobre wood frame + flor.
-  if(!draw9Slice(UI_PANEL_CARD, bottomCapX, bottomCapY, bottomCapW, bottomCapH, { left:110, right:110, top:110, bottom:110 })){
+  // 9-slice: cream parchment + dashed gold border + floral corners preservados.
+  // Insets calculados sobre o source 512x512 → ~80px por borda cobre dark frame + corner.
+  if(!draw9Slice(UI_PANEL_CARD, bottomCapX, bottomCapY, bottomCapW, bottomCapH, { left:80, right:80, top:80, bottom:80 })){
     // Fallback enquanto a imagem carrega: card cream solido + borda manual
     ctx.save();
     if(ctx.roundRect){
