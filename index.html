@@ -7051,7 +7051,7 @@ function renderArena(){
       const t = dn.life / dn.maxLife;
       // fade-out: nos últimos 30% da vida, alpha desce de 1 → 0
       ctx.globalAlpha = t < 0.3 ? (t / 0.3) : 1;
-      const size = dn.isCrit ? 14 : 10;
+      const size = dn.isCrit ? 17 : 12;
       ctx.font = '800 ' + size + 'px Fredoka, Trebuchet MS, system-ui, sans-serif';
       ctx.lineWidth = dn.isCrit ? 3.5 : 2.5;
       ctx.strokeStyle = '#3a1d00';
