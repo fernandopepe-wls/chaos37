@@ -2086,6 +2086,23 @@
     display:block;
   }
 
+  /* Consent modal — LGPD/GDPR */
+  .consent-card{max-width:340px;margin:0 auto;}
+  .consent-body{
+    color:#3a230b;
+    font-size:13px;
+    line-height:1.45;
+    text-align:left;
+    margin:10px 6px 8px;
+    font-weight:500;
+  }
+  .consent-body.consent-sub{
+    font-size:11.5px;
+    color:#7a6650;
+    margin-bottom:14px;
+  }
+  .consent-body b{color:#5a4499;}
+
   /* Settings modal — sections, toggles, faders, lang buttons */
   .settings-card{max-width:340px;margin:0 auto;}
   .settings-section{
@@ -2969,6 +2986,28 @@
       <div id="arenaTabContent"></div>
     </div>
 
+    <!-- Consent modal (LGPD/GDPR) — aparece no primeiro launch, bloqueia
+         interação até player escolher. Choice persistida em localStorage
+         (bunnyChaos.analyticsConsent). Revogável via Settings → Privacidade. -->
+    <div class="layer" id="consentLayer">
+      <div class="forge-popup-card consent-card">
+        <div class="forge-popup-tag">🔒 Privacidade</div>
+        <h2 class="forge-level-title">Coleta de dados</h2>
+        <p class="consent-body">
+          Coletamos eventos de jogo (forjas, vitórias, configurações)
+          e identificadores anônimos do dispositivo pra melhorar a experiência
+          e medir desempenho. Nenhum dado pessoal identificável é compartilhado.
+        </p>
+        <p class="consent-body consent-sub">
+          Você pode alterar essa escolha a qualquer momento em <b>Configurações → Privacidade</b>.
+        </p>
+        <div class="forge-popup-actions">
+          <button class="forge-popup-btn red"   id="consentDeclineBtn">Recusar</button>
+          <button class="forge-popup-btn green" id="consentAcceptBtn">Aceitar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- settings popup (audio + idioma + vibração) -->
     <div class="layer" id="settingsLayer">
       <div class="forge-popup-card settings-card">
@@ -3020,6 +3059,20 @@
               <span class="settings-toggle-slider"></span>
             </label>
           </div>
+        </div>
+
+        <div class="settings-section">
+          <h3 class="settings-section-title">🔒 Privacidade</h3>
+          <div class="settings-row">
+            <span class="settings-lbl">Coleta de dados</span>
+            <label class="settings-toggle">
+              <input type="checkbox" id="settingsConsentToggle">
+              <span class="settings-toggle-slider"></span>
+            </label>
+          </div>
+          <p style="font-size:11px;color:#7a6650;margin-top:4px;line-height:1.3">
+            Eventos de jogo e identificadores anônimos pra melhorar a experiência.
+          </p>
         </div>
 
         <div class="forge-popup-actions">
@@ -9582,6 +9635,9 @@ const SETTINGS_DEFAULTS = {
   audioEnabled: { master:true, music:true, sfx:true },
   language: 'pt',                  // 'pt' | 'en' (apenas persistido, i18n pendente)
   vibrateEnabled: true,
+  // Consent LGPD/GDPR — 'granted' | 'denied' | null (= primeira execução, mostrar modal)
+  // Gateia window.Analytics.send: se denied/null, eventos não são enviados pro SDK.
+  analyticsConsent: null,
 };
 const SETTINGS = JSON.parse(JSON.stringify(SETTINGS_DEFAULTS));
 (function _loadSettings(){
@@ -9595,6 +9651,9 @@ const SETTINGS = JSON.parse(JSON.stringify(SETTINGS_DEFAULTS));
       }
       if(s.language === 'pt' || s.language === 'en') SETTINGS.language = s.language;
       if(typeof s.vibrateEnabled === 'boolean') SETTINGS.vibrateEnabled = s.vibrateEnabled;
+      if(s.analyticsConsent === 'granted' || s.analyticsConsent === 'denied'){
+        SETTINGS.analyticsConsent = s.analyticsConsent;
+      }
     }
   } catch(e){}
 })();
@@ -9651,6 +9710,9 @@ const Settings = (function(){
     // Vibração
     const vib = _el('settingsVibrateToggle');
     if(vib) vib.checked = !!SETTINGS.vibrateEnabled;
+    // Consent (LGPD) — reflete o estado atual cada vez que Settings abre
+    const consentCb = _el('settingsConsentToggle');
+    if(consentCb) consentCb.checked = (SETTINGS.analyticsConsent === 'granted');
   }
   function open(){ const l = _el('settingsLayer'); if(!l) return; _renderUI(); l.classList.add('show'); }
   function close(){ const l = _el('settingsLayer'); if(l) l.classList.remove('show'); }
@@ -9732,6 +9794,94 @@ if(document.readyState === 'loading'){
   window.addEventListener('DOMContentLoaded', Settings.init);
 } else {
   Settings.init();
+}
+
+// ============== CONSENT (LGPD/GDPR) + iOS ATT ==============
+// Mostra modal de consentimento no primeiro launch (quando analyticsConsent==null).
+// Gateia Analytics.send até player decidir. Choice persistida em SETTINGS.
+// Em iOS, "Aceitar" também triggera o ATT prompt do sistema (Singular IDFA).
+const Consent = (function(){
+  function _isFirstLaunch(){
+    return SETTINGS.analyticsConsent !== 'granted' && SETTINGS.analyticsConsent !== 'denied';
+  }
+  function _showModal(){
+    const layer = document.getElementById('consentLayer');
+    if(layer) layer.classList.add('show');
+  }
+  function _hideModal(){
+    const layer = document.getElementById('consentLayer');
+    if(layer) layer.classList.remove('show');
+  }
+  async function _triggerIOSATT(){
+    // Apple exige user interaction antes de ATT — chamamos no callback do "Aceitar".
+    // trackingTransparencyGetAdvertisementId() do plugin Wildlife dispara o prompt
+    // do sistema na primeira chamada. Sem isso, Singular timeout em 60s → no-IDFA.
+    try {
+      const p = window._WildlifePlatform;
+      if(!p) return;
+      // Só faz sentido em iOS (Android não tem ATT)
+      const cap = window.Capacitor;
+      if(cap && cap.getPlatform && cap.getPlatform() !== 'ios') return;
+      await p.trackingTransparencyGetAdvertisementId();
+    } catch(_){ /* swallow */ }
+  }
+  function accept(){
+    SETTINGS.analyticsConsent = 'granted';
+    _saveSettings();
+    _hideModal();
+    // Triggera ATT prompt no iOS após user interaction
+    _triggerIOSATT();
+    // Smoke test pra confirmar pipeline (visível no Topaz/dashboard)
+    if(window.Analytics) Analytics.send('consent_granted');
+  }
+  function decline(){
+    SETTINGS.analyticsConsent = 'denied';
+    _saveSettings();
+    _hideModal();
+  }
+  // Settings toggle — chamado quando player muda no popup Settings
+  function setFromSettings(enabled){
+    if(enabled){
+      const wasFirstChoice = SETTINGS.analyticsConsent !== 'granted';
+      SETTINGS.analyticsConsent = 'granted';
+      _saveSettings();
+      if(wasFirstChoice) _triggerIOSATT();
+      if(window.Analytics) Analytics.send('consent_granted', { from: 'settings' });
+    } else {
+      SETTINGS.analyticsConsent = 'denied';
+      _saveSettings();
+    }
+  }
+  function init(){
+    // Wire botões do modal de consent
+    const accBtn = document.getElementById('consentAcceptBtn');
+    const decBtn = document.getElementById('consentDeclineBtn');
+    if(accBtn) accBtn.addEventListener('click', accept);
+    if(decBtn) decBtn.addEventListener('click', decline);
+    // Wire toggle do Settings → Privacidade
+    const cb = document.getElementById('settingsConsentToggle');
+    if(cb){
+      // Reflete estado atual no checkbox
+      cb.checked = (SETTINGS.analyticsConsent === 'granted');
+      cb.addEventListener('change', () => setFromSettings(cb.checked));
+    }
+    // Espera splash sair antes de mostrar modal — evita stack visual feio
+    if(_isFirstLaunch()){
+      const splash = document.getElementById('splashScreen');
+      const doShow = () => setTimeout(_showModal, 500);
+      if(!splash || splash.classList.contains('gone')){ doShow(); return; }
+      const obs = new MutationObserver(() => {
+        if(splash.classList.contains('gone')){ obs.disconnect(); doShow(); }
+      });
+      obs.observe(splash, { attributes:true, attributeFilter:['class'] });
+    }
+  }
+  return { init, accept, decline, setFromSettings };
+})();
+if(document.readyState === 'loading'){
+  window.addEventListener('DOMContentLoaded', Consent.init);
+} else {
+  Consent.init();
 }
 
 function forgeIntervalAtLevel(lvl){
@@ -12311,6 +12461,9 @@ enterArena();
     window.Analytics = {
       send: function(eventType, params){
         try {
+          // LGPD gate — sem consentimento explícito, no-op (eventos não vão pro SDK).
+          // 'null' = ainda não escolheu (modal de consent vai aparecer); 'denied' = recusou.
+          if(typeof SETTINGS !== 'undefined' && SETTINGS.analyticsConsent !== 'granted') return;
           var p = window._WildlifePlatform;
           if(!p || !p.isInitialized) return;  // no-op em browser dev / pré-init
           var ctx = {};
