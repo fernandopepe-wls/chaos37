@@ -1559,6 +1559,350 @@
     50%    {filter:drop-shadow(0 0 12px rgba(255,82,82,0.8));}
   }
 
+  /* ===== QUEST button — float pequeno top-right, LoM-style banner =====
+     Pos/size editáveis via UI Tool (questBtn*). Badge "!" aparece quando
+     tem quest claimable; pulsa pra chamar atenção. */
+  #questBtn{
+    position:absolute;
+    right: var(--quest-btn-right, 10px);
+    top:   var(--quest-btn-top, 115px);
+    width:  var(--quest-btn-size, 48px);
+    height: var(--quest-btn-size, 48px);
+    border-radius:12px;
+    border:2px solid #1a0e08;
+    background:linear-gradient(180deg, #ffcc3d 0%, #e6a823 100%);
+    color:#3a230b;
+    font-size:22px;
+    font-weight:bold;
+    cursor:pointer;
+    box-shadow:0 3px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset;
+    display:flex;align-items:center;justify-content:center;
+    padding:0;
+    z-index:6;
+    transition:transform .08s, box-shadow .08s;
+  }
+  #questBtn:active{
+    transform:translateY(1px);
+    box-shadow:0 1px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset;
+  }
+  #questBtn .quest-btn-icon{
+    filter:drop-shadow(0 1px 0 rgba(0,0,0,0.4));
+    line-height:1;
+  }
+  /* Badge SIBLING — posicionada via CSS vars do botão pra coincidir com o canto
+     sup-direito do pill. Mesmo padrão do #arenaSleepDot pra evitar clipping. */
+  #questBadge{
+    position:absolute;
+    /* Canto sup-direito do botão (top + right do botão) com overlap de ~8px */
+    top:   calc(var(--quest-btn-top, 115px)   - 8px);
+    right: calc(var(--quest-btn-right, 10px)  - 8px);
+    min-width:20px;height:20px;
+    padding:0 6px;
+    border-radius:10px;
+    background:#ff5252;
+    color:#fff;
+    font-size:12px;font-weight:bold;
+    display:flex;align-items:center;justify-content:center;
+    border:2px solid #1a0e08;
+    box-shadow:0 2px 4px rgba(0,0,0,0.5), 0 0 6px rgba(255,82,82,0.6);
+    animation:questBadgePulse 1.2s infinite;
+    line-height:1;
+    pointer-events:none;
+    z-index:7;            /* acima do botão (6), abaixo dos popups (.layer = 10) */
+  }
+  #questBadge.empty{display:none;}
+  @keyframes questBadgePulse{
+    0%,100%{transform:scale(1);}
+    50%    {transform:scale(1.18);}
+  }
+
+  /* ===== SETTINGS button — float top-left, abaixo da sword pill =====
+     Mesmo padrão visual do questBtn. Posição editável via UI Tool. */
+  #settingsBtn{
+    position:absolute;
+    left: var(--settings-btn-left, 10px);
+    top:  var(--settings-btn-top, 72px);
+    width:  var(--settings-btn-size, 48px);
+    height: var(--settings-btn-size, 48px);
+    /* Sem fundo / border / shadow — só a engrenagem aparece. Botão fica como
+       clickable area transparente em volta do SVG. */
+    background:transparent;
+    border:0;
+    box-shadow:none;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    padding:0;
+    z-index:6;
+    transition:transform .08s;
+  }
+  #settingsBtn:active{
+    transform:translateY(1px);
+  }
+  #settingsBtn .settings-btn-icon{
+    width:100%;
+    height:100%;
+    /* Sombra suave preserva legibilidade contra fundos variados (era/bg) */
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+    display:block;
+  }
+
+  /* Settings modal — sections, toggles, faders, lang buttons */
+  .settings-card{max-width:340px;margin:0 auto;}
+  .settings-section{
+    background:#fff7e0;
+    border:2px solid #b07a3a;
+    border-radius:10px;
+    padding:10px 12px;
+    margin:8px 0;
+    color:#3a230b;
+  }
+  .settings-section-title{
+    font-size:14px;
+    color:#5a4499;
+    margin:0 0 8px 0;
+    text-align:left;
+    letter-spacing:0.5px;
+  }
+  .settings-row{
+    display:flex;align-items:center;gap:8px;
+    margin:6px 0;
+    font-size:13px;
+  }
+  .settings-row .settings-lbl{
+    flex:0 0 auto;
+    min-width:90px;
+    font-weight:bold;
+  }
+  /* iOS-style toggle */
+  .settings-toggle{
+    position:relative;
+    display:inline-block;
+    width:42px;height:22px;
+    flex:0 0 auto;
+  }
+  .settings-toggle input{
+    opacity:0;width:0;height:0;
+  }
+  .settings-toggle-slider{
+    position:absolute;cursor:pointer;
+    inset:0;
+    background:#c0a47e;
+    border:2px solid #1a0e08;
+    border-radius:22px;
+    transition:background .15s;
+  }
+  .settings-toggle-slider::before{
+    content:'';
+    position:absolute;
+    height:14px;width:14px;
+    left:2px;top:1px;
+    background:#fff7e0;
+    border:1.5px solid #1a0e08;
+    border-radius:50%;
+    transition:transform .15s;
+  }
+  .settings-toggle input:checked + .settings-toggle-slider{
+    background:#4cf08e;
+  }
+  .settings-toggle input:checked + .settings-toggle-slider::before{
+    transform:translateX(20px);
+  }
+  /* Fader (range slider) */
+  .settings-fader{
+    flex:1;
+    -webkit-appearance:none;
+    appearance:none;
+    height:6px;
+    background:#d4be9c;
+    border-radius:3px;
+    border:1px solid #b07a3a;
+    outline:none;
+  }
+  .settings-fader::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    appearance:none;
+    width:18px;height:18px;
+    background:#ffcc3d;
+    border:2px solid #1a0e08;
+    border-radius:50%;
+    cursor:pointer;
+    box-shadow:0 2px 0 #1a0e08;
+  }
+  .settings-fader::-moz-range-thumb{
+    width:18px;height:18px;
+    background:#ffcc3d;
+    border:2px solid #1a0e08;
+    border-radius:50%;
+    cursor:pointer;
+  }
+  .settings-fader:disabled{opacity:0.4;}
+  .settings-fader-val{
+    flex:0 0 auto;
+    min-width:38px;
+    font-size:11px;
+    color:#5a4499;
+    text-align:right;
+  }
+  /* Language buttons */
+  .settings-lang-row{
+    display:flex;gap:8px;
+    margin:6px 0;
+  }
+  .settings-lang-btn{
+    flex:1;
+    appearance:none;
+    border:2px solid #1a0e08;
+    background:#e9dcc0;
+    color:#3a230b;
+    font-weight:bold;font-size:12px;
+    padding:8px 10px;
+    border-radius:8px;
+    cursor:pointer;
+    box-shadow:0 2px 0 #1a0e08;
+    transition:transform .05s;
+  }
+  .settings-lang-btn:active{transform:translateY(1px);box-shadow:0 1px 0 #1a0e08;}
+  .settings-lang-btn.active{
+    background:linear-gradient(180deg, #4cf08e, #2d8a47);
+    color:#fff;
+    text-shadow:
+      -1px -1px 0 #1a0e08, 1px -1px 0 #1a0e08,
+      -1px  1px 0 #1a0e08, 1px  1px 0 #1a0e08;
+  }
+
+  /* Quest popup card — lista de missões com progress + RESGATAR */
+  .quest-card{max-width:320px;margin:0 auto;}
+  .quest-row{
+    background:#fff7e0;
+    border:2px solid #b07a3a;
+    border-radius:10px;
+    padding:10px 12px;
+    margin:8px 0;
+    display:flex;flex-direction:column;gap:6px;
+    color:#3a230b;
+  }
+  .quest-row.claimed{opacity:0.5;background:#e9dcc0;}
+  .quest-row .quest-label{font-size:13px;font-weight:bold;}
+  .quest-row .quest-progress{
+    display:flex;align-items:center;gap:8px;
+  }
+  .quest-row .quest-bar{
+    flex:1;height:8px;
+    background:#d4be9c;
+    border-radius:4px;
+    overflow:hidden;
+    border:1px solid #b07a3a;
+  }
+  .quest-row .quest-bar-fill{
+    height:100%;
+    background:linear-gradient(180deg, #4ac76a, #2d8a47);
+    transition:width .25s ease-out;
+  }
+  .quest-row .quest-num{
+    font-size:11px;color:#5a4499;
+    min-width:42px;text-align:right;
+  }
+  .quest-row .quest-reward{font-size:12px;color:#5a4499;font-weight:bold;}
+  .quest-row .quest-claim-btn{
+    appearance:none;
+    border:2px solid #1a0e08;
+    background:linear-gradient(180deg, #4cf08e, #2d8a47);
+    color:#fff;font-weight:bold;font-size:12px;
+    padding:4px 12px;border-radius:8px;cursor:pointer;
+    text-shadow:
+      -1px -1px 0 #1a0e08, 1px -1px 0 #1a0e08,
+      -1px  1px 0 #1a0e08, 1px  1px 0 #1a0e08;
+    box-shadow:0 2px 0 #1a0e08;
+    transition:transform .05s;
+  }
+  .quest-row .quest-claim-btn:active{transform:translateY(1px);box-shadow:0 1px 0 #1a0e08;}
+  .quest-row .quest-claim-btn[disabled]{
+    background:#aaa;color:#ddd;cursor:not-allowed;
+    box-shadow:none;text-shadow:none;border-color:#555;
+  }
+
+  /* ===== FTUE OVERLAY — paw (maozinha) + balão de fala =====
+     Container ocupa o frame inteiro mas tem pointer-events:none pra não
+     bloquear cliques. JS posiciona o paw + balão apontando pro target. */
+  #ftueOverlay{
+    position:absolute;inset:0;
+    pointer-events:none;
+    z-index:100;
+    display:none;
+  }
+  #ftueOverlay.show{display:block;}
+  #ftueHand{
+    position:absolute;
+    width:72px;height:72px;
+    background:url('assets/interface/ui-tutorial-hand.png') no-repeat center/contain;
+    transform-origin:center;
+    animation:ftueHandPulse 0.85s ease-in-out infinite;
+    filter:drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+    will-change:transform;
+  }
+  /* Modifiers de rotação aplicados via classe pelo JS — paw apontando em qualquer direção */
+  #ftueHand.dir-up   { /* default: paw apontando pra cima (asset original) */ }
+  #ftueHand.dir-down { transform:rotate(180deg); }
+  #ftueHand.dir-left { transform:rotate(-90deg); }
+  #ftueHand.dir-right{ transform:rotate(90deg);  }
+  @keyframes ftueHandPulse{
+    0%,100%{ transform:var(--ftue-hand-rot,rotate(0deg)) translateY(0)   scale(1);    }
+    50%    { transform:var(--ftue-hand-rot,rotate(0deg)) translateY(-8px) scale(1.06); }
+  }
+  /* Sobrescreve a animação quando uma direção é setada — combina rot + bounce */
+  #ftueHand.dir-down { --ftue-hand-rot:rotate(180deg); }
+  #ftueHand.dir-left { --ftue-hand-rot:rotate(-90deg); }
+  #ftueHand.dir-right{ --ftue-hand-rot:rotate(90deg);  }
+
+  #ftueBubble{
+    position:absolute;
+    background:#fff7e0;
+    border:4px solid #1a0e08;
+    border-radius:18px;
+    padding:13px 18px;
+    color:#3a230b;
+    font-weight:bold;
+    font-size:18px;
+    max-width:286px;
+    text-align:center;
+    line-height:1.3;
+    box-shadow:0 5px 0 #1a0e08, 0 10px 20px rgba(0,0,0,0.4);
+    /* JS posiciona left= centerX e bubble usa translateX(-50%) pra centralizar.
+       Animação só varia opacity (não mexe em transform pra não brigar com translate). */
+    transform:translateX(-50%);
+    animation:ftueBubblePop 0.28s ease-out;
+    display:none;
+  }
+  #ftueBubble.show{display:block;}
+  /* Arrows pseudo-element — triângulo apontando pro target (+30% também) */
+  #ftueBubble::after{
+    content:'';
+    position:absolute;
+    width:0;height:0;
+  }
+  /* Arrow offset (--ftue-arrow-offset) ajusta horizontalmente quando o balão
+     é clampado pro viewport — a seta continua apontando pro target original */
+  #ftueBubble.arrow-down::after{
+    bottom:-16px;
+    left:calc(50% + var(--ftue-arrow-offset, 0px));
+    transform:translateX(-50%);
+    border-left:13px solid transparent;
+    border-right:13px solid transparent;
+    border-top:16px solid #1a0e08;
+  }
+  #ftueBubble.arrow-up::after{
+    top:-16px;
+    left:calc(50% + var(--ftue-arrow-offset, 0px));
+    transform:translateX(-50%);
+    border-left:13px solid transparent;
+    border-right:13px solid transparent;
+    border-bottom:16px solid #1a0e08;
+  }
+  @keyframes ftueBubblePop{
+    0%   { opacity:0; }
+    100% { opacity:1; }
+  }
+
   /* ===== ZZZ + AUTO — float buttons no play grid =====
      Mesma linguagem dos botões do popup (.forge-popup-btn): contorno preto
      chunky + texto branco com stroke multi-direção. Drop-shadow SUTIL
@@ -1571,9 +1915,9 @@
     width:var(--layout-floatbtn-w, 70px);
     height:var(--layout-floatbtn-h, 24px);
     padding:0;
-    /* contorno marrom escuro (#593c2b) 2.5px.
+    /* contorno preto chunky (#1a0e08) 2.5px.
        Sem box-shadow (flat) — só o border define o pill. */
-    border:2.5px solid #593c2b;
+    border:2.5px solid #1a0e08;
     border-radius:12px;
     color:#fff;
     font-size:11px;font-weight:bold;
@@ -1632,33 +1976,29 @@
      (left/right calculado pra match o pill's right edge). */
   #arenaSleepDot{
     position:absolute;
-    /* dot 13×13 (era 18) — -30% pra ficar mais discreto.
-       Posicionado no canto sup-direito do pill com leve overlap. */
-    bottom:calc(var(--layout-floatbtn-bottom, 50% + 6px) + var(--layout-floatbtn-h, 24px) - 5px);
+    /* Posicionado no canto sup-direito do pill ZZZ com leve overlap.
+       Mesmo design da badge de Missões (#questBadge): pill com border preto,
+       fundo vermelho, glow vermelho e pulse via scale. */
+    bottom:calc(var(--layout-floatbtn-bottom, 50% + 6px) + var(--layout-floatbtn-h, 24px) - 6px);
     left:calc(var(--layout-floatbtn-side, 10px) + var(--layout-floatbtn-w, 70px) - 8px);
-    width:13px;height:13px;
-    border-radius:50%;
-    background:#e02525;
-    border:2px solid #fff;
-    box-shadow:
-      0 0 0 1px #1a0e08,
-      0 0 6px rgba(224,37,37,0.75);
-    opacity:0;
+    min-width:20px;height:20px;
+    padding:0 6px;
+    border-radius:10px;
+    background:#ff5252;
+    color:#fff;
+    font-size:12px;font-weight:bold;
+    display:flex;align-items:center;justify-content:center;
+    border:2px solid #1a0e08;
+    box-shadow:0 2px 4px rgba(0,0,0,0.5), 0 0 6px rgba(255,82,82,0.6);
+    line-height:1;
     pointer-events:none;
-    transform:scale(0.6);
-    transition:opacity .15s;
     z-index:7;            /* acima do HUD (6) mas abaixo dos popups (.layer = 10) */
-    display:none;         /* só aparece quando pill tem .has-rewards */
+    visibility:hidden;    /* só aparece quando pill tem .has-rewards */
   }
   /* Aparece quando o pill (irmão) tem .has-rewards */
   #arenaSleepBtn.has-rewards ~ #arenaSleepDot{
-    display:block;
-    opacity:1;
-    animation:zzzDotPulse 1s infinite;
-  }
-  @keyframes zzzDotPulse{
-    0%,100%{ transform:scale(1);   box-shadow:0 0 0 1px #1a0e08, 0 0 5px rgba(224,37,37,0.7);}
-    50%    { transform:scale(1.15); box-shadow:0 0 0 1px #1a0e08, 0 0 8px rgba(224,37,37,0.95);}
+    visibility:visible;
+    animation:questBadgePulse 1.2s infinite;
   }
   /* (regra duplicada de :active removida — já coberta no bloco unificado acima) */
 
@@ -1902,10 +2242,29 @@
     <!-- Red-dot notification badge — irmã do pill (não filha) pra evitar qualquer
          clipping/stacking context do pai. Visibilidade controlada por CSS
          baseado em #arenaSleepBtn.has-rewards via sibling selector. -->
-    <div id="arenaSleepDot" aria-hidden="true"></div>
+    <div id="arenaSleepDot" aria-hidden="true">!</div>
 
     <!-- arena BOSS challenge button -->
     <button id="arenaBossBtn" title="Desafiar o boss da stage">⚔ DESAFIAR BOSS</button>
+
+    <!-- arena QUEST button (LoM-style mission banner) -->
+    <button id="questBtn" title="Missões">
+      <span class="quest-btn-icon">📜</span>
+    </button>
+    <!-- Red-dot notification badge — SIBLING do pill (não filho) pra evitar
+         clipping/stacking context. Mesmo padrão do #arenaSleepDot.
+         Posicionado via CSS no canto sup-direito do pill (overlap). -->
+    <div id="questBadge" class="empty" aria-hidden="true">0</div>
+
+    <!-- arena SETTINGS button (top-left, abaixo da sword pill) -->
+    <button id="settingsBtn" title="Configurações">
+      <!-- Engrenagem cinza chapada, contorno marrom da tab bar (#593c2b).
+           fill-rule:evenodd cria o furo central via path único. -->
+      <svg class="settings-btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#9a9a9a" stroke="#1a0e08" stroke-width="0.9" stroke-linejoin="round" fill-rule="evenodd"
+              d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+      </svg>
+    </button>
 
     <!-- popup de recompensa offline -->
     <div id="offlinePopup">
@@ -2088,6 +2447,85 @@
     <div class="layer" id="arenaTab">
       <h2 id="arenaTabTitle">Tab</h2>
       <div id="arenaTabContent"></div>
+    </div>
+
+    <!-- settings popup (audio + idioma + vibração) -->
+    <div class="layer" id="settingsLayer">
+      <div class="forge-popup-card settings-card">
+        <div class="forge-popup-tag">⚙ Configurações</div>
+
+        <div class="settings-section">
+          <h3 class="settings-section-title">🔊 Áudio</h3>
+          <div class="settings-row">
+            <span class="settings-lbl">Som geral</span>
+            <label class="settings-toggle">
+              <input type="checkbox" id="settingsMasterToggle" checked>
+              <span class="settings-toggle-slider"></span>
+            </label>
+          </div>
+          <div class="settings-row">
+            <span class="settings-lbl">🎵 Música</span>
+            <label class="settings-toggle">
+              <input type="checkbox" id="settingsMusicToggle" checked>
+              <span class="settings-toggle-slider"></span>
+            </label>
+            <input type="range" min="0" max="1" step="0.01" value="0.7" id="settingsMusicFader" class="settings-fader">
+            <span class="settings-fader-val" id="settingsMusicFaderVal">70%</span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-lbl">🔔 Efeitos</span>
+            <label class="settings-toggle">
+              <input type="checkbox" id="settingsSfxToggle" checked>
+              <span class="settings-toggle-slider"></span>
+            </label>
+            <input type="range" min="0" max="1" step="0.01" value="1.0" id="settingsSfxFader" class="settings-fader">
+            <span class="settings-fader-val" id="settingsSfxFaderVal">100%</span>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3 class="settings-section-title">🌎 Idioma</h3>
+          <div class="settings-lang-row">
+            <button class="settings-lang-btn active" data-lang="pt">🇧🇷 Português</button>
+            <button class="settings-lang-btn"        data-lang="en">🇬🇧 English</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3 class="settings-section-title">📳 Vibração</h3>
+          <div class="settings-row">
+            <span class="settings-lbl">Vibrar no impacto</span>
+            <label class="settings-toggle">
+              <input type="checkbox" id="settingsVibrateToggle">
+              <span class="settings-toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="forge-popup-actions">
+          <button class="forge-popup-btn red" id="settingsCloseBtn">Voltar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- quest popup (LoM-style mission panel) -->
+    <div class="layer" id="questLayer">
+      <div class="forge-popup-card quest-card">
+        <div class="forge-popup-tag">📜 Missões</div>
+        <h2 class="forge-level-title">Missões iniciais</h2>
+        <p class="forge-level-desc">Complete missões e resgate 💎 diamantes pra evoluir mais rápido.</p>
+        <div id="questList"></div>
+        <div class="forge-popup-actions">
+          <button class="forge-popup-btn red" id="questCloseBtn">Voltar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FTUE overlay — maozinha (paw) + balão de fala, posicionado em runtime
+         apontando pra um target DOM. pointer-events:none pra não bloquear cliques. -->
+    <div id="ftueOverlay" aria-hidden="true">
+      <div id="ftueHand"></div>
+      <div id="ftueBubble"></div>
     </div>
 
     <!-- arena game over -->
@@ -2975,6 +3413,17 @@ window.addEventListener('keydown', e=>{
   if((e.key === 'l' || e.key === 'L') && !e.repeat && typeof cheatLevelUpForge === 'function'){
     cheatLevelUpForge();
   }
+  // === CHEAT: tecla "K" reseta FTUE + quests pra testar do zero ===
+  // Limpa localStorage do FTUE/quests e recarrega — força ressetting completo
+  // do estado in-memory (incluindo arena.items, contagem de equip, etc).
+  if((e.key === 'k' || e.key === 'K') && !e.repeat){
+    try {
+      localStorage.removeItem('bunnyChaos.ftueStep');
+      localStorage.removeItem('bunnyChaos.quests');
+    } catch(err){}
+    console.log('[cheat] FTUE + quests reset — recarregando...');
+    setTimeout(() => location.reload(), 80);
+  }
   // === DEBUG OVERLAY toggle: tecla "`" ou "F1" ===
   if((e.key === '`' || e.key === 'F1') && !e.repeat){
     e.preventDefault();
@@ -3699,6 +4148,7 @@ function initArena(){
   }
   arena.lettuce = 100; // saldo inicial — 100 alfaces (~100 forjas)
   arena.carrots = 0;   // começa sem cenouras (vai acumulando offline + matando inimigos)
+  arena.diamonds = loadDiamonds(); // hard currency — persistida (não reseta entre sessões)
   arena.power = arenaPower();
   arena.powerDelta = 0;
   arena.powerDeltaTimer = 0;
@@ -3965,6 +4415,13 @@ const LAYOUT_DEFAULTS = {
   carrotPillH: 34,
   carrotPillTextOffsetX: 8,   // offset X do texto dentro do pill (icone fica baked-in à esq.)
   carrotPillTextOffsetY: -2,  // offset Y fino — pra compensar ícone embedded descentrado no PNG
+  // HUD top (Diamond pill — hard currency, empilhado abaixo da carrot)
+  diamondPillX: 270,
+  diamondPillY: 73,           // 35 (carrotY) + 34 (carrotH) + 4 (gap)
+  diamondPillW: 80,
+  diamondPillH: 30,
+  diamondPillTextOffsetX: 4,
+  diamondPillTextOffsetY: 0,
   // HUD top (geral)
   hudTopPad: 20,
   pillGap: 0,
@@ -4015,6 +4472,14 @@ const LAYOUT_DEFAULTS = {
   bossBtnTopPct: 17,
   bossBtnW: 103,           // logical px (max-cap em min(30%, W))
   bossBtnFontSize: 10,     // logical px (padding deriva proporcional)
+  // Quest button (missões — float top-right corner)
+  questBtnTop: 115,        // logical px from top
+  questBtnRight: 10,       // logical px from right edge
+  questBtnSize: 48,        // logical px (square)
+  // Settings button (config — float top-left, abaixo da sword pill)
+  settingsBtnTop: 72,
+  settingsBtnLeft: 10,
+  settingsBtnSize: 48,
   // Tab bar (menu)
   tabBarHeight: 80,
   tabBarInsetX: 6,            // inset lateral (←→) — 0 = full width do frame
@@ -4165,6 +4630,16 @@ function _applyLayoutCSSVars(){
   root.style.setProperty('--bossbtn-font',  px(LAYOUT.bossBtnFontSize));
   root.style.setProperty('--bossbtn-pad-y', px(LAYOUT.bossBtnFontSize * 0.64));
   root.style.setProperty('--bossbtn-pad-x', px(LAYOUT.bossBtnFontSize * 0.82));
+
+  // Quest button — top/right/size em logical px, escalados via uiScale
+  root.style.setProperty('--quest-btn-top',   px(LAYOUT.questBtnTop));
+  root.style.setProperty('--quest-btn-right', px(LAYOUT.questBtnRight));
+  root.style.setProperty('--quest-btn-size',  px(LAYOUT.questBtnSize));
+
+  // Settings button — mirror do quest btn no lado esquerdo
+  root.style.setProperty('--settings-btn-top',  px(LAYOUT.settingsBtnTop));
+  root.style.setProperty('--settings-btn-left', px(LAYOUT.settingsBtnLeft));
+  root.style.setProperty('--settings-btn-size', px(LAYOUT.settingsBtnSize));
 
   // Forge — TRAY (background afundado) — independente
   root.style.setProperty('--tray-bottom-y', px(LAYOUT.trayBottomY));
@@ -4668,6 +5143,13 @@ const LAYOUT_SCHEMA = [
   { key:'carrotPillH',     label:'H',              min:18,   max:80,   step:1 },
   { key:'carrotPillTextOffsetX', label:'Text X (←/→)',min:-40, max:80,  step:1 },
   { key:'carrotPillTextOffsetY', label:'Text Y (↑/↓)',min:-15, max:15,  step:1 },
+  { section:'HUD top (Diamond pill — hard currency)' },
+  { key:'diamondPillX',     label:'X',              min:0,    max:340,  step:1 },
+  { key:'diamondPillY',     label:'Y',              min:0,    max:240,  step:1 },
+  { key:'diamondPillW',     label:'W',              min:40,   max:200,  step:1 },
+  { key:'diamondPillH',     label:'H',              min:18,   max:80,   step:1 },
+  { key:'diamondPillTextOffsetX', label:'Text X (←/→)',min:-40, max:80,  step:1 },
+  { key:'diamondPillTextOffsetY', label:'Text Y (↑/↓)',min:-15, max:15,  step:1 },
   { section:'HUD top (geral)' },
   { key:'hudTopPad',       label:'Stage block Y (↑↓)',min:-60, max:240, step:1 },
   { key:'pillGap',         label:'Stage→Bar gap',  min:0,    max:30,   step:1 },
@@ -4719,6 +5201,14 @@ const LAYOUT_SCHEMA = [
   { key:'bossBtnTopPct',   label:'Y from top (%)', min:0,    max:80,   step:0.5, fmt:v=>v.toFixed(1)+'%' },
   { key:'bossBtnW',        label:'Width (X size)', min:60,   max:200,  step:1 },
   { key:'bossBtnFontSize', label:'Font size',      min:6,    max:20,   step:0.5 },
+  { section:'Quest button (Missões — float top-right)' },
+  { key:'questBtnTop',     label:'Y from top',     min:0,    max:300,  step:1 },
+  { key:'questBtnRight',   label:'X from right',   min:0,    max:200,  step:1 },
+  { key:'questBtnSize',    label:'Button size (◻)',min:24,   max:96,   step:1 },
+  { section:'Settings button (⚙ — float top-left)' },
+  { key:'settingsBtnTop',  label:'Y from top',     min:0,    max:300,  step:1 },
+  { key:'settingsBtnLeft', label:'X from left',    min:0,    max:200,  step:1 },
+  { key:'settingsBtnSize', label:'Button size (◻)',min:24,   max:96,   step:1 },
   { section:'Tab bar (menu)' },
   { key:'tabBarHeight',         label:'Bar height (Y)', min:40,   max:180,  step:1 },
   { key:'tabBarInsetX',         label:'Inset X (←→ shrink)', min:0, max:120, step:1 },
@@ -5423,12 +5913,16 @@ function arenaEquipItem(item){
   // se não tem item OU o novo é melhor (raridade > ou valor da mesma stat >)
   if(!cur){
     arena.items[item.slot] = item;
+    if(typeof Quests   !== 'undefined') Quests.onEquipped();
+    if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
     return true;
   }
   const curRank = Object.keys(RARITY).indexOf(cur.rarity);
   const newRank = Object.keys(RARITY).indexOf(item.rarity);
   if(newRank > curRank || (newRank===curRank && item.value > cur.value)){
     arena.items[item.slot] = item;
+    if(typeof Quests   !== 'undefined') Quests.onEquipped();
+    if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
     return true;
   }
   return false;
@@ -5450,6 +5944,9 @@ function killArenaEnemy(idx, e){
   if(e.isBoss){
     arena.regions++;
     spawnArenaParticle(e.x, e.y, '#ff5252', 30);
+    if(typeof vibrate  === 'function') vibrate([80, 40, 120]); // boss kill = padrão duplo
+    if(typeof Quests   !== 'undefined') Quests.onBossDefeated();
+    if(typeof Tutorial !== 'undefined') Tutorial.onBossDefeated();
     // Crossfade de volta pra música de gameplay
     if(typeof Music !== 'undefined' && Music.crossfadeFromBoss){
       Music.crossfadeFromBoss();
@@ -6015,6 +6512,7 @@ function updateArena(){
         arena.hp -= e.dmg;
         arena.hurtTimer = 40;
         spawnArenaParticle(arena.bx, arena.by, '#ff5252', 10);
+        if(typeof vibrate === 'function') vibrate(30); // hit feedback
       }
     }
   }
@@ -6716,6 +7214,61 @@ function drawArenaHUD(){
   // overflow do pill conforme o jogo escala.
   const caTxtOffsetY = LAYOUT.carrotPillTextOffsetY || 0;
   ctx.fillText(fmtCompact(arena.carrots || 0, 5), essX+essW/2+LAYOUT.carrotPillTextOffsetX, essY+essH/2+1+caTxtOffsetY);
+
+  // === Diamond pill — design igual ZZZ/AUTO: gradient azul, border preto,
+  // sem drop shadow. Ícone de gem rhombus chapado (pink/red gradient, outline preto)
+  // desenhado via canvas paths — substitui o emoji 💎 antigo. Texto #3a230b.
+  const dmW = LAYOUT.diamondPillW, dmH = LAYOUT.diamondPillH;
+  const dmX = LAYOUT.diamondPillX, dmY = LAYOUT.diamondPillY + SAFE.topLogical;
+  const dmR = 12;
+  const dmGrad = ctx.createLinearGradient(0, dmY, 0, dmY + dmH);
+  dmGrad.addColorStop(0, '#5fb0f0');
+  dmGrad.addColorStop(1, '#3a8ad6');
+  ctx.fillStyle = dmGrad;
+  _pillPath(dmX, dmY, dmW, dmH, dmR);
+  ctx.fill();
+  ctx.strokeStyle = '#1a0e08';
+  ctx.lineWidth = 1.2;
+  _pillPath(dmX, dmY, dmW, dmH, dmR);
+  ctx.stroke();
+  // Gem (rhombus) — esquerda do pill, baked-in icon style
+  const gemCx = dmX + 11;
+  const gemCy = dmY + dmH/2;
+  const gemHW = 7;   // half-width
+  const gemHH = 8;   // half-height (um pouco mais alto = formato de diamante)
+  // Fill 2-tone (top mais claro, bottom mais escuro) pra impressão de faceta
+  const gemGrad = ctx.createLinearGradient(0, gemCy - gemHH, 0, gemCy + gemHH);
+  gemGrad.addColorStop(0,    '#ff9ec0');
+  gemGrad.addColorStop(0.55, '#e85b8a');
+  gemGrad.addColorStop(1,    '#b53063');
+  ctx.fillStyle = gemGrad;
+  ctx.beginPath();
+  ctx.moveTo(gemCx, gemCy - gemHH);
+  ctx.lineTo(gemCx + gemHW, gemCy);
+  ctx.lineTo(gemCx, gemCy + gemHH);
+  ctx.lineTo(gemCx - gemHW, gemCy);
+  ctx.closePath();
+  ctx.fill();
+  // Outline preto
+  ctx.strokeStyle = '#1a0e08';
+  ctx.lineWidth = 1.2;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  // Highlight branco (canto sup-esquerdo) — dá brilho de "gem"
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath();
+  ctx.moveTo(gemCx - gemHW*0.55, gemCy - gemHH*0.15);
+  ctx.lineTo(gemCx - gemHW*0.15, gemCy - gemHH*0.55);
+  ctx.lineTo(gemCx - gemHW*0.25, gemCy);
+  ctx.closePath();
+  ctx.fill();
+  // Texto — número apenas (sem emoji), posicionado à direita do gem
+  ctx.fillStyle = '#3a230b';
+  ctx.font = 'bold 14px Fredoka, system-ui, monospace';
+  ctx.textAlign = 'center';
+  const dmTxtOffsetY = LAYOUT.diamondPillTextOffsetY || 0;
+  const dmTxt = fmtCompact(arena.diamonds || 0, 5);
+  ctx.fillText(dmTxt, dmX+dmW/2+LAYOUT.diamondPillTextOffsetX, dmY+dmH/2+1+dmTxtOffsetY);
 
   // === STAGE LABEL (TOP CENTER) — 2 linhas text-only com stroke preto + fill branco
   // Linha 1: nome do mundo (era atual)
@@ -7668,6 +8221,563 @@ const FORGE_MAX_LEVEL = 35;
 
 const FORGE_LEVEL_KEY    = 'bunnyChaos.forgeLevel';
 const FORGE_PROGRESS_KEY = 'bunnyChaos.forgeUpgradeProgress';
+const DIAMONDS_KEY       = 'bunnyChaos.diamonds';
+
+// Diamond — hard currency (LoM-inspired). Ganhada por quests. Persistida sempre.
+function loadDiamonds(){
+  try { const v = parseInt(localStorage.getItem(DIAMONDS_KEY) || '0', 10);
+        return (Number.isFinite(v) && v >= 0) ? v : 0; }
+  catch(e){ return 0; }
+}
+function addDiamonds(n){
+  arena.diamonds = Math.max(0, (arena.diamonds || 0) + n);
+  try { localStorage.setItem(DIAMONDS_KEY, String(arena.diamonds)); } catch(e){}
+}
+
+// ============== QUESTS (FTUE missions + LoM-style ongoing) ==============
+// 5 missões iniciais, sequenciais semanticamente (mas todas trackeam progress).
+// Recompensa = 💎 diamantes. Persiste { progress, claimed } por id em localStorage.
+const QUEST_DEFS = [
+  { id:'roll_dice',     label:'Jogue os dados pela 1ª vez',           target:1, reward:10  },
+  { id:'equip_first',   label:'Equipe seu 1º item',                   target:1, reward:20  },
+  { id:'claim_first',   label:'Resgate sua 1ª recompensa de missão',  target:1, reward:30  },
+  { id:'equip_3_items', label:'Equipe 3 itens diferentes',            target:3, reward:50  },
+  { id:'defeat_boss',   label:'Derrote o 1º chefão',                  target:1, reward:100 },
+];
+const QUESTS_KEY = 'bunnyChaos.quests';
+
+const Quests = (function(){
+  let state = [];
+  const _defaults = () => QUEST_DEFS.map(d => ({ id: d.id, progress: 0, claimed: false }));
+  function _def(id){ return QUEST_DEFS.find(d => d.id === id); }
+  function _entry(id){ return state.find(x => x.id === id); }
+  function load(){
+    try {
+      const saved = JSON.parse(localStorage.getItem(QUESTS_KEY) || 'null');
+      if(Array.isArray(saved)){
+        state = _defaults().map(d => {
+          const s = saved.find(x => x.id === d.id);
+          if(s && typeof s.progress === 'number') d.progress = Math.max(0, s.progress|0);
+          if(s && typeof s.claimed === 'boolean')  d.claimed  = s.claimed;
+          return d;
+        });
+      } else state = _defaults();
+    } catch(e){ state = _defaults(); }
+  }
+  function save(){
+    try { localStorage.setItem(QUESTS_KEY, JSON.stringify(state)); } catch(e){}
+  }
+  function statusOf(id){
+    const e = _entry(id), d = _def(id);
+    if(!e || !d) return 'locked';
+    if(e.claimed) return 'claimed';
+    return (e.progress >= d.target) ? 'claimable' : 'active';
+  }
+  function claimableCount(){
+    return state.filter(e => !e.claimed && e.progress >= _def(e.id).target).length;
+  }
+  // === Event hooks — sistemas do jogo chamam isso quando algo acontece ===
+  function onRolled(){ _bump('roll_dice', 1); }
+  function onEquipped(){
+    _bump('equip_first', 1);
+    // equip_3_items: tracka pelo número de slots equipados (não cumulativo).
+    // Conta items distintos atualmente no arena.items. Galho inicial não conta
+    // (slot weapon começa equipado mas é o starter — pro design da quest, queremos
+    // que o player equipe 3 dos itens DROPADOS pela forja, então só sobe quando
+    // _bump também sobe equip_first).
+    const equippedCount = (typeof arena !== 'undefined' && arena.items)
+      ? Object.values(arena.items).filter(x => x).length : 0;
+    _set('equip_3_items', Math.min(equippedCount, 3));
+  }
+  function onBossDefeated(){ _bump('defeat_boss', 1); }
+  function onClaimed(){ _bump('claim_first', 1); }
+  function _bump(id, delta){
+    const e = _entry(id), d = _def(id);
+    if(!e || !d || e.claimed) return;
+    if(e.progress >= d.target) return;
+    e.progress = Math.min(d.target, e.progress + delta);
+    save(); _refreshUI();
+  }
+  function _set(id, value){
+    const e = _entry(id), d = _def(id);
+    if(!e || !d || e.claimed) return;
+    if(value <= e.progress) return;
+    e.progress = Math.min(d.target, value);
+    save(); _refreshUI();
+  }
+  function claim(id){
+    const e = _entry(id), d = _def(id);
+    if(!e || !d || e.claimed || e.progress < d.target) return false;
+    e.claimed = true;
+    addDiamonds(d.reward);
+    save();
+    onClaimed();   // meta-quest auto-bump
+    if(typeof Tutorial !== 'undefined') Tutorial.onClaimed(); // FTUE: step 'claim' → 'boss'
+    _refreshUI();
+    return true;
+  }
+  function _refreshUI(){
+    _updateBadge();
+    const layer = document.getElementById('questLayer');
+    if(layer && layer.classList.contains('show')) _renderList();
+  }
+  function _updateBadge(){
+    const badge = document.getElementById('questBadge');
+    if(!badge) return;
+    const n = claimableCount();
+    if(n > 0){ badge.textContent = String(n); badge.classList.remove('empty'); }
+    else     { badge.classList.add('empty'); }
+  }
+  function _renderList(){
+    const list = document.getElementById('questList');
+    if(!list) return;
+    list.innerHTML = '';
+    for(const d of QUEST_DEFS){
+      const e = _entry(d.id);
+      if(!e) continue;
+      const s = statusOf(d.id);
+      const row = document.createElement('div');
+      row.className = 'quest-row' + (s === 'claimed' ? ' claimed' : '');
+      const pct = Math.min(100, (e.progress / d.target) * 100);
+      const btnHTML = s === 'claimed'
+        ? '<button class="quest-claim-btn" disabled>✓ RESGATADO</button>'
+        : `<button class="quest-claim-btn" data-claim-id="${d.id}" ${s !== 'claimable' ? 'disabled' : ''}>RESGATAR</button>`;
+      row.innerHTML = `
+        <div class="quest-label">${d.label}</div>
+        <div class="quest-progress">
+          <div class="quest-bar"><div class="quest-bar-fill" style="width:${pct}%"></div></div>
+          <div class="quest-num">${e.progress}/${d.target}</div>
+        </div>
+        <div class="quest-progress">
+          <span class="quest-reward">💎 ${d.reward}</span>
+          ${btnHTML}
+        </div>
+      `;
+      list.appendChild(row);
+    }
+  }
+  function open(){
+    const layer = document.getElementById('questLayer');
+    if(!layer) return;
+    _renderList();
+    layer.classList.add('show');
+  }
+  function close(){
+    const layer = document.getElementById('questLayer');
+    if(layer) layer.classList.remove('show');
+  }
+  function toggle(){
+    const layer = document.getElementById('questLayer');
+    if(layer && layer.classList.contains('show')) close();
+    else open();
+  }
+  function init(){
+    load();
+    _updateBadge();
+    const btn = document.getElementById('questBtn');
+    if(btn) btn.addEventListener('click', toggle);
+    const closeBtn = document.getElementById('questCloseBtn');
+    if(closeBtn) closeBtn.addEventListener('click', close);
+    const list = document.getElementById('questList');
+    if(list){
+      list.addEventListener('click', (ev) => {
+        const claimBtn = ev.target.closest('[data-claim-id]');
+        if(claimBtn && !claimBtn.disabled) claim(claimBtn.dataset.claimId);
+      });
+    }
+  }
+  return { init, onRolled, onEquipped, onBossDefeated, onClaimed, claim, statusOf, claimableCount, open, close, toggle };
+})();
+// Inicializa após DOM ready (HTML do botão + modal precisa existir).
+if(document.readyState === 'loading'){
+  window.addEventListener('DOMContentLoaded', Quests.init);
+} else {
+  Quests.init();
+}
+
+// ============== FTUE OVERLAY (maozinha + balão) ==============
+// API:
+//   FTUE.point({ target: '#sel' | el, text: '...', position: 'above'|'below'|'left'|'right' })
+//   FTUE.hide()
+// `position` é onde a MAOZINHA fica relativa ao target. Balão fica do lado oposto
+// do target (do outro lado da mão), e a flecha do balão aponta pra mão.
+const FTUE = (function(){
+  let _target = null;
+  let _text = '';
+  let _position = 'above';
+  const HAND_SIZE = 72;
+  const GAP = 8;  // espaço entre target ↔ mão e mão ↔ balão
+  function _el(id){ return document.getElementById(id); }
+  function point(opts){
+    const tgt = (typeof opts.target === 'string') ? document.querySelector(opts.target) : opts.target;
+    if(!tgt){ console.warn('[FTUE] target não encontrado:', opts.target); return; }
+    _target = tgt;
+    _text = opts.text || '';
+    _position = opts.position || 'above';
+    _show();
+    _reposition();
+  }
+  function hide(){
+    const ov = _el('ftueOverlay'); if(ov) ov.classList.remove('show');
+    const bb = _el('ftueBubble');  if(bb) bb.classList.remove('show','arrow-up','arrow-down');
+    _target = null;
+  }
+  function _show(){
+    const ov = _el('ftueOverlay'), hand = _el('ftueHand'), bubble = _el('ftueBubble');
+    if(!ov || !hand || !bubble) return;
+    bubble.textContent = _text;
+    bubble.classList.remove('arrow-up','arrow-down');
+    hand.classList.remove('dir-up','dir-down','dir-left','dir-right');
+    bubble.classList.add('show');
+    ov.classList.add('show');
+    // Direção + classe de seta são definidas em _reposition (depende de medidas).
+  }
+  function _reposition(){
+    const ov = _el('ftueOverlay'), hand = _el('ftueHand'), bubble = _el('ftueBubble');
+    if(!ov || !hand || !bubble || !_target) return;
+    const ovRect = ov.getBoundingClientRect();
+    const tg    = _target.getBoundingClientRect();
+    const tx = tg.left - ovRect.left;
+    const ty = tg.top  - ovRect.top;
+    const tw = tg.width, th = tg.height;
+    const tcx = tx + tw/2;
+    const margin = 6;
+
+    // === MÃO — sempre abaixo do target, paw apontando UP ===
+    let hx = tcx - HAND_SIZE/2;
+    let hy = ty + th + GAP;
+    hx = Math.max(margin, Math.min(ovRect.width  - HAND_SIZE - margin, hx));
+    hy = Math.max(margin, Math.min(ovRect.height - HAND_SIZE - margin, hy));
+    hand.style.left = hx + 'px';
+    hand.style.top  = hy + 'px';
+    hand.classList.remove('dir-up','dir-down','dir-left','dir-right');
+    hand.classList.add('dir-up');
+
+    // === BALÃO — sempre ACIMA do target (com fallback abaixo se não couber) ===
+    // Mede dimensões reais do balão (precisa estar visível pra ter width/height).
+    const bRect = bubble.getBoundingClientRect();
+    const bWidth  = bRect.width;
+    const bHeight = bRect.height;
+    const ARROW_H = 16;
+
+    // Tenta posicionar acima do target. visualTop = ty - ARROW_H - bHeight
+    let visualTop = ty - ARROW_H - bHeight;
+    let arrowClass = 'arrow-down'; // seta no BOTTOM do balão apontando pra BAIXO (target)
+    if(visualTop < margin){
+      // Não cabe acima — coloca abaixo da mão
+      visualTop = hy + HAND_SIZE + GAP + ARROW_H;
+      arrowClass = 'arrow-up';
+      // Clamp inferior também
+      visualTop = Math.min(visualTop, ovRect.height - bHeight - margin);
+    }
+
+    // Clamp horizontal — bubble center deve estar entre [bWidth/2 + margin, ovW - bWidth/2 - margin]
+    const minCenter = bWidth/2  + margin;
+    const maxCenter = ovRect.width - bWidth/2 - margin;
+    const wantedCenter = tcx;
+    const clampedCenter = (minCenter > maxCenter)
+      ? ovRect.width/2  // viewport muito estreito pro balão — centraliza
+      : Math.max(minCenter, Math.min(maxCenter, wantedCenter));
+
+    bubble.style.left      = clampedCenter + 'px';
+    bubble.style.top       = visualTop + 'px';
+    bubble.style.transform = 'translateX(-50%)';
+    bubble.classList.remove('arrow-up','arrow-down');
+    bubble.classList.add(arrowClass);
+
+    // Seta: se balão foi clampado horizontalmente, ajusta offset da seta
+    // pra continuar apontando pro target (em vez do centro do balão).
+    const arrowOffset = wantedCenter - clampedCenter;
+    // Clamp do offset pra não sair do balão (deixa pelo menos 16px de border-radius)
+    const maxOffset = Math.max(0, bWidth/2 - 20);
+    const clampedOffset = Math.max(-maxOffset, Math.min(maxOffset, arrowOffset));
+    bubble.style.setProperty('--ftue-arrow-offset', clampedOffset + 'px');
+  }
+  // Re-posiciona em resize / orientation / scroll
+  window.addEventListener('resize', _reposition);
+  window.addEventListener('orientationchange', _reposition);
+  // RAF loop pra acompanhar targets que mexem de posição (ex: botão que aparece
+  // com display:none → block, mudando o layout). Roda só quando há target ativo.
+  function _loop(){
+    if(_target) _reposition();
+    requestAnimationFrame(_loop);
+  }
+  requestAnimationFrame(_loop);
+  return { point, hide };
+})();
+
+// ============== TUTORIAL — FTUE state machine ==============
+// Sequência de 6 estados gated por eventos do jogo. Persiste em localStorage —
+// uma vez completada (done), nunca mais aparece. Pra resetar: Tutorial.reset()
+// no DevTools console (ou apaga 'bunnyChaos.ftueStep' do localStorage).
+const FTUE_KEY = 'bunnyChaos.ftueStep';
+const FTUE_STEPS = ['roll', 'forge', 'equip', 'claim', 'boss', 'done'];
+
+const Tutorial = (function(){
+  let _step = 'roll';
+  let _stepObs = null; // observer ativo do passo atual (limpa no advance)
+  function _save(){ try { localStorage.setItem(FTUE_KEY, _step); } catch(e){} }
+  function _load(){
+    try {
+      const s = localStorage.getItem(FTUE_KEY);
+      if(FTUE_STEPS.includes(s)) _step = s;
+    } catch(e){}
+  }
+  function _killObs(){ if(_stepObs){ _stepObs.disconnect(); _stepObs = null; } }
+  function _advance(){
+    _killObs();
+    const idx = FTUE_STEPS.indexOf(_step);
+    _step = FTUE_STEPS[idx + 1] || 'done';
+    _save();
+    _showStep();
+  }
+  function _equippedCount(){
+    return (typeof arena !== 'undefined' && arena.items)
+      ? Object.values(arena.items).filter(x => x).length : 0;
+  }
+  // Aguarda elemento ficar visível (width/height > 0) — observa mudanças de class.
+  function _whenVisible(sel, cb){
+    const el = (typeof sel === 'string') ? document.querySelector(sel) : sel;
+    if(!el) return;
+    const isVis = () => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    };
+    if(isVis()){ setTimeout(cb, 50); return; }
+    _killObs();
+    _stepObs = new MutationObserver(() => {
+      if(isVis()){
+        _killObs();
+        setTimeout(cb, 350); // delay pra UI animar/montar
+      }
+    });
+    _stepObs.observe(el, { attributes:true, attributeFilter:['class','style'] });
+    // também observa o pai (caso o display venha de uma classe lá)
+    if(el.parentElement){
+      _stepObs.observe(el.parentElement, { attributes:true, attributeFilter:['class','style'] });
+    }
+  }
+  function _showStep(){
+    _killObs();
+    // Convention: paw SEMPRE abaixo do target, apontando pra CIMA (de baixo pra cima).
+    // O asset original do paw já é uma pata com pad no topo + tufo no bottom — fica
+    // natural com finger up. Balão fica abaixo da pata.
+    if(_step === 'roll'){
+      FTUE.point({ target:'#arenaForgeRollBtn', text:'Jogue os dados pra apostar na sorte!', position:'below' });
+    } else if(_step === 'forge'){
+      FTUE.point({ target:'#arenaForgeConfirmBtn', text:'Forje seu item!', position:'below' });
+    } else if(_step === 'equip'){
+      // Aguarda popup #forgeCompare aparecer → aponta pro EQUIPAR
+      FTUE.hide();
+      _whenVisible('#forgeCompare', () => {
+        FTUE.point({ target:'#forgeEquipBtn', text:'Toque pra equipar o item!', position:'below' });
+      });
+    } else if(_step === 'claim'){
+      FTUE.point({ target:'#questBtn', text:'Agora resgate suas conquistas!', position:'below' });
+    } else if(_step === 'boss'){
+      _tryShowBossStep();
+    } else { // done
+      FTUE.hide();
+    }
+  }
+  function _tryShowBossStep(){
+    const btn = document.getElementById('arenaBossBtn');
+    if(!btn) return;
+    const ok = btn.classList.contains('show') && _equippedCount() >= 3;
+    if(ok){
+      FTUE.point({ target:'#arenaBossBtn', text:'ESTÁ MAIS PODEROSO, DESAFIE O CHEFÃO!', position:'below' });
+    } else {
+      FTUE.hide();
+      _killObs();
+      _stepObs = new MutationObserver(() => {
+        if(btn.classList.contains('show') && _equippedCount() >= 3){
+          _killObs();
+          FTUE.point({ target:'#arenaBossBtn', text:'ESTÁ MAIS PODEROSO, DESAFIE O CHEFÃO!', position:'below' });
+        }
+      });
+      _stepObs.observe(btn, { attributes:true, attributeFilter:['class'] });
+    }
+  }
+  // === Event hooks ===
+  function onRolled(){       if(_step === 'roll')  _advance(); }
+  function onForgeOpened(){  if(_step === 'forge') _advance(); }
+  function onEquipped(){
+    if(_step === 'equip') _advance();
+    else if(_step === 'boss') _tryShowBossStep(); // re-checa precondição (3 itens)
+  }
+  function onClaimed(){      if(_step === 'claim') _advance(); }
+  function onBossDefeated(){ if(_step === 'boss')  _advance(); }
+  function start(){
+    _load();
+    if(_step === 'done'){ FTUE.hide(); return; }
+    // Espera splash sair antes de mostrar paw — checa se splashScreen.gone existe
+    const splash = document.getElementById('splashScreen');
+    const doShow = () => setTimeout(_showStep, 400);
+    if(!splash || splash.classList.contains('gone')){ doShow(); return; }
+    const obs = new MutationObserver(() => {
+      if(splash.classList.contains('gone')){ obs.disconnect(); doShow(); }
+    });
+    obs.observe(splash, { attributes:true, attributeFilter:['class'] });
+  }
+  function reset(){
+    _step = 'roll';
+    try { localStorage.removeItem(FTUE_KEY); } catch(e){}
+    _showStep();
+  }
+  // Exposição global pra reset via DevTools
+  window.Tutorial = { start, reset, onRolled, onForgeOpened, onEquipped, onClaimed, onBossDefeated, _step: () => _step };
+  return { start, reset, onRolled, onForgeOpened, onEquipped, onClaimed, onBossDefeated };
+})();
+if(document.readyState === 'loading'){
+  window.addEventListener('DOMContentLoaded', Tutorial.start);
+} else {
+  Tutorial.start();
+}
+
+// ============== SETTINGS (audio / idioma / vibração) ==============
+// Persiste em localStorage. Áudio gates extras (enabled bool) multiplicam o
+// AUDIO_MIXER existente — toggle off = 0, on = slider value. Idioma persistido
+// (sem i18n implementado ainda, infra reservada). Vibração via navigator.vibrate.
+const SETTINGS_KEY = 'bunnyChaos.settings';
+const SETTINGS_DEFAULTS = {
+  audioEnabled: { master:true, music:true, sfx:true },
+  language: 'pt',                  // 'pt' | 'en' (apenas persistido, i18n pendente)
+  vibrateEnabled: true,
+};
+const SETTINGS = JSON.parse(JSON.stringify(SETTINGS_DEFAULTS));
+(function _loadSettings(){
+  try {
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
+    if(s && typeof s === 'object'){
+      if(s.audioEnabled && typeof s.audioEnabled === 'object'){
+        for(const k of ['master','music','sfx']){
+          if(typeof s.audioEnabled[k] === 'boolean') SETTINGS.audioEnabled[k] = s.audioEnabled[k];
+        }
+      }
+      if(s.language === 'pt' || s.language === 'en') SETTINGS.language = s.language;
+      if(typeof s.vibrateEnabled === 'boolean') SETTINGS.vibrateEnabled = s.vibrateEnabled;
+    }
+  } catch(e){}
+})();
+function _saveSettings(){
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS)); } catch(e){}
+}
+
+// Wrapper de vibração — respeita SETTINGS.vibrateEnabled + suporte do device.
+function vibrate(ms){
+  if(!SETTINGS.vibrateEnabled) return;
+  if(!navigator.vibrate) return;
+  try { navigator.vibrate(ms); } catch(e){}
+}
+
+// Sobrescreve _getAudioVol pra aplicar as gates de enabled — toggle off → volume 0.
+// Mantém compat com Music manager que lê window._getAudioVol em runtime.
+(function _patchAudioVol(){
+  const _baseGetVol = window._getAudioVol;
+  if(typeof _baseGetVol !== 'function') return;
+  window._getAudioVol = function(assetId){
+    if(!SETTINGS.audioEnabled.master) return 0;
+    const a = (typeof AUDIO_CATALOG !== 'undefined')
+      ? AUDIO_CATALOG.find(x => x.id === assetId) : null;
+    if(a && SETTINGS.audioEnabled[a.category] === false) return 0;
+    return _baseGetVol(assetId);
+  };
+})();
+
+const Settings = (function(){
+  function _el(id){ return document.getElementById(id); }
+  function _syncMusicLive(){
+    // Refresh dos volumes ao vivo (Music manager lê _getAudioVol periodicamente)
+    if(typeof Music !== 'undefined' && Music.refreshLive) Music.refreshLive();
+  }
+  function _renderUI(){
+    const masterCb = _el('settingsMasterToggle');
+    const musicCb  = _el('settingsMusicToggle');
+    const sfxCb    = _el('settingsSfxToggle');
+    if(masterCb) masterCb.checked = !!SETTINGS.audioEnabled.master;
+    if(musicCb)  musicCb.checked  = !!SETTINGS.audioEnabled.music;
+    if(sfxCb)    sfxCb.checked    = !!SETTINGS.audioEnabled.sfx;
+    // Faders refletem o AUDIO_MIXER atual (que tem persistência própria)
+    const musicFader = _el('settingsMusicFader');
+    const sfxFader   = _el('settingsSfxFader');
+    if(musicFader){ musicFader.value = AUDIO_MIXER.music; _el('settingsMusicFaderVal').textContent = Math.round(AUDIO_MIXER.music*100) + '%'; }
+    if(sfxFader)  { sfxFader.value   = AUDIO_MIXER.sfx;   _el('settingsSfxFaderVal').textContent   = Math.round(AUDIO_MIXER.sfx*100)   + '%'; }
+    // Fader desabilita quando o toggle correspondente está OFF
+    if(musicFader) musicFader.disabled = !SETTINGS.audioEnabled.music || !SETTINGS.audioEnabled.master;
+    if(sfxFader)   sfxFader.disabled   = !SETTINGS.audioEnabled.sfx   || !SETTINGS.audioEnabled.master;
+    // Idioma — botão ativo
+    for(const btn of document.querySelectorAll('.settings-lang-btn')){
+      btn.classList.toggle('active', btn.dataset.lang === SETTINGS.language);
+    }
+    // Vibração
+    const vib = _el('settingsVibrateToggle');
+    if(vib) vib.checked = !!SETTINGS.vibrateEnabled;
+  }
+  function open(){ const l = _el('settingsLayer'); if(!l) return; _renderUI(); l.classList.add('show'); }
+  function close(){ const l = _el('settingsLayer'); if(l) l.classList.remove('show'); }
+  function init(){
+    // Wire botão de abrir
+    const btn = _el('settingsBtn');
+    if(btn) btn.addEventListener('click', open);
+    const closeBtn = _el('settingsCloseBtn');
+    if(closeBtn) closeBtn.addEventListener('click', close);
+
+    // Audio toggles
+    const wireToggle = (id, cat) => {
+      const cb = _el(id);
+      if(!cb) return;
+      cb.addEventListener('change', () => {
+        SETTINGS.audioEnabled[cat] = cb.checked;
+        _saveSettings();
+        _renderUI();
+        _syncMusicLive();
+        if(cb.checked) vibrate(8); // feedback tátil
+      });
+    };
+    wireToggle('settingsMasterToggle', 'master');
+    wireToggle('settingsMusicToggle',  'music');
+    wireToggle('settingsSfxToggle',    'sfx');
+
+    // Faders — mexer no slider altera AUDIO_MIXER (que tem persistência própria)
+    const wireFader = (faderId, valId, cat) => {
+      const f = _el(faderId), v = _el(valId);
+      if(!f) return;
+      f.addEventListener('input', () => {
+        const val = parseFloat(f.value);
+        AUDIO_MIXER[cat] = val;
+        if(v) v.textContent = Math.round(val*100) + '%';
+        if(typeof _saveAudioMixer === 'function') _saveAudioMixer();
+        _syncMusicLive();
+      });
+    };
+    wireFader('settingsMusicFader', 'settingsMusicFaderVal', 'music');
+    wireFader('settingsSfxFader',   'settingsSfxFaderVal',   'sfx');
+
+    // Idioma — botões PT/EN
+    for(const btn of document.querySelectorAll('.settings-lang-btn')){
+      btn.addEventListener('click', () => {
+        SETTINGS.language = btn.dataset.lang;
+        _saveSettings();
+        _renderUI();
+        // TODO: aplicar i18n quando o sistema for implementado
+      });
+    }
+
+    // Vibração toggle
+    const vib = _el('settingsVibrateToggle');
+    if(vib) vib.addEventListener('change', () => {
+      SETTINGS.vibrateEnabled = vib.checked;
+      _saveSettings();
+      if(vib.checked) vibrate(20); // confirma com vibração curta
+    });
+  }
+  return { init, open, close };
+})();
+if(document.readyState === 'loading'){
+  window.addEventListener('DOMContentLoaded', Settings.init);
+} else {
+  Settings.init();
+}
 
 function forgeIntervalAtLevel(lvl){
   // L1=15s, decresce até mínimo 3s no level 25+
@@ -8617,6 +9727,8 @@ function openForgeDice(){
 
 function animateForgeRoll(onDone){
   forgeRoll.phase = 'rolling';
+  if(typeof Quests   !== 'undefined') Quests.onRolled();
+  if(typeof Tutorial !== 'undefined') Tutorial.onRolled();
   for(const el of _forgeDice()) el.classList.add('rolling');
   let frame = 0;
   const totalFrames = 8;
@@ -8807,6 +9919,7 @@ function openForgeCompare(){
 
   state = STATE.ARENA_TAB;
   showLayer('forgeCompare');
+  if(typeof Tutorial !== 'undefined') Tutorial.onForgeOpened();
 }
 
 // helpers de render do popup
@@ -8863,6 +9976,8 @@ function closeForge(){
 document.getElementById('forgeEquipBtn').addEventListener('click', ()=>{
   if(arena.pendingForgeItem){
     arena.items[arena.pendingForgeItem.slot] = arena.pendingForgeItem;
+    if(typeof Quests   !== 'undefined') Quests.onEquipped();
+    if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
     // efeito visual: partícula no coelho
     if(typeof spawnArenaParticle === 'function'){
       spawnArenaParticle(arena.bx, arena.by, eraOfItem(arena.pendingForgeItem).color, 18);
