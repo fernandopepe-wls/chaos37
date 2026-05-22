@@ -38,4 +38,7 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- VIBRATE: necessária pro navigator.vibrate() funcionar em Android 9+
+         (usado pra feedback tátil no hit do player, boss kill, settings toggle). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>

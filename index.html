@@ -6664,6 +6664,10 @@ function arenaEquipItem(item){
     arena.items[item.slot] = item;
     if(typeof Quests   !== 'undefined') Quests.onEquipped();
     if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
+    if(window.Analytics) Analytics.send('item_equipped', {
+      slot: item.slot, era_idx: item.eraIdx, level: item.currentLevel || 1,
+      replaced: false, source: 'auto',
+    });
     if(item.slot === 'weapon' && typeof bunnyApplyEquippedWeapon === 'function') bunnyApplyEquippedWeapon();
     return true;
   }
@@ -6675,6 +6679,10 @@ function arenaEquipItem(item){
     arena.items[item.slot] = item;
     if(typeof Quests   !== 'undefined') Quests.onEquipped();
     if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
+    if(window.Analytics) Analytics.send('item_equipped', {
+      slot: item.slot, era_idx: item.eraIdx, level: item.currentLevel || 1,
+      replaced: true, replaced_era_idx: cur.eraIdx, source: 'auto',
+    });
     if(item.slot === 'weapon' && typeof bunnyApplyEquippedWeapon === 'function') bunnyApplyEquippedWeapon();
     return true;
   }
@@ -6700,6 +6708,7 @@ function killArenaEnemy(idx, e){
     if(typeof vibrate  === 'function') vibrate([80, 40, 120]); // boss kill = padrão duplo
     if(typeof Quests   !== 'undefined') Quests.onBossDefeated();
     if(typeof Tutorial !== 'undefined') Tutorial.onBossDefeated();
+    if(window.Analytics) Analytics.send('boss_defeated', { kind: e.kind || 'unknown' });
     // Crossfade de volta pra música de gameplay
     if(typeof Music !== 'undefined' && Music.crossfadeFromBoss){
       Music.crossfadeFromBoss();
@@ -9237,6 +9246,7 @@ const Quests = (function(){
     save();
     onClaimed();   // meta-quest auto-bump
     if(typeof Tutorial !== 'undefined') Tutorial.onClaimed(); // FTUE: step 'claim' → 'boss'
+    if(window.Analytics) Analytics.send('quest_claimed', { quest_id: id, reward: d.reward });
     _refreshUI();
     return true;
   }
@@ -9661,13 +9671,19 @@ const Settings = (function(){
         _renderUI();
         _syncMusicLive();
         if(cb.checked) vibrate(8); // feedback tátil
+        if(window.Analytics) Analytics.send('audio_setting_changed', {
+          category: cat, kind: 'toggle', enabled: cb.checked,
+        });
       });
     };
     wireToggle('settingsMasterToggle', 'master');
     wireToggle('settingsMusicToggle',  'music');
     wireToggle('settingsSfxToggle',    'sfx');
 
-    // Faders — mexer no slider altera AUDIO_MIXER (que tem persistência própria)
+    // Faders — mexer no slider altera AUDIO_MIXER (que tem persistência própria).
+    // Debounce do analytics — fader dispara 'input' em cada pixel; trackamos
+    // só o valor FINAL (350ms após parar de arrastar) pra não inundar o backend.
+    const _faderAnalyticsTimers = {};
     const wireFader = (faderId, valId, cat) => {
       const f = _el(faderId), v = _el(valId);
       if(!f) return;
@@ -9677,6 +9693,14 @@ const Settings = (function(){
         if(v) v.textContent = Math.round(val*100) + '%';
         if(typeof _saveAudioMixer === 'function') _saveAudioMixer();
         _syncMusicLive();
+        if(window.Analytics){
+          clearTimeout(_faderAnalyticsTimers[cat]);
+          _faderAnalyticsTimers[cat] = setTimeout(() => {
+            Analytics.send('audio_setting_changed', {
+              category: cat, kind: 'fader', volume: +val.toFixed(2),
+            });
+          }, 350);
+        }
       });
     };
     wireFader('settingsMusicFader', 'settingsMusicFaderVal', 'music');
@@ -9688,6 +9712,7 @@ const Settings = (function(){
         SETTINGS.language = btn.dataset.lang;
         _saveSettings();
         _renderUI();
+        if(window.Analytics) Analytics.send('language_changed', { lang: SETTINGS.language });
         // TODO: aplicar i18n quando o sistema for implementado
       });
     }
@@ -9698,6 +9723,7 @@ const Settings = (function(){
       SETTINGS.vibrateEnabled = vib.checked;
       _saveSettings();
       if(vib.checked) vibrate(20); // confirma com vibração curta
+      if(window.Analytics) Analytics.send('vibration_changed', { enabled: vib.checked });
     });
   }
   return { init, open, close };
@@ -9908,10 +9934,14 @@ function trySkipForgeUpgrade(){
   if(!isForgeUpgradeInProgress()) return false;
   const cost = getForgeUpgradeSkipCost();
   if((arena.diamonds || 0) < cost) return false;
+  const remSec = Math.ceil(getForgeUpgradeRemainingSec());
   addDiamonds(-cost);
   // Força timer terminado: backdate startedAt pra antes do timeSec inteiro
   arena.forgeUpgradeStartedAt = Date.now() - ((arena.forgeUpgradeTimeSec || 0) * 1000) - 1000;
   applyForgeUpgradeIfReady();
+  if(window.Analytics) Analytics.send('gem_spent_skip', {
+    cost, remaining_sec: remSec, level_from: arena.forgeLevel - 1,
+  });
   return true;
 }
 
@@ -10599,12 +10629,14 @@ setInterval(()=>{
 // (padrão Magic Lamp / Merge Master).
 document.getElementById('arenaForgeAutoBtn').addEventListener('click', ()=>{
   if(state !== STATE.ARENA_PLAY && state !== STATE.ARENA_TAB) return;
+  if(window.Analytics) Analytics.send('auto_button_clicked', { was_active: !!arena.autoForge });
   // Se já está LIGADO → click desliga direto (sem abrir popup).
   // Se está DESLIGADO → abre popup pra player configurar/ligar.
   if(arena.autoForge){
     arena.autoForge = false;
     const btn = document.getElementById('arenaForgeAutoBtn');
     if(btn) btn.classList.remove('active');
+    if(window.Analytics) Analytics.send('auto_toggle_changed', { enabled: false, source: 'btn_quick_off' });
     return;
   }
   openAutoForgePopup();
@@ -10620,6 +10652,9 @@ document.getElementById('autoForgeToggleBtn').addEventListener('click', ()=>{
   // sincroniza a classe active no botão externo (CSS já cuida do visual)
   const extBtn = document.getElementById('arenaForgeAutoBtn');
   if(extBtn) extBtn.classList.toggle('active', arena.autoForge);
+  if(window.Analytics) Analytics.send('auto_toggle_changed', {
+    enabled: arena.autoForge, source: 'popup',
+  });
   // Ao LIGAR, fecha o popup pra player ver o auto rodando. Ao DESLIGAR,
   // mantém aberto pra player poder ajustar settings antes de religar.
   if(arena.autoForge){
@@ -11101,6 +11136,10 @@ function animateForgeRoll(onDone){
   forgeRoll.phase = 'rolling';
   if(typeof Quests   !== 'undefined') Quests.onRolled();
   if(typeof Tutorial !== 'undefined') Tutorial.onRolled();
+  if(window.Analytics) Analytics.send('forge_rolled', {
+    source: forgeRoll.autoMode ? 'auto' : 'manual',
+    batch: forgeRoll.autoRolls || 1,
+  });
 
   // Grow the dice row IMMEDIATELY (CSS transition smooths the grow-in).
   // Stays big through windup + spin + settle + combo beat — shrunk back
@@ -11502,6 +11541,13 @@ document.getElementById('forgeEquipBtn').addEventListener('click', ()=>{
     arena.items[arena.pendingForgeItem.slot] = arena.pendingForgeItem;
     if(typeof Quests   !== 'undefined') Quests.onEquipped();
     if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
+    if(window.Analytics) Analytics.send('item_equipped', {
+      slot: arena.pendingForgeItem.slot,
+      era_idx: arena.pendingForgeItem.eraIdx,
+      level: arena.pendingForgeItem.currentLevel || 1,
+      replaced: !!oldItem,
+      source: 'manual_forge',
+    });
     // Hand-sprite swap on weapon equip (assignment above bypasses arenaEquipItem,
     // so the hook there doesn't fire — call it manually here).
     if(arena.pendingForgeItem.slot === 'weapon' && typeof bunnyApplyEquippedWeapon === 'function'){
@@ -11528,6 +11574,11 @@ document.getElementById('forgeDiscardBtn').addEventListener('click', () => {
   // Recompensa o item NOVO descartado (não o equipado antigo, esse fica intocado)
   if(arena.pendingForgeItem){
     _grantDiscardCarrots(arena.pendingForgeItem);
+    if(window.Analytics) Analytics.send('item_discarded', {
+      slot: arena.pendingForgeItem.slot,
+      era_idx: arena.pendingForgeItem.eraIdx,
+      source: 'manual_discard',
+    });
     if(typeof spawnArenaParticle === 'function'){
       spawnArenaParticle(arena.bx, arena.by, '#ff9b3a', 8);
     }
@@ -11536,7 +11587,14 @@ document.getElementById('forgeDiscardBtn').addEventListener('click', () => {
 });
 
 // Dice forge INLINE: botão principal (Roll/Reroll) + Forjar + toggle hold nos dados
-document.getElementById('arenaForgeRollBtn').addEventListener('click', forgeMainAction);
+document.getElementById('arenaForgeRollBtn').addEventListener('click', () => {
+  if(window.Analytics) Analytics.send('roll_button_clicked', {
+    lettuce: arena.lettuce | 0,
+    has_lettuce: (arena.lettuce | 0) >= FORGE_BASE_COST,
+    phase: forgeRoll.phase,
+  });
+  forgeMainAction();
+});
 document.getElementById('arenaForgeConfirmBtn').addEventListener('click', forgeConfirm);
 for(const el of document.querySelectorAll('#arenaDiceRow .forge-die')){
   el.addEventListener('click', ()=>{
@@ -12175,6 +12233,76 @@ if(document.fonts && document.fonts.load){
 
 // boot direto na Loot Arena
 enterArena();
+</script>
+
+<!-- Wildlife Platform SDK init — fire-and-forget, falha silenciosa não
+     bloqueia o game. Roda só em ambiente nativo (Capacitor); no browser
+     dev sem Capacitor, o try/catch engole a falha. Per CLAUDE.md pattern:
+     "Platform().initialize({appId: __APP_NAME__, environment: __BUILD_MODE__})"
+     Vite's import.meta.env.MODE = 'development' | 'staging' | 'production'.
+
+     Depois do init, expõe `window._WildlifePlatform` pro código inline (não-
+     module) acessar via window.Analytics.send(). -->
+<script type="module">
+  try {
+    const { Platform } = await import('@wildlife/platform-capacitor');
+    const appId = 'bunny-chaos-37';
+    const environment = import.meta.env.MODE || 'development';
+    const platform = Platform();
+    await platform.initialize({ appId, environment });
+    window._WildlifePlatform = platform;
+    console.log(`[Platform] SDK inicializado (${appId} / ${environment})`);
+  } catch(e){
+    console.warn('[Platform] SDK init falhou — game continua sem analytics/attribution', e && e.message);
+  }
+</script>
+
+<!-- Analytics wrapper — template padrão pra disparar eventos do jogo.
+     Cobre: try/catch (não derruba o game se SDK falhar), no-op se SDK
+     ainda não inicializou, e injeta contexto comum em TODO evento.
+
+     USO:
+       Analytics.send('item_equipped',   { slot, era, level });
+       Analytics.send('boss_defeated',   { stage_clear_ms });
+       Analytics.send('forge_rolled',    { combo, lvl: arena.forgeLevel });
+       Analytics.send('quest_claimed',   { quest_id, reward });
+
+     CONVENÇÕES sugeridas pra event names neste jogo (snake_case, verbo passado):
+       session_start (auto pelo SDK)
+       arena_started, arena_died
+       forge_rolled, forge_confirmed, item_equipped, item_discarded
+       stage_cleared, boss_defeated
+       quest_claimed, gem_spent_skip, gem_spent_<motivo>
+       tutorial_step_done, tutorial_completed
+       settings_changed (params: { key, value })
+
+     Params devem ser sempre `Record<string, primitive>` — sem objetos
+     aninhados (Topaz não suporta). -->
+<script>
+  (function(){
+    window.Analytics = {
+      send: function(eventType, params){
+        try {
+          var p = window._WildlifePlatform;
+          if(!p || !p.isInitialized) return;  // no-op em browser dev / pré-init
+          var ctx = {};
+          // Contexto auto-injetado em todo evento (se arena existir)
+          if(typeof arena !== 'undefined'){
+            ctx.stage    = arena.stage;
+            ctx.forge_lv = arena.forgeLevel;
+            ctx.carrots  = arena.carrots | 0;
+            if(typeof currentArenaEra === 'function') ctx.era = currentArenaEra();
+          }
+          // Merge override do caller — params do caller têm prioridade
+          if(params){
+            for(var k in params) if(Object.prototype.hasOwnProperty.call(params, k)) ctx[k] = params[k];
+          }
+          // Fire-and-forget — não await
+          p.analyticsSendEvent(eventType, ctx).catch(function(){ /* swallow */ });
+        } catch(_){ /* swallow */ }
+      },
+    };
+  })();
 </script>
 </body>
 </html>
