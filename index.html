@@ -744,6 +744,17 @@
     opacity:0.95;
   }
   .forge-main-btn:active{transform:translateY(2px);filter:drop-shadow(0 0 0 rgba(0,0,0,0.18));}
+  /* ROLAR squish — vertical-only squash so it doesn't overlap siblings. */
+  .forge-main-btn.squish{
+    animation: forgeBtnSquish .28s cubic-bezier(.34, 1.56, .64, 1);
+    transform-origin: 50% 100%; /* anchor at bottom — squash compresses upward */
+  }
+  @keyframes forgeBtnSquish{
+    0%   { transform: scaleY(1)    translateY(0); }
+    22%  { transform: scaleY(0.78) translateY(0); }
+    55%  { transform: scaleY(1.08) translateY(0); }
+    100% { transform: scaleY(1)    translateY(0); }
+  }
   .forge-main-btn.confirm{
     /* mantém base laranja porém greenificada via filter pra confirm (verde) */
     filter:hue-rotate(80deg) saturate(1.1) drop-shadow(0 2px 0 rgba(0,0,0,0.18));
@@ -1199,6 +1210,81 @@
     font-size:12px;color:#7a7163;
     line-height:1.35;
   }
+
+  /* === JUICE: forge popup reveal === */
+
+  /* Card slide-in with overshoot. Triggered by JS adding .reveal after show. */
+  .forge-popup-card.reveal{
+    animation: forgePopupSlideIn .42s cubic-bezier(.34, 1.56, .64, 1);
+  }
+  @keyframes forgePopupSlideIn{
+    0%   { transform: translateY(60px) scale(.92); opacity: 0; }
+    60%  { transform: translateY(-6px) scale(1.02); opacity: 1; }
+    100% { transform: translateY(0)    scale(1);    opacity: 1; }
+  }
+
+  /* New-item row pop. Delayed so card lands first. */
+  .forge-popup-row.new.reveal{
+    animation: forgeNewRowReveal .38s cubic-bezier(.34, 1.56, .64, 1) .18s both;
+  }
+  @keyframes forgeNewRowReveal{
+    0%   { transform: scale(.85); opacity: 0; }
+    70%  { transform: scale(1.04); opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+
+  /* Aura on new-item slot, tinted by era color. Persistent pulse while popup open. */
+  .forge-popup-slot.new-aura{
+    --aura-color: var(--rarity-color, #ffcc3d);
+  }
+  .forge-popup-slot.new-aura::before{
+    content:'';
+    position:absolute;
+    inset:-6px;
+    border-radius:18px;
+    background: radial-gradient(circle, var(--aura-color) 0%, rgba(0,0,0,0) 70%);
+    opacity:.55;
+    z-index:-1;
+    pointer-events:none;
+    animation: forgeSlotAuraPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes forgeSlotAuraPulse{
+    0%, 100% { opacity:.35; transform: scale(1); }
+    50%      { opacity:.70; transform: scale(1.10); }
+  }
+
+  /* Diagonal shine sweep across the icon. Uses background-position animation
+     instead of overflow:hidden on the slot so the Lv badge + NOVO! tag (both
+     positioned outside the slot box) stay visible during the reveal. */
+  .forge-popup-slot.shine::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    border-radius:14px; /* match slot radius so the shine clips to the frame */
+    pointer-events:none;
+    background: linear-gradient(115deg,
+      rgba(255,255,255,0) 35%,
+      rgba(255,255,255,0.70) 50%,
+      rgba(255,255,255,0) 65%);
+    background-size: 250% 100%;
+    background-position: 200% 0;
+    animation: forgeIconShine .85s ease-out .48s 1;
+    z-index: 1;
+  }
+  @keyframes forgeIconShine{
+    0%   { background-position:  200% 0; }
+    100% { background-position: -100% 0; }
+  }
+
+  /* NOVO! badge bounces in after row reveals. */
+  .forge-popup-slot .novo.reveal{
+    animation: forgeNovoBounce .35s cubic-bezier(.34, 1.56, .64, 1) .45s both;
+  }
+  @keyframes forgeNovoBounce{
+    0%   { transform: translateX(-50%) scale(.4); opacity: 0; }
+    65%  { transform: translateX(-50%) scale(1.25); opacity: 1; }
+    100% { transform: translateX(-50%) scale(1);    opacity: 1; }
+  }
   .forge-popup-info .subs .row{display:block;}
   /* Linha de ações: 2 botões grandes coloridos */
   .forge-popup-actions{
@@ -1328,6 +1414,8 @@
   }
   #arenaDiceRow .forge-die.rolling{
     animation:diceRoll .12s infinite linear;
+    /* Subtle motion blur smear — sells the spin without obscuring the face. */
+    filter: blur(0.7px) brightness(1.05);
   }
   @keyframes diceRoll{
     0%   { transform:translateY(0)    rotate(0deg);   }
@@ -1367,6 +1455,257 @@
   @keyframes comboPulse{
     0%, 100% { filter: brightness(1); }
     50%      { filter: brightness(1.25); }
+  }
+
+  /* === JUICE: dice anticipation / settle / combo flash / screen shake === */
+
+  /* Anticipation: brief squash before the spin starts (sells the toss) */
+  #arenaDiceRow .forge-die.windup{
+    animation: diceWindup .14s cubic-bezier(.4,.0,.2,1.0);
+  }
+  @keyframes diceWindup{
+    0%   { transform: scale(1)              translateY(0); }
+    40%  { transform: scale(.85, 1.15)      translateY(2px); }
+    100% { transform: scale(1)              translateY(0); }
+  }
+
+  /* Settle: per-die bounce when spin ends. Replaces .rolling for ~280ms. */
+  #arenaDiceRow .forge-die.settled{
+    animation: diceSettle .28s cubic-bezier(.4, 1.6, .55, 1);
+  }
+  @keyframes diceSettle{
+    0%   { transform: scale(.6, 1.3) translateY(-6px); }
+    55%  { transform: scale(1.20, .85) translateY(2px); }
+    78%  { transform: scale(.95, 1.05) translateY(0); }
+    100% { transform: scale(1, 1)       translateY(0); }
+  }
+
+  /* Value pop above each die when it settles. Floats up + fades. */
+  .forge-die-value-pop{
+    position: fixed;
+    pointer-events: none;
+    z-index: 1000;
+    font-family: 'Fredoka', system-ui, sans-serif;
+    font-weight: 900;
+    font-size: 22px;
+    color: #fff7d6;
+    text-shadow:
+      -2px -2px 0 #1a1208,
+       2px -2px 0 #1a1208,
+      -2px  2px 0 #1a1208,
+       2px  2px 0 #1a1208,
+      -2px  0   0 #1a1208,
+       2px  0   0 #1a1208,
+       0   -2px 0 #1a1208,
+       0    2px 0 #1a1208,
+       0    3px 0 rgba(0,0,0,0.6);
+    opacity: 0;
+    animation: forgeDieValuePop .7s cubic-bezier(.34, 1.56, .64, 1) forwards;
+  }
+  /* Six-of-a-kind dice value uses a hot color for visual differentiation. */
+  .forge-die-value-pop.hot{ color: #ffd870; }
+  @keyframes forgeDieValuePop{
+    0%   { transform: translate(-50%, 0)     scale(.4);   opacity: 0; }
+    18%  { transform: translate(-50%, -8px)  scale(1.35); opacity: 1; }
+    36%  { transform: translate(-50%, -16px) scale(.95);  opacity: 1; }
+    60%  { transform: translate(-50%, -28px) scale(1);    opacity: 1; }
+    100% { transform: translate(-50%, -50px) scale(.85);  opacity: 0; }
+  }
+
+  /* DOM particle burst at dice land. JS spawns 8 divs at die center. */
+  .forge-die-particle{
+    position: fixed;
+    width: 6px; height: 6px;
+    background: #ffd870;
+    border: 1px solid #fff;
+    border-radius: 1px;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 1;
+    animation: forgeDieParticle .42s cubic-bezier(.2,.7,.4,1) forwards;
+    --pdx: 0px;
+    --pdy: -22px;
+  }
+  @keyframes forgeDieParticle{
+    0%   { transform: translate(0,0)         scale(1);  opacity: 1; }
+    70%  { opacity: 1; }
+    100% { transform: translate(var(--pdx), var(--pdy)) scale(.3); opacity: 0; }
+  }
+
+  /* Center flash on combo land. Radial gradient tinted by combo color. */
+  #forgeComboFlash{
+    position: fixed;
+    left: 50%; top: 50%;
+    width: 480px; height: 480px;
+    margin-left: -240px; margin-top: -240px;
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0;
+    background: radial-gradient(circle, var(--flash-color, #ffcc3d) 0%, rgba(0,0,0,0) 65%);
+    mix-blend-mode: screen;
+  }
+  #forgeComboFlash.fire{
+    animation-name: forgeComboFlash;
+    animation-timing-function: ease-out;
+    animation-fill-mode: forwards;
+  }
+  /* End scale is base × --flash-scale (set per intensity in JS). Mid-frame
+     scale is half of end so the flash overshoots then expands. */
+  @keyframes forgeComboFlash{
+    0%   { opacity: 0;    transform: scale(.3); }
+    25%  { opacity: 0.95; transform: scale(calc(0.7 * var(--flash-scale, 1))); }
+    100% { opacity: 0;    transform: scale(calc(1.6 * var(--flash-scale, 1))); }
+  }
+
+  /* Screen shake — 4 tiers escalating with combo power. */
+  body.forge-shake-tiny{ animation: forgeShakeTiny .14s ease-out; }
+  @keyframes forgeShakeTiny{
+    50% { transform: translate3d(0.5px, 0.5px, 0); }
+  }
+  body.forge-shake-small{ animation: forgeShakeSmall .32s cubic-bezier(.36,.07,.19,.97); }
+  @keyframes forgeShakeSmall{
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d( 2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-3px, -1px, 0); }
+    40%, 60% { transform: translate3d( 3px,  1px, 0); }
+  }
+  body.forge-shake-big{ animation: forgeShakeBig .50s cubic-bezier(.36,.07,.19,.97); }
+  @keyframes forgeShakeBig{
+    10%, 90% { transform: translate3d(-2px, 0, 0); }
+    20%, 80% { transform: translate3d( 5px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-7px, -2px, 0); }
+    40%, 60% { transform: translate3d( 7px,  2px, 0); }
+  }
+  /* === JUICE: combo tier text overlay ("NICE!" / "BIG WIN!" / "JACKPOT!!") === */
+  #forgeComboTierText{
+    position: fixed;
+    left: 50%; top: 38%;
+    transform: translate(-50%, -50%) scale(0);
+    pointer-events: none;
+    z-index: 1001;
+    font-family: 'Fredoka', system-ui, sans-serif;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    color: var(--tier-color, #ffcc3d);
+    /* Chibi/cartoon comic-book style: 8-direction chunky black outline +
+       hard offset shadow (no blur). No colored halo — matches the rest of
+       the UI's flat-cartoon aesthetic. */
+    text-shadow:
+      -3px -3px 0 #1a1208,
+       3px -3px 0 #1a1208,
+      -3px  3px 0 #1a1208,
+       3px  3px 0 #1a1208,
+      -3px  0   0 #1a1208,
+       3px  0   0 #1a1208,
+       0   -3px 0 #1a1208,
+       0    3px 0 #1a1208,
+       0    6px 0 #1a1208,
+       0    9px 0 rgba(0,0,0,0.45);
+    opacity: 0;
+    white-space: nowrap;
+  }
+  #forgeComboTierText.fire{
+    animation-name: forgeTierTextPop;
+    animation-timing-function: cubic-bezier(.34, 1.56, .64, 1);
+    animation-fill-mode: forwards;
+  }
+  @keyframes forgeTierTextPop{
+    0%   { transform: translate(-50%, -30%) scale(.1) rotate(-8deg); opacity: 0; }
+    18%  { transform: translate(-50%, -50%) scale(1.35) rotate(2deg); opacity: 1; }
+    32%  { transform: translate(-50%, -50%) scale(.92) rotate(-2deg); opacity: 1; }
+    44%  { transform: translate(-50%, -50%) scale(1.05) rotate(0deg);  opacity: 1; }
+    70%  { transform: translate(-50%, -50%) scale(1)    rotate(0deg);  opacity: 1; }
+    100% { transform: translate(-50%, -80%) scale(.85) rotate(0deg);  opacity: 0; }
+  }
+
+  /* === JUICE: per-tier signature effects === */
+
+  /* STRAIGHT — horizontal sweep bar sliding L→R across the screen. */
+  #forgeSweepBar{
+    position: fixed;
+    left: -120vw; top: 35%;
+    width: 120vw; height: 96px;
+    pointer-events: none;
+    z-index: 998;
+    opacity: 0;
+    background: linear-gradient(90deg,
+      rgba(255,255,255,0) 0%,
+      rgba(255,255,255,0.4) 30%,
+      var(--sweep-color, #ffcc3d) 50%,
+      rgba(255,255,255,0.4) 70%,
+      rgba(255,255,255,0) 100%);
+    mix-blend-mode: screen;
+    filter: blur(2px);
+  }
+  #forgeSweepBar.fire{ animation: forgeSweepBar .85s ease-out; }
+  @keyframes forgeSweepBar{
+    0%   { left: -120vw; opacity: 0; }
+    20%  { opacity: 0.95; }
+    80%  { opacity: 0.95; }
+    100% { left: 120vw;  opacity: 0; }
+  }
+
+  /* FOUR — 8 golden ray spokes radiating from screen center, rotating + fading. */
+  #forgeRays{
+    position: fixed;
+    left: 50%; top: 50%;
+    width: 800px; height: 800px;
+    margin-left: -400px; margin-top: -400px;
+    pointer-events: none;
+    z-index: 997;
+    opacity: 0;
+    background: conic-gradient(from 0deg,
+      var(--rays-color, #ffcc3d) 0deg,
+      transparent 18deg,
+      var(--rays-color, #ffcc3d) 45deg,
+      transparent 63deg,
+      var(--rays-color, #ffcc3d) 90deg,
+      transparent 108deg,
+      var(--rays-color, #ffcc3d) 135deg,
+      transparent 153deg,
+      var(--rays-color, #ffcc3d) 180deg,
+      transparent 198deg,
+      var(--rays-color, #ffcc3d) 225deg,
+      transparent 243deg,
+      var(--rays-color, #ffcc3d) 270deg,
+      transparent 288deg,
+      var(--rays-color, #ffcc3d) 315deg,
+      transparent 333deg);
+    -webkit-mask: radial-gradient(circle, transparent 0%, black 30%, black 70%, transparent 95%);
+            mask: radial-gradient(circle, transparent 0%, black 30%, black 70%, transparent 95%);
+    mix-blend-mode: screen;
+  }
+  #forgeRays.fire{ animation: forgeRaysSpin 1.1s ease-out; }
+  @keyframes forgeRaysSpin{
+    0%   { transform: scale(.3) rotate(0deg);   opacity: 0; }
+    20%  { transform: scale(1)   rotate(45deg); opacity: .85; }
+    100% { transform: scale(1.6) rotate(180deg); opacity: 0; }
+  }
+
+  /* FIVE — confetti rain. Each piece is a DOM div with falling + rotating anim. */
+  .forge-confetti{
+    position: fixed;
+    width: 10px; height: 16px;
+    z-index: 999;
+    pointer-events: none;
+    top: -24px;
+    border-radius: 2px;
+    will-change: transform, opacity;
+    animation: forgeConfettiFall linear forwards;
+  }
+  @keyframes forgeConfettiFall{
+    0%   { transform: translateY(0)       rotate(0);    opacity: 1; }
+    10%  { opacity: 1; }
+    92%  { opacity: 1; }
+    100% { transform: translateY(110vh)   rotate(720deg); opacity: 0; }
+  }
+
+  body.forge-shake-mega{ animation: forgeShakeMega .75s cubic-bezier(.36,.07,.19,.97); }
+  @keyframes forgeShakeMega{
+    5%,  95% { transform: translate3d(-3px, 0, 0); }
+    15%, 85% { transform: translate3d( 8px, 0, 0); }
+    25%, 45%, 65% { transform: translate3d(-12px, -4px, 0); }
+    35%, 55%, 75% { transform: translate3d( 12px,  4px, 0); }
   }
   #forgeComboLabel{
     text-align:center;font-size:18px;font-weight:bold;letter-spacing:.4px;
@@ -2336,6 +2675,16 @@
              mostra o nome do combo, anima entrada+saída, e dispara o popup.
              Position absolute relativo ao dice strip (sobe junto se mover). -->
         <div id="forgeComboBanner" class="forge-combo-banner"></div>
+        <!-- Combo flash overlay (juice). Fixed-position radial gradient,
+             tinted per-combo. JS adds .fire to trigger one-shot anim. -->
+        <div id="forgeComboFlash"></div>
+        <!-- Tier text overlay ("NICE!" / "BIG WIN!" / "JACKPOT!!").
+             Hidden by default; JS sets text + color + .fire to play one-shot. -->
+        <div id="forgeComboTierText"></div>
+        <!-- Per-tier signature overlays (STRAIGHT sweep / FOUR rays).
+             FIVE-of-a-kind confetti is spawned as ad-hoc DOM children. -->
+        <div id="forgeSweepBar"></div>
+        <div id="forgeRays"></div>
         <div class="forge-dice-row" id="arenaDiceRow">
           <div class="forge-die" data-i="0"><span class="face">·</span></div>
           <div class="forge-die" data-i="1"><span class="face">·</span></div>
@@ -3838,6 +4187,8 @@ function generateForgedItem(forgeLvl, combo, slotOverride){
     name: def.name,
     icon: def.icon,
     sprite: def.sprite,           // path do PNG (assets/items/eraN/...) — opcional
+    handSprite: def.handSprite,   // path (no ext) do PNG na mão do bunny durante swing
+    archetype: def.archetype,     // pra lookup de comportamento (melee_thrust, ranged_double, etc.)
     weaponType: def.weaponType,
     // stat primário do slot (substitui def.stat/def.base)
     stat: slotDef.primaryStat,
@@ -6477,6 +6828,10 @@ function computeArenaAI(){
 }
 
 function updateArena(){
+  // Freeze-frame: skip arena ticks while the big-combo pause is active.
+  // Set by animateForgeRoll when STRAIGHT+ lands. Rendering continues so
+  // dice + effects keep drawing — gameplay (movement, attacks, spawns) halts.
+  if(arena.freezeUntil && performance.now() < arena.freezeUntil) return;
   // input movement
   let dx = 0, dy = 0;
   if(arena.autoMove){
@@ -7640,6 +7995,41 @@ function drawArenaHUD(){
       continue;
     }
 
+    // === JUICE: per-slot equip pulse ===
+    // arena.itemEquipPulse is set when player taps "Equipar" in forge popup.
+    // Slot scales 1.0 → ~1.20 → 1.0 over duration, with a glow ring tinted
+    // by era color. Particles spawn once at slot center on first pulse frame.
+    const pulse = arena.itemEquipPulse;
+    let pulseScale = 1, pulseGlow = 0;
+    if(pulse && pulse.slot === slot){
+      const elapsed = performance.now() - pulse.startTime;
+      if(elapsed < pulse.duration){
+        const t = elapsed / pulse.duration; // 0..1
+        // Bounce profile: scale peaks around t=0.25, settles by t=1.
+        pulseScale = 1 + 0.22 * Math.sin(Math.PI * Math.min(1, t * 1.4));
+        pulseGlow  = 1 - t;
+        if(!pulse.particlesSpawned){
+          pulse.particlesSpawned = true;
+          if(typeof spawnArenaParticle === 'function'){
+            spawnArenaParticle(sx + slotW/2, sy + slotH/2, pulse.color, 14);
+          }
+        }
+      } else {
+        arena.itemEquipPulse = null;
+      }
+    }
+
+    ctx.save();
+    if(pulseScale !== 1 || pulseGlow > 0){
+      const cx = sx + slotW/2, cy = sy + slotH/2;
+      ctx.translate(cx, cy);
+      ctx.scale(pulseScale, pulseScale);
+      ctx.translate(-cx, -cy);
+      if(pulseGlow > 0){
+        ctx.shadowColor = (pulse && pulse.color) || '#ffcc3d';
+        ctx.shadowBlur  = 26 * pulseGlow;
+      }
+    }
     // slot regular (equipamento) — usa o MESMO design do forge-popup-slot:
     // quadrado redondeado + cor de fundo da era + border preto chunky.
     // Substitui o frame dourado das PNGs ui-item-slot-*.png que tinham aqui.
@@ -7647,6 +8037,9 @@ function drawArenaHUD(){
       const slotColorKey = ERA_SLOT_COLOR[it.eraIdx] || 'yellow';
       drawForgeStyleSlot(sx, sy, slotW, slotH, slotColorKey);
     }
+    // Reset shadow before icon so it doesn't get a halo too (only frame glows).
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
     // ícone + level (só item equipado)
     // Prefere SPRITE do item (PNG cartoon polished); fallback pra emoji icon
     // se sprite não carregou ainda ou item não tem sprite path.
@@ -7665,6 +8058,7 @@ function drawArenaHUD(){
     ctx.strokeText(`LV${it.currentLevel || it.level || 1}`, sx+5, sy+slotH-7);
     ctx.fillText  (`LV${it.currentLevel || it.level || 1}`, sx+5, sy+slotH-7);
     ctx.textAlign = 'center';
+    ctx.restore();
   }
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
@@ -10027,42 +10421,287 @@ function openForgeDice(){
   renderForgeDice();
 }
 
+// === Forge dice juice helpers ===
+//
+// spawnDieValuePop(dieEl, value): floating number above the die when it lands.
+// 6 gets a hot-yellow color so the perfect roll reads instantly.
+function spawnDieValuePop(dieEl, value){
+  if(!dieEl) return;
+  const rect = dieEl.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const top = rect.top - 4;
+  const pop = document.createElement('div');
+  pop.className = 'forge-die-value-pop' + (value === 6 ? ' hot' : '');
+  pop.textContent = String(value);
+  pop.style.left = cx + 'px';
+  pop.style.top  = top + 'px';
+  document.body.appendChild(pop);
+  setTimeout(() => pop.remove(), 750);
+}
+
+// spawnDieParticles(dieEl, color): DOM particle burst at die center on land.
+// 8 small divs flying outward in random directions, ~420ms life. Uses CSS
+// var --pdx / --pdy for end translation so each particle has its own vector.
+function spawnDieParticles(dieEl, color){
+  if(!dieEl) return;
+  const rect = dieEl.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top  + rect.height/2;
+  const count = 8;
+  for(let i=0; i<count; i++){
+    const p = document.createElement('div');
+    p.className = 'forge-die-particle';
+    if(color) p.style.background = color;
+    const a = (i / count) * Math.PI * 2 + Math.random()*0.4;
+    const dist = 22 + Math.random()*18;
+    p.style.left = (cx - 3) + 'px';
+    p.style.top  = (cy - 3) + 'px';
+    p.style.setProperty('--pdx', (Math.cos(a)*dist).toFixed(1) + 'px');
+    p.style.setProperty('--pdy', (Math.sin(a)*dist - 6).toFixed(1) + 'px');
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 480);
+  }
+}
+
+// triggerScreenShake(intensity): 'tiny' | 'small' | 'big' | 'mega'. CSS-driven.
+// Duration matches the keyframe lengths above (220 / 320 / 500 / 750 ms).
+let _shakeTimer = 0;
+const _SHAKE_CLS = {
+  tiny:  'forge-shake-tiny',
+  small: 'forge-shake-small',
+  big:   'forge-shake-big',
+  mega:  'forge-shake-mega',
+};
+const _SHAKE_MS = { tiny: 250, small: 360, big: 560, mega: 820 };
+function triggerScreenShake(intensity){
+  const cls = _SHAKE_CLS[intensity];
+  if(!cls) return;
+  // Strip all shake classes so a new one restarts cleanly.
+  for(const c of Object.values(_SHAKE_CLS)) document.body.classList.remove(c);
+  void document.body.offsetWidth;
+  document.body.classList.add(cls);
+  if(_shakeTimer) clearTimeout(_shakeTimer);
+  _shakeTimer = setTimeout(() => {
+    for(const c of Object.values(_SHAKE_CLS)) document.body.classList.remove(c);
+    _shakeTimer = 0;
+  }, _SHAKE_MS[intensity] || 360);
+}
+
+// triggerComboFlash(color, intensity): radial-gradient flash at screen center.
+// intensity scales BOTH the flash size and the keyframe duration so bigger
+// combos read as bigger reactions. Falls back to 'small' if intensity unknown.
+const _FLASH_SCALE = { tiny: 0.30, small: 0.80, big: 1.20, mega: 1.80 };
+const _FLASH_MS    = { tiny: 200,  small: 380,  big: 520,  mega: 720  };
+function triggerComboFlash(color, intensity){
+  const el = document.getElementById('forgeComboFlash');
+  if(!el) return;
+  const scale = _FLASH_SCALE[intensity] || _FLASH_SCALE.small;
+  const ms    = _FLASH_MS[intensity]    || _FLASH_MS.small;
+  if(color) el.style.setProperty('--flash-color', color);
+  el.style.setProperty('--flash-scale', scale);
+  el.style.animationDuration = ms + 'ms';
+  el.classList.remove('fire');
+  void el.offsetWidth;
+  el.classList.add('fire');
+  setTimeout(() => el.classList.remove('fire'), ms + 50);
+}
+
+// Combo tier → shake intensity. Higher tiers (jackpot / quintuple) shake big.
+// === Per-tier signature effects ===
+// Each high-tier combo gets a unique visual flavor on top of the shared
+// shake + flash + tier-text. Keeps the tier ladder readable at a glance.
+
+function triggerSweepBar(color){
+  const el = document.getElementById('forgeSweepBar');
+  if(!el) return;
+  if(color) el.style.setProperty('--sweep-color', color);
+  el.classList.remove('fire');
+  void el.offsetWidth;
+  el.classList.add('fire');
+  setTimeout(() => el.classList.remove('fire'), 900);
+}
+
+function triggerRays(color){
+  const el = document.getElementById('forgeRays');
+  if(!el) return;
+  if(color) el.style.setProperty('--rays-color', color);
+  el.classList.remove('fire');
+  void el.offsetWidth;
+  el.classList.add('fire');
+  setTimeout(() => el.classList.remove('fire'), 1150);
+}
+
+function spawnConfetti(count){
+  const colors = ['#ff5fa2','#ffcc3d','#5fb0d8','#4cf08e','#ff7a1a','#a86bff'];
+  for(let i=0; i<count; i++){
+    const p = document.createElement('div');
+    p.className = 'forge-confetti';
+    p.style.left = (Math.random() * 100).toFixed(1) + 'vw';
+    p.style.background = colors[i % colors.length];
+    const dur = 1.6 + Math.random() * 1.2;
+    p.style.animationDuration = dur.toFixed(2) + 's';
+    p.style.animationDelay = (Math.random() * 0.4).toFixed(2) + 's';
+    p.style.transform = `rotate(${(Math.random()*360)|0}deg)`;
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), (dur + 0.5) * 1000);
+  }
+}
+
+// Dispatcher: combo.id → flavor effect. Lower tiers get nothing extra
+// (the flash + shake + text already cover them). High tiers stack signature on top.
+function triggerComboSignature(comboId, color){
+  switch(comboId){
+    case 'STRAIGHT': triggerSweepBar(color); break;
+    case 'FULL':     triggerSweepBar(color); triggerRays(color); break;
+    case 'FOUR':     triggerRays(color); spawnConfetti(18); break;
+    case 'FIVE':     triggerRays(color); spawnConfetti(40); triggerSweepBar(color); break;
+    default: break;
+  }
+}
+
+// Combo → tier-text overlay. Word + font size + animation duration scale
+// with combo power. Returns null if no text should appear (low tiers).
+const _TIER_TEXT = {
+  TWOPAIR:  { text: 'BOA!',         fontPx: 54, ms: 900  },
+  THREE:    { text: 'ÓTIMO!',       fontPx: 64, ms: 1000 },
+  STRAIGHT: { text: 'MANDOU BEM!',  fontPx: 70, ms: 1100 },
+  FULL:     { text: 'INCRÍVEL!',    fontPx: 80, ms: 1150 },
+  FOUR:     { text: 'FANTÁSTICO!',  fontPx: 86, ms: 1250 },
+  FIVE:     { text: 'JACKPOT!!',    fontPx:108, ms: 1400 },
+};
+function triggerComboTierText(comboId, color){
+  const cfg = _TIER_TEXT[comboId];
+  const el = document.getElementById('forgeComboTierText');
+  if(!el || !cfg) return;
+  el.textContent = cfg.text;
+  el.style.fontSize = cfg.fontPx + 'px';
+  el.style.setProperty('--tier-color', color || '#ffcc3d');
+  el.style.animationDuration = cfg.ms + 'ms';
+  el.classList.remove('fire');
+  void el.offsetWidth;
+  el.classList.add('fire');
+  setTimeout(() => el.classList.remove('fire'), cfg.ms + 50);
+}
+
+// Combo → shake tier mapping. Scales with combo power so the player feels
+// the difference between a pair and a five-of-a-kind.
+//   NONE / MAXROLL → null (no shake)
+//   PAIR           → 'tiny'
+//   TWOPAIR        → 'small'
+//   THREE          → 'small'
+//   STRAIGHT       → 'big'
+//   FULL           → 'big'
+//   FOUR           → 'mega'
+//   FIVE           → 'mega'
+function comboShakeIntensity(comboId){
+  if(!comboId) return null;
+  if(comboId === 'PAIR')                          return 'tiny';
+  if(comboId === 'TWOPAIR' || comboId === 'THREE')return 'small';
+  if(comboId === 'STRAIGHT' || comboId === 'FULL')return 'big';
+  if(comboId === 'FOUR'    || comboId === 'FIVE') return 'mega';
+  return null;
+}
+
 function animateForgeRoll(onDone){
   forgeRoll.phase = 'rolling';
   if(typeof Quests   !== 'undefined') Quests.onRolled();
   if(typeof Tutorial !== 'undefined') Tutorial.onRolled();
-  for(const el of _forgeDice()) el.classList.add('rolling');
-  let frame = 0;
-  const totalFrames = 8;
-  const tick = setInterval(()=>{
-    for(let i=0; i<5; i++){
-      if(!forgeRoll.held[i]){
-        forgeRoll.dice[i] = 1 + ((Math.random()*6)|0);
-      }
+
+  // Anticipation windup: brief squash on unheld dice before the spin starts.
+  // Sells the toss — 140ms then the .rolling spin kicks in.
+  for(let i=0; i<5; i++){
+    if(forgeRoll.held[i]) continue;
+    const el = _forgeDie(i);
+    if(!el) continue;
+    el.classList.add('windup');
+    setTimeout(() => el.classList.remove('windup'), 150);
+  }
+
+  // Kick the spin after windup completes
+  setTimeout(() => {
+    for(const el of _forgeDice()) {
+      // Don't spin held dice
+      const i = +(el.dataset.i || 0);
+      if(!forgeRoll.held[i]) el.classList.add('rolling');
     }
-    renderForgeDice();
-    // garante classe rolling fica nos dados girando
-    for(let i=0;i<5;i++){
-      const el = _forgeDie(i);
-      if(el){
-        if(forgeRoll.held[i]) el.classList.remove('rolling');
-        else el.classList.add('rolling');
+    let frame = 0;
+    const totalFrames = 8;
+    const tick = setInterval(()=>{
+      for(let i=0; i<5; i++){
+        if(!forgeRoll.held[i]){
+          forgeRoll.dice[i] = 1 + ((Math.random()*6)|0);
+        }
       }
-    }
-    frame++;
-    if(frame >= totalFrames){
-      clearInterval(tick);
-      for(const el of _forgeDice()) el.classList.remove('rolling');
-      forgeRoll.phase = 'after-roll';
       renderForgeDice();
-      if(onDone) onDone();
-      // Novo fluxo: depois que os dados settle, segura ~1s pra player ver
-      // o combo glow, então sobe banner com nome do combo, e ao terminar
-      // o banner, dispara forgeConfirm() — abre direto o popup do item.
-      // Não tem mais REROLAR/FORJAR — vai direto.
-      forgeAdvanceAfterRoll();
-    }
-  }, 70);
+      for(let i=0;i<5;i++){
+        const el = _forgeDie(i);
+        if(el){
+          if(forgeRoll.held[i]) el.classList.remove('rolling');
+          else el.classList.add('rolling');
+        }
+      }
+      frame++;
+      if(frame >= totalFrames){
+        clearInterval(tick);
+
+        // Stagger settle: each unheld die stops L→R with ~70ms delay between.
+        // On land: remove .rolling, add .settled (one-shot bounce keyframe),
+        // spawn DOM particle burst at die center. Held dice skip entirely.
+        const SETTLE_STAGGER_MS = 70;
+        let landIdx = 0;
+        for(let i=0; i<5; i++){
+          const el = _forgeDie(i);
+          if(!el) continue;
+          if(forgeRoll.held[i]){ el.classList.remove('rolling'); continue; }
+          const delay = landIdx * SETTLE_STAGGER_MS;
+          landIdx++;
+          setTimeout(() => {
+            el.classList.remove('rolling');
+            el.classList.remove('settled');
+            void el.offsetWidth;
+            el.classList.add('settled');
+            spawnDieParticles(el);
+            // Value pop removed — read as floating damage numbers in gameplay.
+            setTimeout(() => el.classList.remove('settled'), 300);
+          }, delay);
+        }
+
+        // After the last die lands + bounce finishes, flip phase + advance.
+        const totalSettleMs = landIdx * SETTLE_STAGGER_MS + 200;
+        setTimeout(() => {
+          forgeRoll.phase = 'after-roll';
+          renderForgeDice();
+          if(onDone) onDone();
+          // Combo land beat: flash + shake the moment combo glow appears.
+          // renderForgeDice has already computed forgeRoll.currentCombo by now.
+          const combo = forgeRoll.currentCombo;
+          if(combo){
+            const color = (typeof COMBO_GLOW_COLOR !== 'undefined' && COMBO_GLOW_COLOR[combo.id]) || combo.color || '#ffcc3d';
+            const intensity = comboShakeIntensity(combo.id);
+            // Freeze-frame on big tiers — gameplay halts briefly so the player
+            // registers what they just rolled before the effects burst.
+            if(intensity === 'big' || intensity === 'mega'){
+              const freezeMs = intensity === 'mega' ? 280 : 180;
+              arena.freezeUntil = performance.now() + freezeMs;
+            }
+            triggerComboFlash(color, intensity);
+            if(intensity) triggerScreenShake(intensity);
+            triggerComboTierText(combo.id, color);
+            triggerComboSignature(combo.id, color);
+            // Combo-bond burst: small star particles at each combo-participating die,
+            // tinted by combo color. Visually links the matched set the moment
+            // glow appears. Skipped for NONE/MAXROLL (no glow on those tiers).
+            const glowDice = document.querySelectorAll('#arenaDiceRow .forge-die.combo-glow');
+            for(const d of glowDice){
+              spawnDieParticles(d, color);
+              spawnDieParticles(d, color); // double burst = denser visual link
+            }
+          }
+          forgeAdvanceAfterRoll();
+        }, totalSettleMs);
+      }
+    }, 70);
+  }, 130); // matches .windup keyframe duration
 }
 
 // Sequência pós-rolagem: hold → banner → popup OU resolve auto. Cada step
@@ -10120,6 +10759,14 @@ function forgeMainAction(){
   arena.lettuce -= FORGE_BASE_COST;
   forgeRoll.held = [false,false,false,false,false];
   forgeRoll.rerollsLeft = 0; // legado — não usado no novo fluxo
+  // JUICE: ROLAR button squish on press. One-shot CSS anim.
+  const btn = document.getElementById('arenaForgeRollBtn');
+  if(btn){
+    btn.classList.remove('squish');
+    void btn.offsetWidth;
+    btn.classList.add('squish');
+    setTimeout(() => btn.classList.remove('squish'), 450);
+  }
   animateForgeRoll();
 }
 
@@ -10218,6 +10865,44 @@ function openForgeCompare(){
 
   state = STATE.ARENA_TAB;
   showLayer('forgeCompare');
+
+  // === JUICE: stagger reveal animations on the popup ===
+  // Card slides in, new row pops, slot shines + persistent rarity aura,
+  // NOVO! badge bounces. All classes are one-shot or cleaned on close.
+  const card = document.querySelector('#forgeCompare .forge-popup-card');
+  const newRow = document.getElementById('forgeNewRow');
+  const newSlotEl = document.getElementById('forgeNewSlot');
+  const novoEl = newSlotEl && newSlotEl.querySelector('.novo');
+  // Era color drives the slot aura tint (higher era = bigger feel).
+  const era = (typeof ERAS !== 'undefined' && ERAS[newItem.eraIdx]) || (ERAS && ERAS[0]);
+  const rarityColor = (era && era.color) || '#ffcc3d';
+  if(newSlotEl) newSlotEl.style.setProperty('--rarity-color', rarityColor);
+  // Strip any leftover anim classes, force reflow, re-apply.
+  for(const el of [card, newRow, newSlotEl, novoEl]){
+    if(!el) continue;
+    el.classList.remove('reveal', 'shine', 'new-aura');
+  }
+  if(card) void card.offsetWidth;
+  if(card)      card.classList.add('reveal');
+  if(newRow)    newRow.classList.add('reveal');
+  if(newSlotEl) newSlotEl.classList.add('shine', 'new-aura');
+  if(novoEl)    novoEl.classList.add('reveal');
+  // Substat numbers tick up 0 → target. Delay so the row finishes its reveal
+  // first; matches the .new.reveal keyframe (~180ms delay + ~380ms anim).
+  setTimeout(() => {
+    if(!newRow) return;
+    const nums = newRow.querySelectorAll('.num');
+    for(const n of nums) animateNumberTickUp(n, 520);
+  }, 380);
+  // Strip transient anim classes after they finish so closing/reopening replays cleanly.
+  setTimeout(() => {
+    if(card)      card.classList.remove('reveal');
+    if(newRow)    newRow.classList.remove('reveal');
+    if(newSlotEl) newSlotEl.classList.remove('shine');
+    if(novoEl)    novoEl.classList.remove('reveal');
+    // .new-aura persists while popup is open — cleaned when popup closes (see closeForge / forgeApplyAndClose).
+  }, 1400);
+
   if(typeof Tutorial !== 'undefined') Tutorial.onForgeOpened();
 }
 
@@ -10252,12 +10937,39 @@ function _itemSubsHTML(it){
     const unit = def.unit || '';
     const sign = v >= 0 ? '+' : '';
     const vStr = unit === '%' ? `${sign}${v.toFixed(1)}%` : `${sign}${Math.round(v)}`;
-    return `<span class="row">${vStr} ${lbl}</span>`;
+    // Inner .num span carries target + format hints so animateNumberTickUp
+    // can lerp the value 0 → target on popup reveal without re-parsing text.
+    return `<span class="row"><span class="num" data-target="${v}" data-unit="${unit}" data-sign="${sign}">${vStr}</span> ${lbl}</span>`;
   }).join('');
+}
+
+// Lerp a .num element's text from 0 to its data-target over duration (ms).
+// Uses ease-out cubic so the value lands quickly then settles. Skips animation
+// for tiny targets where the tick wouldn't be perceptible.
+function animateNumberTickUp(el, duration){
+  if(!el || !el.dataset.target) return;
+  const target = parseFloat(el.dataset.target);
+  if(!isFinite(target)) return;
+  const unit = el.dataset.unit || '';
+  const sign = el.dataset.sign || (target >= 0 ? '+' : '');
+  const fmt = (v) => unit === '%' ? `${sign}${v.toFixed(1)}%` : `${sign}${Math.round(v)}`;
+  const startTime = performance.now();
+  const dur = duration || 480;
+  function step(now){
+    const t = Math.min(1, (now - startTime) / dur);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = fmt(target * eased);
+    if(t < 1) requestAnimationFrame(step);
+    else el.textContent = fmt(target); // pin final value
+  }
+  requestAnimationFrame(step);
 }
 
 function closeForge(){
   arena.pendingForgeItem = null;
+  // Strip popup juice classes so next forge replays cleanly.
+  const newSlotEl = document.getElementById('forgeNewSlot');
+  if(newSlotEl) newSlotEl.classList.remove('new-aura', 'shine');
   hideAllLayers();
   state = STATE.ARENA_PLAY;
   // reseta a strip de dados pra próxima forja
@@ -10277,10 +10989,25 @@ document.getElementById('forgeEquipBtn').addEventListener('click', ()=>{
     arena.items[arena.pendingForgeItem.slot] = arena.pendingForgeItem;
     if(typeof Quests   !== 'undefined') Quests.onEquipped();
     if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
+    // Hand-sprite swap on weapon equip (assignment above bypasses arenaEquipItem,
+    // so the hook there doesn't fire — call it manually here).
+    if(arena.pendingForgeItem.slot === 'weapon' && typeof bunnyApplyEquippedWeapon === 'function'){
+      bunnyApplyEquippedWeapon();
+    }
     // efeito visual: partícula no coelho
     if(typeof spawnArenaParticle === 'function'){
       spawnArenaParticle(arena.bx, arena.by, eraOfItem(arena.pendingForgeItem).color, 18);
     }
+    // === JUICE: inventory slot pop ===
+    // Slot pulses scale + glow ring + spawns particles when the canvas-drawn
+    // strip renders the next frame. State checked inside the slot draw loop.
+    arena.itemEquipPulse = {
+      slot: arena.pendingForgeItem.slot,
+      startTime: performance.now(),
+      duration: 650,
+      color: eraOfItem(arena.pendingForgeItem).color,
+      particlesSpawned: false,
+    };
   }
   closeForge();
 });
