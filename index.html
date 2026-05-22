@@ -2171,10 +2171,11 @@
   }
 
   /* ===== SPLASH SCREEN (boot) =====
-     Cover por cima de TUDO (z-index 9999) durante o pré-load dos assets.
-     Imagem cover full-screen + loading bar bottom + fade out smooth. */
+     Cover por cima do FRAME durante o pré-load dos assets (não do viewport
+     inteiro — no desktop o frame é letterboxed e o splash deve respeitar
+     o mesmo recorte). Imagem cover + loading bar + fade out smooth. */
   #splashScreen{
-    position:fixed;
+    position:absolute;
     inset:0;
     z-index:9999;
     background:#5fb0e0 url('assets/ui-splash-screen.png') center/cover no-repeat;
@@ -2228,12 +2229,6 @@
 </style>
 </head>
 <body>
-<!-- Splash screen — cobre tudo no boot enquanto pré-carrega assets críticos.
-     Hide via JS (runSplashScreen) com fade out após min 3s + assets ready. -->
-<div id="splashScreen">
-  <div id="splashBar"><span id="splashBarFill"></span></div>
-  <div id="splashLabel">CARREGANDO…</div>
-</div>
 <div id="rotateOverlay">
   <div class="icon">📱</div>
   <div>Gire o celular pra <b>vertical</b></div>
@@ -2256,6 +2251,12 @@
 
 <div id="stage">
   <div id="frame">
+    <!-- Splash screen — cobre o FRAME no boot enquanto pré-carrega assets críticos.
+         Hide via JS (runSplashScreen) com fade out após min 3s + assets ready. -->
+    <div id="splashScreen">
+      <div id="splashBar"><span id="splashBarFill"></span></div>
+      <div id="splashLabel">CARREGANDO…</div>
+    </div>
     <canvas id="game"></canvas>
 
     <!-- joystick zone -->
@@ -4475,7 +4476,7 @@ const LAYOUT_DEFAULTS = {
   spawnZoneYMax: 300,      // Y bottom da zona
   // Bunny sprite — escala de renderização do sprite (1.0 = 256px nativo).
   // Foot anchor (0.5, 0.85) cai em (arena.bx, arena.by). Hitbox segue BUNNY_R.
-  bunnyDrawScale: 0.22,
+  bunnyDrawScale: 0.242,
   // HUD top (Sword pill — Power) — canto sup-esquerdo
   swordPillX: 10,
   swordPillY: 35,
@@ -7966,30 +7967,46 @@ function draw9Slice(img, dx, dy, dw, dh, insets, destInsets){
     dTop = dTop * k;
     dBot = dBot * k;
   }
-  const dMidW = Math.max(0, dw - dLeft - dRight);
-  const dMidH = Math.max(0, dh - dTop - dBot);
-  // Anti-seam: encolhe o SOURCE rect em 0.5px nos lados INTERNOS de cada fatia
-  // (lados que tocam outra fatia). Sem isso, o sampler bilinear na borda do
-  // source samplea o pixel da fatia vizinha — cria linha visível no seam do 9-slice.
-  // O destino fica idêntico (fatias vizinhas continuam encostadas, sem gap).
+  // Anti-seam #1 (DEST snap): bordas adjacentes entre fatias caem em FRACTIONAL
+  // device pixels quando o canvas tem transform com escala não-inteira. Snapamos
+  // as 4 bordas X + 4 Y pra INTEGER device pixels — fatias vizinhas compartilham
+  // EXATAMENTE o mesmo pixel, zero gap/overlap possível.
+  const _xform = ctx.getTransform();
+  const _sx = _xform.a || 1, _sy = _xform.d || 1;
+  const _tx = _xform.e || 0, _ty = _xform.f || 0;
+  const snapX = v => (Math.round(v * _sx + _tx) - _tx) / _sx;
+  const snapY = v => (Math.round(v * _sy + _ty) - _ty) / _sy;
+  const X0 = snapX(dx);
+  const X1 = snapX(dx + dLeft);
+  const X2 = snapX(dx + dw - dRight);
+  const X3 = snapX(dx + dw);
+  const Y0 = snapY(dy);
+  const Y1 = snapY(dy + dTop);
+  const Y2 = snapY(dy + dh - dBot);
+  const Y3 = snapY(dy + dh);
+  const snDLeft  = X1 - X0, snDRight = X3 - X2, snDMidW = X2 - X1;
+  const snDTop   = Y1 - Y0, snDBot   = Y3 - Y2, snDMidH = Y2 - Y1;
+  // Anti-seam #2 (SOURCE inset): encolhe SOURCE rect em 0.5px nas bordas INTERNAS
+  // de cada fatia (que tocam outra fatia). Evita bilinear sampler ler pixel da
+  // fatia vizinha — combina com snap pra eliminar TODOS os seams visíveis.
   const I = 0.5;
   // 4 cantos: TL (right+bottom internos), TR (left+bottom), BL (right+top), BR (left+top)
-  ctx.drawImage(img, 0,           0,           sLeft-I,    sTop-I,    dx,            dy,             dLeft,  dTop);
-  ctx.drawImage(img, sw-sRight+I, 0,           sRight-I,   sTop-I,    dx+dw-dRight,  dy,             dRight, dTop);
-  ctx.drawImage(img, 0,           sh-sBot+I,   sLeft-I,    sBot-I,    dx,            dy+dh-dBot,     dLeft,  dBot);
-  ctx.drawImage(img, sw-sRight+I, sh-sBot+I,   sRight-I,   sBot-I,    dx+dw-dRight,  dy+dh-dBot,     dRight, dBot);
+  ctx.drawImage(img, 0,           0,           sLeft-I,    sTop-I,    X0, Y0, snDLeft,  snDTop);
+  ctx.drawImage(img, sw-sRight+I, 0,           sRight-I,   sTop-I,    X2, Y0, snDRight, snDTop);
+  ctx.drawImage(img, 0,           sh-sBot+I,   sLeft-I,    sBot-I,    X0, Y2, snDLeft,  snDBot);
+  ctx.drawImage(img, sw-sRight+I, sh-sBot+I,   sRight-I,   sBot-I,    X2, Y2, snDRight, snDBot);
   // 4 arestas: T/B têm left+right+(bottom|top) internos; L/R têm top+bottom+(right|left)
-  if(dMidW > 0 && sMidW > 1){
-    ctx.drawImage(img, sLeft+I,   0,           sMidW-2*I,  sTop-I,    dx+dLeft,      dy,             dMidW,  dTop);
-    ctx.drawImage(img, sLeft+I,   sh-sBot+I,   sMidW-2*I,  sBot-I,    dx+dLeft,      dy+dh-dBot,     dMidW,  dBot);
+  if(snDMidW > 0 && sMidW > 1){
+    ctx.drawImage(img, sLeft+I,   0,           sMidW-2*I,  sTop-I,    X1, Y0, snDMidW,  snDTop);
+    ctx.drawImage(img, sLeft+I,   sh-sBot+I,   sMidW-2*I,  sBot-I,    X1, Y2, snDMidW,  snDBot);
   }
-  if(dMidH > 0 && sMidH > 1){
-    ctx.drawImage(img, 0,           sTop+I,    sLeft-I,    sMidH-2*I, dx,            dy+dTop,        dLeft,  dMidH);
-    ctx.drawImage(img, sw-sRight+I, sTop+I,    sRight-I,   sMidH-2*I, dx+dw-dRight,  dy+dTop,        dRight, dMidH);
+  if(snDMidH > 0 && sMidH > 1){
+    ctx.drawImage(img, 0,           sTop+I,    sLeft-I,    sMidH-2*I, X0, Y1, snDLeft,  snDMidH);
+    ctx.drawImage(img, sw-sRight+I, sTop+I,    sRight-I,   sMidH-2*I, X2, Y1, snDRight, snDMidH);
   }
   // Centro (todos 4 lados internos)
-  if(dMidW > 0 && dMidH > 0 && sMidW > 1 && sMidH > 1){
-    ctx.drawImage(img, sLeft+I,   sTop+I,      sMidW-2*I,  sMidH-2*I, dx+dLeft,      dy+dTop,        dMidW,  dMidH);
+  if(snDMidW > 0 && snDMidH > 0 && sMidW > 1 && sMidH > 1){
+    ctx.drawImage(img, sLeft+I,   sTop+I,      sMidW-2*I,  sMidH-2*I, X1, Y1, snDMidW,  snDMidH);
   }
   ctx.imageSmoothingEnabled = prevSmooth;
   ctx.imageSmoothingQuality = prevQuality;
@@ -8539,6 +8556,10 @@ const FTUE = (function(){
   let _position = 'above';
   const HAND_SIZE = 72;
   const GAP = 8;  // espaço entre target ↔ mão e mão ↔ balão
+  // Sprite da paw tem o "dedo" (pad cluster) deslocado pra esquerda do centro
+  // do PNG. Compensa shiftando o sprite pra direita pra que o pad fique
+  // alinhado com o centro X do target.
+  const HAND_X_OFFSET = 12;
   function _el(id){ return document.getElementById(id); }
   function point(opts){
     const tgt = (typeof opts.target === 'string') ? document.querySelector(opts.target) : opts.target;
@@ -8576,7 +8597,8 @@ const FTUE = (function(){
     const margin = 6;
 
     // === MÃO — sempre abaixo do target, paw apontando UP ===
-    let hx = tcx - HAND_SIZE/2;
+    // HAND_X_OFFSET compensa o pad cluster estar mais à esquerda no sprite
+    let hx = tcx - HAND_SIZE/2 + HAND_X_OFFSET;
     let hy = ty + th + GAP;
     hx = Math.max(margin, Math.min(ovRect.width  - HAND_SIZE - margin, hx));
     hy = Math.max(margin, Math.min(ovRect.height - HAND_SIZE - margin, hy));
