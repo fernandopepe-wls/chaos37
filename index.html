@@ -3964,6 +3964,11 @@ window.addEventListener('keydown', e=>{
   if((e.key === 'j' || e.key === 'J') && !e.repeat && typeof cheatCycleWeapon === 'function'){
     cheatCycleWeapon();
   }
+  // === CHEAT: tecla "H" mata o boss instantaneamente (pra testar cerimônia
+  // de STAGE CLEAR sem precisar grindar a wave inteira) ===
+  if((e.key === 'h' || e.key === 'H') && !e.repeat && typeof cheatKillBoss === 'function'){
+    cheatKillBoss();
+  }
   // === DEBUG OVERLAY toggle: tecla "`" ou "F1" ===
   if((e.key === '`' || e.key === 'F1') && !e.repeat){
     e.preventDefault();
@@ -6266,6 +6271,50 @@ function cheatSkipStage(){
   console.log(`[cheat] skip → stage ${arena.stage} (${stageLabel(arena.stage)})`);
 }
 
+// Mata o BOSS instantaneamente — usado pra testar a cerimônia de STAGE CLEAR
+// sem precisar grindar todas as waves. Se não tiver boss no campo, força wave
+// final (6) e spawna o boss antes de matar.
+function cheatKillBoss(){
+  if(state !== STATE.ARENA_PLAY) return;
+  // Procura boss já no campo
+  let boss = null, bossIdx = -1;
+  for(let i = 0; i < arena.enemies.length; i++){
+    if(arena.enemies[i].isBoss && !arena.enemies[i].dying){
+      boss = arena.enemies[i];
+      bossIdx = i;
+      break;
+    }
+  }
+  if(boss){
+    boss.hp = 0;
+    killArenaEnemy(bossIdx, boss);
+    console.log(`[cheat] boss morto em stage ${arena.stage}`);
+    return;
+  }
+  // Sem boss no campo — adianta wave pro boss spawnar e mata depois
+  if(arena.wave < WAVES_PER_STAGE){
+    arena.wave = WAVES_PER_STAGE;
+    arena.failedBossCurrentStage = false;
+    arena.enemies = [];
+    arena.waveTransitionTimer = 0;
+    if(typeof startNewWave === 'function') startNewWave();
+    // espera 1 frame pro spawn do boss então mata
+    setTimeout(() => {
+      for(let i = 0; i < arena.enemies.length; i++){
+        if(arena.enemies[i].isBoss && !arena.enemies[i].dying){
+          arena.enemies[i].hp = 0;
+          killArenaEnemy(i, arena.enemies[i]);
+          console.log(`[cheat] boss spawnado + morto em stage ${arena.stage}`);
+          return;
+        }
+      }
+      console.log('[cheat] boss não encontrado após startNewWave');
+    }, 80);
+  } else {
+    console.log('[cheat] sem boss no campo (já em wave final mas vazia)');
+  }
+}
+
 // Cicla equipped weapon entre as 5 do pool + galho fallback. Cada press
 // equipa a próxima e dispara melee swing pro hand-sprite aparecer (weapon
 // só renderiza em melee/ranged states). Pivot mismatch = oportunidade
@@ -8211,25 +8260,70 @@ function drawArenaHUD(){
     ctx.globalAlpha = 1;
   }
 
-  // banner de STAGE CLEAR — centralizado VERTICALMENTE no grid de gameplay
+  // === STAGE CLEAR banner — sutil: texto chunky com glow leve + scale-in ===
+  // Posição: ~45% da altura da gameplay area (mais central, mas não no meio
+  // exato — abaixa um pouco em relação ao topo).
   if(arena.stageClearBannerTimer > 0){
-    const lifeT = arena.stageClearBannerTimer / 120;
-    const alpha = Math.min(1, lifeT*2);
-    const scale = 1 + (1-lifeT)*0.15;
-    const gridCy = (ARENA.TOP_Y + ARENA.BOT_Y) / 2;
+    const t = arena.stageClearBannerTimer;
+    const lifeT = t / 120;   // 1 → 0 (120 frames @ 60fps = 2s)
+    const cx = W / 2;
+    const cy = ARENA.TOP_Y + (ARENA.BOT_Y - ARENA.TOP_Y) * 0.45;
+    // Phases: entry (scale 0.7→1 + fade in), hold, exit (fade out)
+    let scale = 1, alpha = 1;
+    if(lifeT > 0.88){
+      const u = (1 - lifeT) / 0.12;
+      scale = 0.7 + 0.3 * u;
+      alpha = u;
+    } else if(lifeT > 0.20){
+      scale = 1.0;
+      alpha = 1;
+    } else {
+      alpha = lifeT / 0.20;
+    }
+
+    ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.fillRect(0, gridCy - 40, W, 80);
-    ctx.font = `bold ${Math.round(28*scale)}px Fredoka, system-ui, monospace`;
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+
+    // Soft glow gold por trás do texto — radial gradient, sem forma definida
+    const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 110);
+    glowGrad.addColorStop(0,    'rgba(255,204,61,0.35)');
+    glowGrad.addColorStop(0.5,  'rgba(255,204,61,0.15)');
+    glowGrad.addColorStop(1,    'rgba(255,204,61,0)');
+    ctx.fillStyle = glowGrad;
+    ctx.fillRect(-120, -50, 240, 100);
+
+    // Texto "FASE COMPLETA!" — sólido gold, +10% maior que a versão anterior
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#000';
-    ctx.fillText('STAGE CLEAR!', W/2+2, gridCy - 2 + 2);
+    ctx.textBaseline = 'middle';
+    ctx.font = '900 35px Fredoka, system-ui, monospace';  // 32 + 10%
+    ctx.lineJoin = 'round';
+    ctx.miterLimit = 2;
+    ctx.lineWidth = 8;  // 7 + ~10%
+    ctx.strokeStyle = '#1a0e08';
+    ctx.strokeText('FASE COMPLETA!', 0, 0);
     ctx.fillStyle = '#ffcc3d';
-    ctx.fillText('STAGE CLEAR!', W/2, gridCy - 2);
-    ctx.font = 'bold 14px Fredoka, system-ui, monospace';
+    ctx.fillText('FASE COMPLETA!', 0, 0);
+
+    ctx.restore();
+
+    // Próximo stage label — pequeno abaixo do título
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.9;
+    ctx.font = '600 12px Fredoka, system-ui, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#1a0e08';
     ctx.fillStyle = '#fff7e0';
-    ctx.fillText(`Próximo: ${stageLabel(arena.stage+1)}`, W/2, gridCy + 22);
+    const txtNext = `→ ${stageLabel(arena.stage+1)}`;
+    ctx.strokeText(txtNext, cx, cy + 26);
+    ctx.fillText(txtNext,   cx, cy + 26);
+    ctx.restore();
     ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
     ctx.globalAlpha = 1;
   }
 }
