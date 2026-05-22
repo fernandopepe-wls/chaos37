@@ -2216,6 +2216,43 @@
     box-shadow:none;text-shadow:none;border-color:#555;
   }
 
+  /* ===== CARROT POP OVERLAY — DOM-based, acima dos popups =====
+     Cada descarte de item spawna um span ".carrotPop" no #carrotPopLayer
+     que anima float-up + fade out + remove. Fica visível ACIMA da forge
+     popup (z-index 10) porque o layer tem z-index 50. */
+  #carrotPopLayer{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    z-index:50;
+    overflow:hidden;
+  }
+  .carrotPop{
+    position:absolute;
+    font-family:'Fredoka','Trebuchet MS',system-ui,sans-serif;
+    font-weight:800;
+    font-size:19px;
+    color:#ff9b3a;
+    white-space:nowrap;
+    pointer-events:none;
+    /* stroke 8 direções pra leitura em qualquer background */
+    text-shadow:
+      -1.5px -1.5px 0 #3a1d00, 1.5px -1.5px 0 #3a1d00,
+      -1.5px  1.5px 0 #3a1d00, 1.5px  1.5px 0 #3a1d00,
+      -1.5px  0    0 #3a1d00, 1.5px  0    0 #3a1d00,
+       0    -1.5px 0 #3a1d00, 0     1.5px 0 #3a1d00,
+       0     2px   0 rgba(0,0,0,0.55);
+    animation: carrotPopAnim 1.2s ease-out forwards;
+    will-change: transform, opacity;
+  }
+  @keyframes carrotPopAnim{
+    0%   { transform: translate(-50%, -50%)                  scale(0.7); opacity: 0; }
+    15%  { transform: translate(-50%, -50%)                  scale(1.18); opacity: 1; }
+    35%  { transform: translate(-50%, -50%)                  scale(1);   opacity: 1; }
+    75%  { transform: translate(-50%, calc(-50% - 36px))     scale(1);   opacity: 1; }
+    100% { transform: translate(-50%, calc(-50% - 56px))     scale(1);   opacity: 0; }
+  }
+
   /* ===== FTUE OVERLAY — paw (maozinha) + balão de fala =====
      Container ocupa o frame inteiro mas tem pointer-events:none pra não
      bloquear cliques. JS posiciona o paw + balão apontando pro target. */
@@ -2946,6 +2983,10 @@
         </div>
       </div>
     </div>
+
+    <!-- Carrot pop overlay — DOM-based (não canvas), z-index 50 pra aparecer
+         ACIMA dos forge popups durante a cerimônia de descarte/auto. -->
+    <div id="carrotPopLayer" aria-hidden="true"></div>
 
     <!-- FTUE overlay — maozinha (paw) + balão de fala, posicionado em runtime
          apontando pra um target DOM. pointer-events:none pra não bloquear cliques. -->
@@ -4506,6 +4547,11 @@ const arena = {
   autoForgeKeepMin: null,     // era idx mínima pra tentar equipar (>= equipa, < cai pro sell-check)
   autoForgeSellMax: null,     // era idx máxima pra venda automática (<= vende direto)
   autoForgeBatchOverride: null, // null = max do level; senão batch fixo escolhido
+  // Toggle "Vender se item pior" — controla o que acontece com items que NÃO
+  // são upgrade (sidegrade/downgrade) mas estão acima do sellMax. Bloqueado
+  // até Forge Lv 5 (AUTO_SELL_WORSE_UNLOCK). null = padrão (false sob 5, true ao
+  // alcançar 5 pela primeira vez); bool = preferência explícita do player.
+  autoSellWorse: null,
   carrots: 0, // moeda da forja (cenouras)
   power: 0,
   powerDelta: 0,
@@ -4884,7 +4930,7 @@ const LAYOUT_DEFAULTS = {
   bgImageHeightPx: 640,
   // BG → ground transition: faixa verde sobe `bgOverlapPx` pra dentro do video pra
   // cobrir borda cinza, e gradient de `bgFadeHpx` faz a transição suave por cima.
-  bgOverlapPx: 155,
+  bgOverlapPx: 160,
   bgFadeHpx: 28,
   // Play area (npc + bunny walk/spawn)
   playInsetTop: 136,
@@ -6385,22 +6431,60 @@ function spawnArenaDamage(x, y, value, isCrit){
   });
 }
 
-// Floating "+N 🥕" pop — usado quando descarta/substitui item e ganha carrots
-// (cerimônia estilo Forge Master / LoM). Spawn de partículas laranja junto.
-function spawnCarrotPop(x, y, amount){
+// Floating "+N 🥕" pop — DOM-based pra ficar acima dos popups (z-index 50).
+// Spawna um span no #carrotPopLayer com animação CSS de float+fade,
+// remove o nó após ~1.3s. x/y são em VIEWPORT px (CSS px de getBoundingClientRect).
+function spawnCarrotPop(viewportX, viewportY, amount){
   if(amount <= 0) return;
-  if(!arena.dmgNumbers) arena.dmgNumbers = [];
-  arena.dmgNumbers.push({
-    x: x + (Math.random()-0.5) * 14,
-    y: y - 4,
-    vy: -1.4,
-    life: 70, // ~1.17s @ 60fps (mais longo que damage pra ler bem)
-    maxLife: 70,
-    value: Math.max(1, Math.round(amount)),
-    kind: 'carrot',
-  });
-  if(typeof spawnArenaParticle === 'function'){
-    spawnArenaParticle(x, y, '#ff9b3a', Math.min(14, 4 + Math.floor(amount/5)));
+  const layer = document.getElementById('carrotPopLayer');
+  if(!layer) return;
+  const lr = layer.getBoundingClientRect();
+  const el = document.createElement('span');
+  el.className = 'carrotPop';
+  el.textContent = '+' + Math.max(1, Math.round(amount)) + ' 🥕';
+  // Spread horizontal pequeno pra evitar pops empilhados
+  el.style.left = ((viewportX - lr.left) + (Math.random()-0.5) * 14) + 'px';
+  el.style.top  = (viewportY - lr.top) + 'px';
+  layer.appendChild(el);
+  setTimeout(() => { if(el.parentNode) el.remove(); }, 1300);
+}
+
+// Converte coords de um DOM element pro espaço LOGICAL do canvas (W=360, H dinâmico).
+// Útil pra spawnar partículas/textos próximos a elementos da UI (ex: ROLAR btn).
+function _domToCanvasLogical(el){
+  if(!el) return null;
+  const r = el.getBoundingClientRect();
+  if(r.width === 0 || r.height === 0) return null; // hidden
+  const canvasEl = document.getElementById('game');
+  if(!canvasEl) return null;
+  const cr = canvasEl.getBoundingClientRect();
+  if(cr.width === 0) return null;
+  const uiScale = cr.width / W;
+  return {
+    x: (r.left + r.width/2 - cr.left) / uiScale,
+    y: (r.top  + r.height/2 - cr.top)  / uiScale,
+  };
+}
+
+// Spawna o pop de carrot perto do botão ROLAR (origem visual da recompensa pra
+// itens reciclados). Usa viewport CSS px direto pra alimentar spawnCarrotPop
+// (DOM-based, z-index 50 fica ACIMA de qualquer forge popup).
+function _carrotPopAtRollBtn(amount){
+  if(amount <= 0) return;
+  const rollBtn = document.getElementById('arenaForgeRollBtn');
+  if(rollBtn){
+    const r = rollBtn.getBoundingClientRect();
+    if(r.width > 0){
+      // Centro horizontal do botão, ligeiramente acima do top do botão
+      spawnCarrotPop(r.left + r.width/2, r.top - 4, amount);
+      return;
+    }
+  }
+  // Fallback: usa centro do canvas (caso ROLAR não esteja visível ainda)
+  const canvasEl = document.getElementById('game');
+  if(canvasEl){
+    const cr = canvasEl.getBoundingClientRect();
+    spawnCarrotPop(cr.left + cr.width/2, cr.top + cr.height*0.6, amount);
   }
 }
 
@@ -8594,33 +8678,21 @@ function fillItemIconHTML(el, item, sizePx){
   }
 }
 
-// Sample do pixel central do bottom do video/image atual da era — usado pra
-// cor de "chão" da faixa abaixo do background. Cacheado por era idx (1× sample
-// por era, depois reusa). Falha silenciosa se o frame ainda não pronto ou CORS;
-// fallback fica em #5d964f no caller.
-const _groundColorCache = {};
-function _sampleGroundColor(fullBg, eraIdx){
-  if(_groundColorCache[eraIdx]) return _groundColorCache[eraIdx];
-  const bgW = fullBg.naturalWidth  || fullBg.videoWidth  || 0;
-  const bgH = fullBg.naturalHeight || fullBg.videoHeight || 0;
-  if(!bgW || !bgH) return null;
-  try {
-    const off = document.createElement('canvas');
-    off.width = 1; off.height = 1;
-    const octx = off.getContext('2d');
-    // Sample pixel do centro-bottom (mais representativo que canto-bottom)
-    octx.drawImage(fullBg, (bgW/2)|0, bgH-1, 1, 1, 0, 0, 1, 1);
-    const px = octx.getImageData(0, 0, 1, 1).data;
-    // Cacheia só se cor for plausível (alpha > 0). Frames pretos transparentes
-    // de loading são ignorados — próximo frame tenta de novo.
-    if(px[3] > 0){
-      const color = `rgb(${px[0]},${px[1]},${px[2]})`;
-      _groundColorCache[eraIdx] = color;
-      return color;
-    }
-  } catch(_){ /* CORS ou frame não pronto */ }
-  return null;
-}
+// Cor do "chão" abaixo do background, por era. Hardcoded — fácil de tunar.
+// Cada cor deve match com o fim visual do background da era correspondente.
+// Posição = era idx (ver const ERAS).
+const ERA_GROUND_COLOR = [
+  '#5d964f', // 0 primitive (Burrow Age) — verde mata
+  '#6fa84a', // 1 medieval (Meadow Kingdom) — verde mais claro/brilhante
+  '#8a8580', // 2 earlymodern (Industrial Hutch) — cinza concreto
+  '#6fa8d8', // 3 modern (Skyhop) — azul céu
+  '#2b1f5f', // 4 space (Cosmic Carrot) — roxo escuro espacial
+  '#4a3580', // 5 interstellar (Glimmerwarp) — roxo profundo
+  '#8a6ed8', // 6 multiverse (Dreamburrow) — rosa/lilás onírico
+  '#2a253a', // 7 quantum (Hollow Realm) — slate escuro
+  '#d8552a', // 8 underworld (Emberforge) — laranja brasa
+  '#38a875', // 9 divine (Verdant Eternal) — verde esmeralda
+];
 // Converte 'rgb(r,g,b)' OU '#RRGGBB' pra 'rgba(r,g,b,alpha)'. Pra gradients.
 function _toRGBA(color, alpha){
   if(color.startsWith('rgb(')){
@@ -8644,18 +8716,24 @@ function renderArena(){
   // 0..W × 0..H. Senão: gradient + arena floor (modelo anterior).
   const fullBg = getEraFullBg();
   if(fullBg){
-    // Cor de "chão" — sample dinâmico do bottom-center do video/image, cacheado por era.
+    // Cor de "chão" — lookup hardcoded por era (ERA_GROUND_COLOR). Fácil de
+    // tunar manualmente sem depender de sample dinâmico no video.
     const eraIdx = currentArenaEra();
-    const groundColor = _sampleGroundColor(fullBg, eraIdx) || '#5d964f';
+    const groundColor = ERA_GROUND_COLOR[eraIdx] || '#5d964f';
     // Pinta o canvas inteiro com a ground color como safety net (caso o video
     // ainda esteja carregando ou tenha aspect que não cobre full canvas).
     ctx.fillStyle = groundColor;
     ctx.fillRect(0, 0, W, H);
 
-    // FIT BY WIDTH (sempre): image ocupa 100% da largura do canvas, mantém aspect.
+    // FIT BY WIDTH: image ocupa 100% da largura. Aspect TARGET unificado em 9:16
+    // (1920/1080 = ~1.778), o aspect dos VIDEOS — força todas as eras a usarem
+    // a mesma altura de bg. As imagens (1024×1404, aspect ~1.371) ficam
+    // esticadas verticalmente — PALLIATIVE até serem substituídas por videos
+    // no mesmo aspect. Era 4+ visualmente "fica do mesmo tamanho" que stages 1-3.
     const bgW = fullBg.naturalWidth  || fullBg.videoWidth  || W;
     const bgH = fullBg.naturalHeight || fullBg.videoHeight || H;
-    const naturalDrawH = W * (bgH / bgW);
+    const BG_TARGET_ASPECT = 1920 / 1080; // aspect dos videos MP4
+    const naturalDrawH = W * BG_TARGET_ASPECT;
     const drawH = Math.min(Math.max(0, LAYOUT.bgImageHeightPx), naturalDrawH);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
@@ -8829,18 +8907,8 @@ function renderArena(){
       const t = dn.life / dn.maxLife;
       // fade-out: nos últimos 30% da vida, alpha desce de 1 → 0
       ctx.globalAlpha = t < 0.3 ? (t / 0.3) : 1;
-      if(dn.kind === 'carrot'){
-        // "+N 🥕" — laranja vivo, fonte ~mesmo tamanho do dano normal
-        const size = 16;
-        ctx.font = '800 ' + size + 'px Fredoka, Trebuchet MS, system-ui, sans-serif';
-        ctx.lineWidth = 3.25;
-        ctx.strokeStyle = '#3a1d00';
-        ctx.fillStyle = '#ff9b3a';
-        const txt = '+' + dn.value + ' 🥕';
-        ctx.strokeText(txt, dn.x, dn.y);
-        ctx.fillText(txt, dn.x, dn.y);
-        continue;
-      }
+      // (kind:'carrot' antigo foi migrado pra DOM via spawnCarrotPop+#carrotPopLayer
+      //  pra ficar acima dos forge popups. Render canvas só faz damage agora.)
       const size = dn.isCrit ? 22 : 16;
       ctx.font = '800 ' + size + 'px Fredoka, Trebuchet MS, system-ui, sans-serif';
       ctx.lineWidth = dn.isCrit ? 4.5 : 3.25;
@@ -9483,6 +9551,16 @@ function forgeIntervalAtLevel(lvl){
 // aumenta quantos items são forjados por ciclo. Items abaixo do threshold
 // de raridade (smart default = era atual menos 1) viram carrots automático.
 const AUTO_UNLOCK_LEVEL = 3;
+const AUTO_SELL_WORSE_UNLOCK = 5; // Lv mínimo pra liberar o toggle "Vender se pior"
+// Effective getter — combina state com unlock gate. Returns boolean:
+//  - se forgeLevel < AUTO_SELL_WORSE_UNLOCK → sempre false (bloqueado)
+//  - se player setou explicitamente → usa esse valor
+//  - se null → default true (uma vez desbloqueado, vendaging é o comportamento intuitivo)
+function getAutoSellWorseEffective(){
+  if(arena.forgeLevel < AUTO_SELL_WORSE_UNLOCK) return false;
+  if(typeof arena.autoSellWorse === 'boolean') return arena.autoSellWorse;
+  return true; // default on once unlocked
+}
 
 // Tier ladder do auto-forge — fonte única de verdade pra batch + popup.
 // Inspirado no Magic Lamp do LoM: cada tier define a partir de qual
@@ -9526,8 +9604,8 @@ function _grantDiscardCarrots(oldItem){
   if(!oldItem) return 0;
   const v = autoForgeSellValue(oldItem);
   arena.carrots = (arena.carrots || 0) + v;
-  if(typeof spawnCarrotPop === 'function' && typeof arena !== 'undefined'){
-    spawnCarrotPop(arena.bx, arena.by - 18, v);
+  if(typeof _carrotPopAtRollBtn === 'function'){
+    _carrotPopAtRollBtn(v);
   }
   return v;
 }
@@ -9996,7 +10074,27 @@ function buildAutoForgeContent(){
     </div>
     <div class="dd-list ${sellOpen?'show':''}">${sellOpts}</div>`;
 
-  return head + batchDD + keepDD + sellDD;
+  // === Toggle: Vender se item pior (sidegrade) — desbloqueado em Lv ≥ 5 ===
+  const sellWorseLocked = arena.forgeLevel < AUTO_SELL_WORSE_UNLOCK;
+  const sellWorseOn = getAutoSellWorseEffective();
+  const sellWorseDD = `
+    <div class="auto-forge-section-title">
+      Vender se item pior
+      ${sellWorseLocked ? `<span style="font-size:11px;color:#9b8fc4;font-weight:normal;margin-left:6px">🔒 Lv ${AUTO_SELL_WORSE_UNLOCK}</span>` : ''}
+    </div>
+    <div class="dd-trigger" data-dd-toggle="sellworse" style="cursor:${sellWorseLocked?'not-allowed':'pointer'};opacity:${sellWorseLocked?'0.5':'1'};display:flex;align-items:center;gap:10px;">
+      <span class="dd-trigger-val" style="flex:1">
+        ${sellWorseLocked
+          ? 'Bloqueado — sidegrades são descartados'
+          : (sellWorseOn ? '✓ Sidegrades convertidos em 🥕' : 'Sidegrades descartados')}
+      </span>
+      <label class="settings-toggle" style="pointer-events:${sellWorseLocked?'none':'auto'}">
+        <input type="checkbox" ${sellWorseOn?'checked':''} ${sellWorseLocked?'disabled':''} data-sellworse-cb>
+        <span class="settings-toggle-slider"></span>
+      </label>
+    </div>`;
+
+  return head + batchDD + keepDD + sellDD + sellWorseDD;
 }
 
 // Ladder read-only (mostrada quando o auto ainda não desbloqueou)
@@ -10037,6 +10135,14 @@ function refreshAutoForgePopup(){
       const trig = e.target.closest('[data-dd-toggle]');
       if(trig){
         const kind = trig.getAttribute('data-dd-toggle');
+        // Toggle "Vender se item pior" — não é dropdown, é boolean. Bloqueado < Lv 5.
+        if(kind === 'sellworse'){
+          if(arena.forgeLevel >= AUTO_SELL_WORSE_UNLOCK){
+            arena.autoSellWorse = !getAutoSellWorseEffective();
+            refreshAutoForgePopup();
+          }
+          return;
+        }
         _autoForgeOpenDropdown = (_autoForgeOpenDropdown === kind) ? null : kind;
         refreshAutoForgePopup();
         return;
@@ -10185,10 +10291,14 @@ function autoForgeCeremonyChain(rolls, combo){
     if(!arena.autoForge || i >= rolls){ _endChain(); return; }
     const item = generateForgedItem(arena.forgeLevel, safeCombo);
     const eraIdx = (item && item.eraIdx) ? item.eraIdx : 0;
-    // Decisão auto (replica lógica de autoForgeResolveBatch + arenaEquipItem)
-    let willEquip;
+    // Decisão auto (replica lógica de autoForgeResolveBatch + arenaEquipItem).
+    // sellReason: 'sellMax' (eraIdx ≤ threshold) | 'sidegrade' (acima do sellMax
+    // mas não é upgrade) | null (will equip). Usado abaixo pra checar o toggle
+    // autoSellWorse (sidegrades só são vendidos se Lv ≥ 5 e flag ON).
+    let willEquip, sellReason = null;
     if(eraIdx <= sellMax){
       willEquip = false;
+      sellReason = 'sellMax';
     } else {
       const cur = arena.items[item.slot];
       if(!cur){ willEquip = true; }
@@ -10196,6 +10306,7 @@ function autoForgeCeremonyChain(rolls, combo){
         const curRank = RARITY_KEYS.indexOf(cur.rarity);
         const newRank = RARITY_KEYS.indexOf(item.rarity);
         willEquip = (newRank > curRank || (newRank === curRank && item.value > cur.value));
+        if(!willEquip) sellReason = 'sidegrade';
       }
     }
     arena.pendingForgeItem = item;
@@ -10216,7 +10327,7 @@ function autoForgeCeremonyChain(rolls, combo){
         if(oldItem){
           const v = autoForgeSellValue(oldItem);
           summary.carrots += v;
-          if(typeof spawnCarrotPop === 'function') spawnCarrotPop(arena.bx, arena.by - 18, v);
+          if(typeof _carrotPopAtRollBtn === 'function') _carrotPopAtRollBtn(v);
         }
         arena.items[item.slot] = item;
         summary.equipped++;
@@ -10224,11 +10335,19 @@ function autoForgeCeremonyChain(rolls, combo){
         if(typeof Quests   !== 'undefined') Quests.onEquipped();
         if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
       } else {
-        // Auto-sell do item NOVO (não passou no keep threshold)
-        const v = autoForgeSellValue(item);
-        summary.carrots += v;
-        summary.sold++;
-        if(typeof spawnCarrotPop === 'function') spawnCarrotPop(arena.bx, arena.by - 18, v);
+        // Item NOVO não vai equipar. Vende SE:
+        //  • sellReason === 'sellMax' (player setou pra vender essa era) — sempre vende
+        //  • sellReason === 'sidegrade' E toggle autoSellWorse ativo (Lv ≥ 5)
+        // Senão: descarta silenciosamente (sem carrots).
+        const shouldSell = (sellReason === 'sellMax')
+          || (sellReason === 'sidegrade' && getAutoSellWorseEffective());
+        if(shouldSell){
+          const v = autoForgeSellValue(item);
+          summary.carrots += v;
+          summary.sold++;
+          if(typeof _carrotPopAtRollBtn === 'function') _carrotPopAtRollBtn(v);
+        }
+        // Se não vender, item só some — não conta em sold (sem feedback de carrots)
       }
       arena.pendingForgeItem = null;
       i++;
