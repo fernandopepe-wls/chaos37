@@ -4995,6 +4995,10 @@ const LAYOUT_DEFAULTS = {
   itemGapX: 5,
   itemGapY: 6,
   itemStartYOffset: -3,
+  // Line divider — fina linha gold/marrom entre items strip e dice strip
+  divLineYFromBottom: 251, // px do bottom do frame
+  divLineW: 176,           // largura em logical px
+  divLineThickness: 0.5,   // espessura em logical px
   // Forge — TRAY (background afundado atrás dos dados) — INDEPENDENTE
   trayBottomY: 180,
   trayOffsetX: 0,
@@ -5724,6 +5728,10 @@ const LAYOUT_SCHEMA = [
   { key:'itemGapX',        label:'Gap X',          min:0,    max:20,   step:1 },
   { key:'itemGapY',        label:'Gap Y',          min:0,    max:20,   step:1 },
   { key:'itemStartYOffset',label:'Start Y offset', min:-120, max:200,  step:1 },
+  { section:'Line divider (entre items e dados)' },
+  { key:'divLineYFromBottom', label:'Y from bottom (↑↓)', min:0,    max:500, step:1 },
+  { key:'divLineW',           label:'Width (X size)',     min:0,    max:360, step:2 },
+  { key:'divLineThickness',   label:'Thickness',          min:0.5,  max:8,   step:0.5 },
   { section:'Forge — TRAY (background afundado)' },
   { key:'trayBottomY',  label:'Y from bottom (↑↓)', min:0,    max:400, step:1 },
   { key:'trayOffsetX',  label:'X offset (←→)',      min:-200, max:200, step:1 },
@@ -8239,6 +8247,18 @@ function drawArenaHUD(){
   }
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
+
+  // === LINE DIVIDER — fina linha gold/marrom entre items strip e dice strip ===
+  // Y ancorado pelo BOTTOM do frame (consistente com trayBottomY / diceBottomY).
+  // Configurável via UI Tool: posição Y, largura, espessura.
+  {
+    const lineY = H - LAYOUT.divLineYFromBottom;
+    const lineW = LAYOUT.divLineW;
+    const lineThick = LAYOUT.divLineThickness;
+    const lineX = (W - lineW) / 2;
+    ctx.fillStyle = '#b07a3a';
+    ctx.fillRect(lineX, lineY - lineThick/2, lineW, lineThick);
+  }
 
   // banner de MORTE (respawn)
   if(arena.deathBannerTimer > 0){
