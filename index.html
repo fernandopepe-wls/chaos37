@@ -2628,14 +2628,54 @@ let bunnyFacing = 'right';         // 'left' | 'right' — atualizado por moveme
 // renova essa trava. Sem isso o bunny gira no eixo quando AI orbita em volta
 // de inimigos (movement dx alterna sinal a cada frame).
 let bunnyFacingLockedUntil = 0;    // performance.now() timestamp (ms)
+// Acorn-bullet sprite for ranged projectiles. Native loaded once at boot,
+// used by the rangedProj render branch (replaces procedural carrot-arrow).
+const ACORN_BULLET_IMG = new Image();
+ACORN_BULLET_IMG.src = 'assets/bunny/weapons/acorn_bullet_nobg.png';
+// Display size of bullet (px). Source is 2048² with art centered.
+const ACORN_BULLET_DRAW_SIZE = 14;
+
+// Hand-sprite cache: path (no ext) -> { meta, img }. Populated at boot.
+// Lookup driven by arena.items.weapon.handSprite (see ARENA_ITEM_POOL).
+const BUNNY_WEAPONS = {};
+const BUNNY_WEAPON_FALLBACK = 'assets/bunny/weapons/sword_placeholder';
+function bunnyApplyEquippedWeapon(){
+  if(!bunny) return;
+  const w = (typeof arena !== 'undefined' && arena && arena.items) ? arena.items.weapon : null;
+  const path = w && w.handSprite;
+  // No fallback — weapons without a handSprite (e.g., Galho) render empty hand.
+  bunny.setWeapon(path ? (BUNNY_WEAPONS[path] || null) : null);
+}
 (async () => {
   if(typeof BunnyRenderer === 'undefined') return; // safety: script tag falhou
   try {
     const inst = await BunnyRenderer.load('assets/bunny/');
-    const weapon = await BunnyRenderer.loadWeapon('assets/bunny/weapons/sword_placeholder');
-    inst.setWeapon(weapon);
+    const weaponPaths = [
+      'assets/bunny/weapons/sword_placeholder',
+      'assets/bunny/weapons/weapon-wood-stick',
+      'assets/bunny/weapons/weapon-burrow-pike',
+      'assets/bunny/weapons/weapon-smiths-mallet',
+      'assets/bunny/weapons/weapon-acorn-slingshot',
+      'assets/bunny/weapons/weapon-twin-throwing-acorns',
+      'assets/bunny/weapons/weapon-acorn-scattershot',
+    ];
+    // Per-weapon try/catch so one failure (missing JSON/PNG, decode error)
+    // doesn't kill the whole bunny boot. Failed entries are skipped — fallback
+    // resolves to sword_placeholder via bunnyApplyEquippedWeapon.
+    await Promise.all(weaponPaths.map(async (p) => {
+      try {
+        BUNNY_WEAPONS[p] = await BunnyRenderer.loadWeapon(p);
+      } catch(err){
+        console.warn('[bunny] weapon load falhou:', p, err);
+      }
+    }));
+    inst.setWeapon(BUNNY_WEAPONS[BUNNY_WEAPON_FALLBACK] || null);
     inst.setState('idle');
+    // Bunny melee anim left at original 30fps × 20 frames — weapon visual is
+    // driven externally by arena.swings (target-aimed arc), not by the bunny
+    // anim track. The bunny pose anim runs natively in parallel.
     bunny = inst;
+    bunnyApplyEquippedWeapon();
   } catch(e){
     console.warn('[bunny] sprite load falhou — usando pixel-art fallback', e);
   }
@@ -3453,6 +3493,10 @@ window.addEventListener('keydown', e=>{
     console.log('[cheat] FTUE + quests reset — recarregando...');
     setTimeout(() => location.reload(), 80);
   }
+  // === CHEAT: tecla "J" cicla weapon equipada (preview de hand-sprite) ===
+  if((e.key === 'j' || e.key === 'J') && !e.repeat && typeof cheatCycleWeapon === 'function'){
+    cheatCycleWeapon();
+  }
   // === DEBUG OVERLAY toggle: tecla "`" ou "F1" ===
   if((e.key === '`' || e.key === 'F1') && !e.repeat){
     e.preventDefault();
@@ -3971,11 +4015,11 @@ const FORGE_COST = FORGE_BASE_COST;
 // emoji caso o sprite ainda não tenha carregado.
 const ARENA_ITEM_POOL = [
   // === Weapons (5 archetypes do design doc) ===
-  { slot:'weapon', name:'Burrow Pike',          archetype:'melee_thrust',  stat:'dmg', base:4, weaponType:'melee',  icon:'🗡️', sprite:'assets/items/era1/weapon-burrow-pike.png' },
-  { slot:'weapon', name:'Smith’s Mallet',  archetype:'melee_slash',   stat:'dmg', base:5, weaponType:'melee',  icon:'🔨', sprite:'assets/items/era1/weapon-smiths-mallet.png' },
-  { slot:'weapon', name:'Acorn Slingshot',      archetype:'ranged_single', stat:'dmg', base:3, weaponType:'ranged', icon:'🪨', sprite:'assets/items/era1/weapon-acorn-slingshot.png' },
-  { slot:'weapon', name:'Twin Throwing Acorns', archetype:'ranged_double', stat:'projectiles', base:2, weaponType:'ranged', icon:'🌰', sprite:'assets/items/era1/weapon-twin-throwing-acorns.png' },
-  { slot:'weapon', name:'Acorn Scattershot',    archetype:'ranged_triple', stat:'projectiles', base:3, weaponType:'ranged', icon:'💥', sprite:'assets/items/era1/weapon-acorn-scattershot.png' },
+  { slot:'weapon', name:'Burrow Pike',          archetype:'melee_thrust',  stat:'dmg', base:4, weaponType:'melee',  icon:'🗡️', sprite:'assets/items/era1/weapon-burrow-pike.png',           handSprite:'assets/bunny/weapons/weapon-burrow-pike' },
+  { slot:'weapon', name:'Smith’s Mallet',  archetype:'melee_slash',   stat:'dmg', base:5, weaponType:'melee',  icon:'🔨', sprite:'assets/items/era1/weapon-smiths-mallet.png',         handSprite:'assets/bunny/weapons/weapon-smiths-mallet' },
+  { slot:'weapon', name:'Acorn Slingshot',      archetype:'ranged_single', stat:'dmg', base:3, weaponType:'ranged', icon:'🪨', sprite:'assets/items/era1/weapon-acorn-slingshot.png',       handSprite:'assets/bunny/weapons/weapon-acorn-slingshot' },
+  { slot:'weapon', name:'Twin Throwing Acorns', archetype:'ranged_double', stat:'projectiles', base:2, weaponType:'ranged', icon:'🌰', sprite:'assets/items/era1/weapon-twin-throwing-acorns.png', handSprite:'assets/bunny/weapons/weapon-twin-throwing-acorns' },
+  { slot:'weapon', name:'Acorn Scattershot',    archetype:'ranged_triple', stat:'projectiles', base:3, weaponType:'ranged', icon:'💥', sprite:'assets/items/era1/weapon-acorn-scattershot.png',     handSprite:'assets/bunny/weapons/weapon-acorn-scattershot' },
 
   // === Helmet ===
   { slot:'helmet', name:'Capacete Leve',     variation:'light',  stat:'maxHp', base:12, icon:'🎩', sprite:'assets/items/era1/helmet-light.png' },
@@ -4191,12 +4235,14 @@ function initArena(){
   arena.items.weapon = {
     slot:'weapon', name:'Galho', stat:'dmg', icon:'🌿',
     sprite:'assets/items/era1/weapon_wood_stick.png',
+    handSprite:'assets/bunny/weapons/weapon-wood-stick',
     rarity:'primitive', eraKey:'primitive', eraIdx:0, era: ERAS[0].name, eraColor:'#888780',
     weaponType:'melee',
     currentLevel:1, initialLevel:1, maxLevel: MAX_ITEM_LEVEL, level:1,
     substats:[],
     value: baseStat('weapon', 0, 1),
   };
+  if(typeof bunnyApplyEquippedWeapon === 'function') bunnyApplyEquippedWeapon();
   arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 0.616;
   arena.baseMaxHp = 100; arena.baseProjectiles = 1; arena.baseCrit = 0;
   arena.baseDodge = 0; arena.baseXpMult = 1; arena.basePickupRange = 50;
@@ -5740,6 +5786,29 @@ function cheatSkipStage(){
   console.log(`[cheat] skip → stage ${arena.stage} (${stageLabel(arena.stage)})`);
 }
 
+// Cicla equipped weapon entre as 5 do pool + galho fallback. Cada press
+// equipa a próxima e dispara melee swing pro hand-sprite aparecer (weapon
+// só renderiza em melee/ranged states). Pivot mismatch = oportunidade
+// pra tunar pivot_px do JSON correspondente.
+let _cheatWeaponIdx = -1;
+function cheatCycleWeapon(){
+  if(state !== STATE.ARENA_PLAY) return;
+  const weaponPool = ARENA_ITEM_POOL.filter(d => d.slot === 'weapon');
+  if(!weaponPool.length) return;
+  _cheatWeaponIdx = (_cheatWeaponIdx + 1) % weaponPool.length;
+  const def = weaponPool[_cheatWeaponIdx];
+  arena.items.weapon = {
+    ...def,
+    rarity:'common', eraKey:'primitive', eraIdx:0, era: ERAS[0].name, eraColor:'#888780',
+    currentLevel:1, initialLevel:1, maxLevel: MAX_ITEM_LEVEL, level:1,
+    substats:[],
+    value: def.base,
+  };
+  if(typeof bunnyApplyEquippedWeapon === 'function') bunnyApplyEquippedWeapon();
+  if(bunny && typeof bunny.trigger === 'function') bunny.trigger(def.weaponType);
+  console.log(`[cheat] weapon → ${def.name} (${def.archetype}) handSprite=${def.handSprite}`);
+}
+
 function tickArenaWave(){
   if(arena.waveState === 'stage_clear'){
     arena.stageClearBannerTimer--;
@@ -5944,6 +6013,7 @@ function arenaEquipItem(item){
     arena.items[item.slot] = item;
     if(typeof Quests   !== 'undefined') Quests.onEquipped();
     if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
+    if(item.slot === 'weapon' && typeof bunnyApplyEquippedWeapon === 'function') bunnyApplyEquippedWeapon();
     return true;
   }
   const curRank = Object.keys(RARITY).indexOf(cur.rarity);
@@ -5952,6 +6022,7 @@ function arenaEquipItem(item){
     arena.items[item.slot] = item;
     if(typeof Quests   !== 'undefined') Quests.onEquipped();
     if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
+    if(item.slot === 'weapon' && typeof bunnyApplyEquippedWeapon === 'function') bunnyApplyEquippedWeapon();
     return true;
   }
   return false;
@@ -6176,7 +6247,7 @@ function arenaMeleeSwing(target){
     centerAngle: targetAngle,
     arc:   Math.PI * 0.85 + (bladeStat-1) * 0.20,
     range: 38 + bladeStat * 6,
-    frame: 0, lifeFrames: 6,
+    frame: 0, lifeFrames: 10,
     dmg: arenaTotalStat('dmg'),
     crit: arenaTotalStat('crit'),
     dir: Math.random()<0.5 ? -1 : 1,
@@ -6718,6 +6789,37 @@ function enterArena(){
 }
 
 // ========== RENDER ARENA ==========
+// Draws the equipped weapon's hand-sprite swinging through `angle` (radians,
+// where 0 = +X, atan2 convention). Mirrors the carrot swing's geometry: pivot
+// at bunny center, blade points along the angle. Weapon PNG art is authored
+// with blade pointing up (local -Y), so we add π/2 to map that to +X reference.
+// `t` is 0→1 over the swing for future trail/alpha effects (unused for now).
+function drawArenaHandSprite(x, y, angle, t){
+  const w = (arena.items && arena.items.weapon) || null;
+  const path = w && w.handSprite;
+  if(!path) return;
+  const obj = BUNNY_WEAPONS[path];
+  if(!obj) return;
+  const meta = obj.meta;
+  const img = obj.img;
+  const scale = (LAYOUT && LAYOUT.bunnyDrawScale) || 0.14;
+  const wScale = scale * 0.95;
+  const baseRot = (meta.baseline_rotation_deg || 0) * Math.PI / 180;
+  // Push pivot forward along swing direction so grip isn't buried in bunny.
+  const HAND_FORWARD_OFFSET = 12;
+  const ox = x + Math.cos(angle) * HAND_FORWARD_OFFSET;
+  const oy = y + Math.sin(angle) * HAND_FORWARD_OFFSET;
+  ctx.save();
+  ctx.translate(ox, oy);
+  ctx.rotate(angle + Math.PI/2 + baseRot);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img,
+    -meta.pivot_px[0] * wScale, -meta.pivot_px[1] * wScale,
+    meta.width * wScale, meta.height * wScale);
+  ctx.restore();
+}
+
 function drawCarrotSword(x, y, angle, range, t){
   // t in [0,1] — usado pra trail/transparência
   ctx.save();
@@ -8068,12 +8170,8 @@ function renderArena(){
   // enemies
   for(const e of arena.enemies) drawArenaEnemy(e);
 
-  // swings (espada de cenoura)
-  for(const sw of arena.swings){
-    const t = sw.frame / sw.lifeFrames;
-    const swingAngle = sw.centerAngle + sw.dir * (sw.arc/2 - sw.arc * t);
-    drawCarrotSword(arena.bx, arena.by, swingAngle, sw.range, t);
-  }
+  // Swing weapon draw moved to after drawArenaBunny() so the weapon sits in
+  // front of the bunny (was rendering behind because this block ran first).
 
   // slash VFX — stylized arc ribbon
   drawSlashVFXs();
@@ -8108,26 +8206,20 @@ function renderArena(){
       ctx.restore();
     }
     else if(ef.kind === 'rangedProj'){
-      // flecha-cenoura pixel-art apontando na direção do tiro
+      // Acorn-bullet PNG, rotated to travel direction. Fallback to procedural
+      // if image not ready (first frame after load).
       ctx.save();
       ctx.translate(ef.x, ef.y);
       ctx.rotate(ef.angle);
-      // haste laranja
-      ctx.fillStyle = '#cc4a0a';
-      ctx.fillRect(-8, -2, 14, 4);
-      ctx.fillStyle = '#ff7a1a';
-      ctx.fillRect(-8, -1, 14, 2);
-      // ponta
-      ctx.fillStyle = '#ffcc3d';
-      ctx.fillRect(6, -3, 4, 6);
-      ctx.fillRect(10, -2, 2, 4);
-      ctx.fillStyle = '#fff7e0';
-      ctx.fillRect(8, -2, 2, 2);
-      // empenagem verde
-      ctx.fillStyle = '#2aa860';
-      ctx.fillRect(-10, -4, 4, 8);
-      ctx.fillStyle = '#4cf08e';
-      ctx.fillRect(-9, -3, 2, 6);
+      if(ACORN_BULLET_IMG.complete && ACORN_BULLET_IMG.naturalWidth){
+        const s = ACORN_BULLET_DRAW_SIZE;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(ACORN_BULLET_IMG, -s/2, -s/2, s, s);
+      } else {
+        ctx.fillStyle = '#ff7a1a';
+        ctx.fillRect(-6, -3, 12, 6);
+      }
       ctx.restore();
     }
     else if(ef.kind === 'orbiter'){
@@ -8168,6 +8260,15 @@ function renderArena(){
 
   // bunny
   drawArenaBunny();
+
+  // Swing weapon — draws equipped handSprite arcing toward target. Drawn
+  // AFTER bunny so the weapon sits in front. Uses arena.swings.frame /
+  // lifeFrames + centerAngle/arc/dir from arenaMeleeSwing.
+  for(const sw of arena.swings){
+    const t = sw.frame / sw.lifeFrames;
+    const swingAngle = sw.centerAngle + sw.dir * (sw.arc/2 - sw.arc * t);
+    drawArenaHandSprite(arena.bx, arena.by, swingAngle, t);
+  }
 
   // particles
   for(const pt of arena.particles){

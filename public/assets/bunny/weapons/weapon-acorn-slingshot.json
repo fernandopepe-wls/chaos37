@@ -1,0 +1,17 @@
+﻿{
+    "name":  "acorn_slingshot",
+    "image":  "weapon-acorn-slingshot.png",
+    "width":  150,
+    "height":  150,
+    "pivot_px":  [
+                     15,
+                     135
+                 ],
+    "pivot_norm":  [
+                       0.1,
+                       0.9
+                   ],
+    "baseline_rotation_deg":  -45,
+    "kind":  "ranged",
+    "note":  "Pivot copied from sword_placeholder norms. Tune to grip when seen ingame."
+}

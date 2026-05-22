@@ -91,8 +91,18 @@ const BunnyRenderer = (() => {
     setWeapon(w) { this.weapon = w; }
 
     // Set a looping state. No-op if already in that state.
+    // Doesn't interrupt a playing one-shot (melee/ranged/death) — those auto-revert
+    // to prevLoopState when done. Without this guard, the game's per-frame
+    // setState('walk'|'idle') would kill the swing mid-anim.
     setState(state) {
       if (this.currentState === state) return;
+      const currMeta = this.states[this.currentState] && this.states[this.currentState].meta;
+      if (currMeta && !currMeta.loop) {
+        // Update prevLoopState so the one-shot reverts to the latest desired loop.
+        const newMeta = this.states[state] && this.states[state].meta;
+        if (newMeta && newMeta.loop) this.prevLoopState = state;
+        return;
+      }
       this.currentState = state;
       this.stateStartTime = performance.now() / 1000;
       const meta = this.states[state].meta;
@@ -101,9 +111,16 @@ const BunnyRenderer = (() => {
 
     // Trigger a one-shot animation. Returns immediately; auto-reverts to the
     // previous looping state when the clip finishes (except death, which holds).
+    // If the same one-shot is already playing and hasn't finished, the retrigger
+    // is ignored — protects long swings from being cut by a faster attack cadence.
     trigger(state, onDone) {
       const meta = this.states[state].meta;
       if (meta.loop) { this.setState(state); return; }
+      if (this.currentState === state) {
+        const now = performance.now() / 1000;
+        const elapsed = now - this.stateStartTime;
+        if (elapsed < meta.frames / meta.fps) return;
+      }
       this.currentState = state;
       this.stateStartTime = performance.now() / 1000;
       this.onComplete = onDone || null;
@@ -160,11 +177,26 @@ const BunnyRenderer = (() => {
 
       // Weapon overlay — only for states that flag it (melee + ranged) AND if a weapon is set.
       if (this.weapon && this._stateHasWeapon(state)) {
-        const track = meta.track[idx];
-        if (!track) return;
-        const handX = track.hand_anchor_canvas[0];
-        const handY = track.hand_anchor_canvas[1];
-        const rotDeg = track.weapon.rot_world_deg;
+        // Interpolate between track frames so big rotation jumps (e.g., frame 9→10
+        // is +76° in one tick) become a smooth visible arc instead of a 1-frame snap.
+        const elapsed = now - this.stateStartTime;
+        const fIdx = elapsed * meta.fps;
+        const a = Math.max(0, Math.min(meta.frames - 1, fIdx));
+        const i0 = Math.floor(a);
+        const i1 = Math.min(meta.frames - 1, i0 + 1);
+        const t = a - i0;
+        const tA = meta.track[i0];
+        const tB = meta.track[i1];
+        if (!tA || !tB) return;
+        const lerp = (u, v, k) => u + (v - u) * k;
+        // Rotation can wrap large (>180°). Take the short arc per spline-frame.
+        let r0 = tA.weapon.rot_world_deg;
+        let r1 = tB.weapon.rot_world_deg;
+        let dr = r1 - r0;
+        if (dr > 180) dr -= 360; else if (dr < -180) dr += 360;
+        const rotDeg = r0 + dr * t;
+        const handX = lerp(tA.hand_anchor_canvas[0], tB.hand_anchor_canvas[0], t);
+        const handY = lerp(tA.hand_anchor_canvas[1], tB.hand_anchor_canvas[1], t);
         const screenHandX = dx + handX * scale * (flipX ? -1 : 1) + (flipX ? dw : 0);
         const screenHandY = dy + handY * scale;
         this._drawWeapon(ctx, screenHandX, screenHandY, rotDeg * (flipX ? -1 : 1), scale, flipX);
@@ -172,7 +204,11 @@ const BunnyRenderer = (() => {
     }
 
     _stateHasWeapon(state) {
-      return state === 'melee' || state === 'ranged';
+      // Weapon overlay disabled — bunny-chaos draws the equipped weapon
+      // externally (see drawArenaHandSprite) using arena.swings data, so
+      // the swing arcs toward the target instead of relative to the bunny
+      // body. The renderer still loads weapon assets for that consumer.
+      return false;
     }
 
     _drawWeapon(ctx, handX, handY, rotDeg, scale, flipX) {
@@ -184,6 +220,9 @@ const BunnyRenderer = (() => {
       ctx.save();
       ctx.translate(handX, handY);
       ctx.rotate(rotDeg * Math.PI / 180);
+      // Mirror weapon art when bunny faces left. Art is authored facing right,
+      // so without this the blade points the wrong way during left-side swings.
+      if (flipX) ctx.scale(-1, 1);
       ctx.drawImage(img,
         -pivotX * wScale, -pivotY * wScale,
         meta.width * wScale, meta.height * wScale);
