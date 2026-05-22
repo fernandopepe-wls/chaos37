@@ -9357,6 +9357,18 @@ accruePendingFromLastSeen();
 const FIXED_DT = 1000/60;
 let last = performance.now();
 let acc = 0;
+// Refs DOM resolvidas uma vez — todos os IDs são estáticos no body, então
+// estão disponíveis no momento que este script roda. Evita 8 lookups por frame.
+const _loopEls = {
+  joy:         document.getElementById('joy'),
+  auto:        document.getElementById('arenaAutoBtn'),
+  sleep:       document.getElementById('arenaSleepBtn'),
+  boss:        document.getElementById('arenaBossBtn'),
+  tabBar:      document.getElementById('arenaTabBar'),
+  forgeInline: document.getElementById('arenaForgeInline'),
+  forgeLvBtn:  document.getElementById('arenaForgeLevelBtn'),
+  forgeLvNum:  document.getElementById('forgeLevelNum'),
+};
 function loop(now){
   let frame = now - last;
   last = now;
@@ -9372,7 +9384,7 @@ function loop(now){
   if(steps === 4) acc = 0;
 
   // joystick zone: restringe à play area da arena (grid onde o coelho pode andar)
-  const joyEl = document.getElementById('joy');
+  const joyEl = _loopEls.joy;
   if(state === STATE.ARENA_PLAY){
     joyEl.style.top = (ARENA.TOP_Y/H*100) + '%';
     joyEl.style.bottom = ((H-ARENA.BOT_Y)/H*100) + '%';
@@ -9383,19 +9395,19 @@ function loop(now){
   }
 
   // AUTO toggle só visível na arena
-  const autoEl = document.getElementById('arenaAutoBtn');
+  const autoEl = _loopEls.auto;
   if(state === STATE.ARENA_PLAY) autoEl.classList.add('show');
   else autoEl.classList.remove('show');
 
   // ZZZ (offline rewards) — mesma visibilidade do AUTO
-  const sleepEl = document.getElementById('arenaSleepBtn');
+  const sleepEl = _loopEls.sleep;
   if(sleepEl){
     if(state === STATE.ARENA_PLAY) sleepEl.classList.add('show');
     else sleepEl.classList.remove('show');
   }
 
   // BOSS challenge button: só aparece DEPOIS que o player perdeu pra esse boss pelo menos uma vez
-  const bossBtn = document.getElementById('arenaBossBtn');
+  const bossBtn = _loopEls.boss;
   if(state === STATE.ARENA_PLAY
      && arena.failedBossCurrentStage
      && arena.wave < WAVES_PER_STAGE
@@ -9406,14 +9418,14 @@ function loop(now){
   }
 
   // Tab bar visível durante ARENA_PLAY e ARENA_TAB (pra poder navegar)
-  const tabBarEl = document.getElementById('arenaTabBar');
+  const tabBarEl = _loopEls.tabBar;
   if(state === STATE.ARENA_PLAY || state === STATE.ARENA_TAB) tabBarEl.classList.add('show');
   else tabBarEl.classList.remove('show');
 
   // FORGE inline strip: dados + LV + AUTO; visível só em ARENA_PLAY
-  const forgeInline = document.getElementById('arenaForgeInline');
-  const forgeLvBtn = document.getElementById('arenaForgeLevelBtn');
-  const forgeLvNum = document.getElementById('forgeLevelNum');
+  const forgeInline = _loopEls.forgeInline;
+  const forgeLvBtn = _loopEls.forgeLvBtn;
+  const forgeLvNum = _loopEls.forgeLvNum;
   if(state === STATE.ARENA_PLAY){
     forgeInline.classList.add('show');
     // FORGE LV: atualiza número e pisca se pode upgrade
