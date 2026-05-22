@@ -912,16 +912,42 @@
     background:url('assets/ui-pill-auto.png') no-repeat center/100% 100%, transparent;
     color:#fff7e0;
     border:0;
+    position:relative; /* pra ::after dos dots quando .active */
     text-shadow:0 1px 0 rgba(0,0,0,0.35);
-    /* boost de saturação + brilho no estado idle pra não parecer "apagado"
-       comparado ao .active (que tem saturate(1.2)). AUTO agora sempre abre
-       o popup, então não há mais estado "disabled". */
-    filter:saturate(1.15) brightness(1.05) drop-shadow(0 2px 0 rgba(0,0,0,0.18));
+    /* IDLE = cinza (dessaturado + um pouco mais escuro). Comunica "desligado". */
+    filter:grayscale(0.95) brightness(0.85) drop-shadow(0 2px 0 rgba(0,0,0,0.18));
   }
   #arenaForgeAutoBtn.active{
-    filter:hue-rotate(80deg) saturate(1.2) drop-shadow(0 2px 0 rgba(0,0,0,0.18));
-    color:#0d2a1a;
-    text-shadow:0 1px 0 rgba(255,255,255,0.35);
+    /* ON = cor NATURAL do PNG (roxo). Sem overlay verde, sem hue-rotate —
+       removendo o filter grayscale do idle, o pill volta com sua cor própria.
+       O sinal de "ligado" vem do contraste com o estado cinza + dots animados. */
+    filter:drop-shadow(0 2px 0 rgba(0,0,0,0.18));
+    color:#fff7e0;
+    text-shadow:0 1px 0 rgba(0,0,0,0.35);
+  }
+  /* Dots animados abaixo do botão quando ON — indica "processando..." */
+  #arenaForgeAutoBtn.active::after{
+    content:'•••';
+    position:absolute;
+    left:50%;
+    top:100%;
+    transform:translateX(-50%);
+    margin-top:0;
+    color:#4cf08e;
+    font-size:14px;font-weight:bold;
+    letter-spacing:2px;
+    line-height:0.6;
+    text-shadow:
+      -1.2px -1.2px 0 #1a0e08, 1.2px -1.2px 0 #1a0e08,
+      -1.2px  1.2px 0 #1a0e08, 1.2px  1.2px 0 #1a0e08,
+      -1.2px  0    0 #1a0e08, 1.2px  0    0 #1a0e08,
+       0    -1.2px 0 #1a0e08, 0     1.2px 0 #1a0e08;
+    animation:autoDotsPulse 1.1s infinite ease-in-out;
+    pointer-events:none;
+  }
+  @keyframes autoDotsPulse{
+    0%,100%{ opacity:0.35; transform:translateX(-50%) translateY(0); }
+    50%    { opacity:1;    transform:translateX(-50%) translateY(2px); }
   }
   #arenaForgeAutoBtn:active{transform:translateY(1px);}
 
@@ -1108,6 +1134,24 @@
        1px  1px 0 rgba(255,255,255,0.6);
   }
   .forge-prob-row .pct.next{opacity:0.78;}
+  /* Hint do combo necessário pra atingir a era via tier-up (quando base é 0%) */
+  .forge-prob-row .via-combo{
+    display:inline-block;
+    margin-left:8px;
+    font-size:10px;
+    font-weight:normal;
+    color:#3a2a18;
+    opacity:0.75;
+    font-style:italic;
+    letter-spacing:0;
+    text-shadow:
+      -1px -1px 0 rgba(255,255,255,0.55),
+       1px -1px 0 rgba(255,255,255,0.55),
+      -1px  1px 0 rgba(255,255,255,0.55),
+       1px  1px 0 rgba(255,255,255,0.55);
+  }
+  .forge-prob-row .via-combo .dies{letter-spacing:-2px;font-style:normal;font-size:13.2px;}
+  .forge-prob-row .via-combo .arr{margin-left:4px;font-weight:bold;color:#b45a14;font-style:normal;}
 
   /* === FORGE COMPARE POPUP (style do design ref) === */
   /* Overrides do .layer: backdrop cobre só a metade INFERIOR (igual #itemPopupBackdrop),
@@ -2573,15 +2617,18 @@
   <div>Gire o celular pra <b>vertical</b></div>
 </div>
 <!-- Gem icon (SVG symbol) — reusado em HTML via <use href="#gemSymbol"/>.
-     Combina visualmente com o gem chapado desenhado via canvas paths no HUD pill. -->
+     Combina visualmente com o gem chapado desenhado via canvas paths no HUD pill.
+     IMPORTANTE: a <linearGradient> fica DENTRO do <symbol> pra ser clonada junto
+     no <use> — caso fique fora, a referência url(#gemGrad) pode não resolver e
+     o polygon cai pra `currentColor` (herda cor do parent → fica branco/roxo). -->
 <svg style="display:none" aria-hidden="true">
   <defs>
-    <linearGradient id="gemGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"    stop-color="#ff9ec0"/>
-      <stop offset="0.55" stop-color="#e85b8a"/>
-      <stop offset="1"    stop-color="#b53063"/>
-    </linearGradient>
     <symbol id="gemSymbol" viewBox="0 0 14 16">
+      <linearGradient id="gemGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0"    stop-color="#ff9ec0"/>
+        <stop offset="0.55" stop-color="#e85b8a"/>
+        <stop offset="1"    stop-color="#b53063"/>
+      </linearGradient>
       <polygon points="7,0 14,8 7,16 0,8" fill="url(#gemGrad)" stroke="#1a0e08" stroke-width="1.2" stroke-linejoin="round"/>
       <polygon points="3.5,6 6,2.5 5,7" fill="rgba(255,255,255,0.55)"/>
     </symbol>
@@ -4894,19 +4941,19 @@ const LAYOUT_DEFAULTS = {
   itemGapY: 6,
   itemStartYOffset: -3,
   // Forge — TRAY (background afundado atrás dos dados) — INDEPENDENTE
-  trayBottomY: 185,
+  trayBottomY: 180,
   trayOffsetX: 0,
   trayW: 346,
   trayH: 80,
   trayScale: 0.75,
   // Forge — DICE STRIP (5 dados) — posicionado independente do tray
-  diceBottomY: 195,        // px from frame bottom (anchor da borda inferior)
+  diceBottomY: 190,        // px from frame bottom (anchor da borda inferior)
   diceOffsetX: 0,          // px horizontal offset from screen center (←/→)
   diceW: 340,              // largura do strip (logical px)
   diceH: 55,               // altura do strip
   diceScale: 0.75,         // multiplicador uniforme de escala
   // Forge — ACTION ROW (LV + ROLAR + AUTO) — independente dos dados
-  actionBottomY: 112,
+  actionBottomY: 116,
   actionOffsetX: 0,
   actionW: 340,
   actionH: 65,
@@ -6400,6 +6447,8 @@ function arenaEquipItem(item){
   const curRank = Object.keys(RARITY).indexOf(cur.rarity);
   const newRank = Object.keys(RARITY).indexOf(item.rarity);
   if(newRank > curRank || (newRank===curRank && item.value > cur.value)){
+    // Recompensa o item antigo substituído em carrots
+    _grantDiscardCarrots(cur);
     arena.items[item.slot] = item;
     if(typeof Quests   !== 'undefined') Quests.onEquipped();
     if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
@@ -7951,41 +8000,11 @@ function drawArenaHUD(){
     const col = i % cols;
     const sx = sxStart + col*(slotW + gapX);
     const sy = sy0 + row*(slotH + gapY);
-    const isSpecial = (i === cols*rows - 1); // último slot (row=1, col=4)
     const slot = ARENA_SLOTS[i]; // pode ser undefined pra i >= 8
     const it = slot ? arena.items[slot] : null;
-
-    if(isSpecial){
-      // === SPECIAL SLOT (placeholder) — gradient dourado + sparkle
-      // gradient via canvas (cream → gold)
-      const gold = ctx.createLinearGradient(sx, sy, sx, sy+slotH);
-      gold.addColorStop(0, '#fff3c4');
-      gold.addColorStop(1, '#f5c84a');
-      ctx.fillStyle = gold;
-      ctx.beginPath();
-      if(ctx.roundRect){ ctx.roundRect(sx, sy, slotW, slotH, 10); }
-      else { ctx.rect(sx, sy, slotW, slotH); }
-      ctx.fill();
-      // borda chunky
-      ctx.strokeStyle = '#a67a18';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      // ✨ centralizado
-      ctx.fillStyle = '#7a5a18';
-      ctx.font = 'bold 28px Fredoka, system-ui, monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('✨', sx+slotW/2, sy+slotH*0.5);
-      // pulse subtle no canto
-      const pulse = 0.4 + 0.3 * Math.sin(performance.now() / 400);
-      ctx.save();
-      ctx.globalAlpha = pulse;
-      ctx.fillStyle = '#fff7e0';
-      ctx.fillRect(sx+slotW-12, sy+4, 6, 2);
-      ctx.fillRect(sx+slotW-10, sy+2, 2, 6);
-      ctx.restore();
-      continue;
-    }
+    // i=8 (placeholder) e i=9 (era SPECIAL/golden, agora também placeholder vazio)
+    // caem ambos no _drawEmptySlotCard abaixo. Visual idêntico, sem clique (gate
+    // no handler em ~11353).
 
     // Empty-slot beige card (mapped OR unmapped slot sem item):
     // fundo cream/beige + borda dashed (scalloped-like) + nome do slot centralizado.
@@ -9398,9 +9417,21 @@ function autoForgeBatchSize(lvl){
 
 // Carrots ganhos ao vender um item via auto-forge. Cresce ~quadraticamente
 // com a era (primitive=1, divine=42) — segue padrão do LoM.
+// Multiplier global sobre a fórmula base de sell. Mantém curva por era intacta,
+// apenas eleva o teto. Aplicado também em descartes manuais (DESCARTAR e EQUIPAR-
+// sobre-item-equipado), pra equilibrar economia manual e auto-forge.
+const SELL_VALUE_MULT = 15;
 function autoForgeSellValue(item){
   const eraIdx = (item && item.eraIdx) ? item.eraIdx : 0;
-  return Math.max(1, Math.round(1 + eraIdx*eraIdx*0.5));
+  return Math.max(1, Math.round(1 + eraIdx*eraIdx*0.5)) * SELL_VALUE_MULT;
+}
+// Helper: recompensa o player com carrots ao descartar/substituir um item.
+// Usado em discard manual + EQUIPAR sobre item antigo + replace via arenaEquipItem.
+function _grantDiscardCarrots(oldItem){
+  if(!oldItem) return 0;
+  const v = autoForgeSellValue(oldItem);
+  arena.carrots = (arena.carrots || 0) + v;
+  return v;
 }
 
 // Smart default: mantém items na era do MELHOR item equipado menos 1.
@@ -9576,19 +9607,42 @@ function buildForgeLevelInfo(){
     <span class="col-next">${atMax ? 'MÁX' : '▶ Nível '+(lvl+1)}</span>
   </div>`;
 
+  // Calcula a maior era alcançável SÓ via base sample (sem tier-up de combo)
+  // pra current level e next level — usado pra inferir o gap de tier-up por linha.
+  let maxBaseCur = -1, maxBaseNext = -1;
+  for(let i=0; i<ERAS.length; i++){
+    if(curProbs[ERAS[i].key]  > 0) maxBaseCur  = i;
+    if(nextProbs[ERAS[i].key] > 0) maxBaseNext = i;
+  }
+  // Helper: gera o hint do combo necessário pra atingir era idx via tier-up.
+  // Gap 1 → "⚀⚀+ ↑1" (qualquer par ou melhor já tem chance > 0).
+  // Gap 2 → "⚀⚀⚀⚀⚀ ↑2" (só 5 iguais tem doubleUp).
+  function _comboHintForGap(gap){
+    if(gap === 1) return '<span class="via-combo"><span class="dies">⚀⚀+</span><span class="arr">↑1</span></span>';
+    if(gap === 2) return '<span class="via-combo"><span class="dies">⚀⚀⚀⚀⚀</span><span class="arr">↑2</span></span>';
+    return '';
+  }
   // uma linha por raridade
   let rows = '';
-  for(const k of RARITY_KEYS){
+  for(let i=0; i<ERAS.length; i++){
+    const k = ERAS[i].key;
     const r = RARITY[k];
     const cur = curProbs[k];
     const next = nextProbs[k];
-    const locked = (cur === 0 && next === 0);
+    // Reachable via tier-up de combo? Gap ≤ 2 acima do maior base.
+    const gapCur  = (cur === 0  && maxBaseCur  >= 0) ? (i - maxBaseCur)  : -1;
+    const gapNext = (next === 0 && maxBaseNext >= 0) ? (i - maxBaseNext) : -1;
+    const reachableCur  = cur > 0  || (gapCur  >= 1 && gapCur  <= 2);
+    const reachableNext = next > 0 || (gapNext >= 1 && gapNext <= 2);
+    const locked = !reachableCur && !reachableNext;
+    // Combo hint (só pro level atual; next mostra via barra de %)
+    const comboHint = (cur === 0 && gapCur >= 1 && gapCur <= 2) ? _comboHintForGap(gapCur) : '';
     // background gradiente da cor da raridade pra escuro
     const bg = `linear-gradient(90deg, ${r.color}cc 0%, ${r.color}55 60%, ${r.color}22 100%)`;
     rows += `
       <div class="forge-prob-row${locked ? ' locked' : ''}" style="background:${bg};">
         <span class="ico">${TIER_ICONS[k]}</span>
-        <span class="name">${r.name}</span>
+        <span class="name">${r.name}${comboHint}</span>
         <span class="pct cur">${fmtPct(cur)}</span>
         <span class="pct next">${fmtPct(next)}</span>
       </div>`;
@@ -9818,7 +9872,7 @@ function buildAutoForgeContent(){
   });
   sellOpts += _ddOptionRow({
     kind:'sell', value:'-1',
-    label:`🚫 Não vender por raridade`,
+    label:`🚫 Não vender (decisão própria)`,
     locked:false, active: !isSellAuto && (sellMax < 0),
   });
   for(let i=0;i<ERAS.length-1;i++){  // não inclui última era (não faz sentido vender tudo)
@@ -9832,7 +9886,7 @@ function buildAutoForgeContent(){
     });
   }
   const sellOpen = _autoForgeOpenDropdown === 'sell';
-  const sellLabel = sellMax < 0 ? '🚫 Não vender por raridade' : `${eraDot(sellMax)} ≤ ${eraShort(sellMax)}`;
+  const sellLabel = sellMax < 0 ? '🚫 Não vender (decisão própria)' : `${eraDot(sellMax)} ≤ ${eraShort(sellMax)}`;
   const sellTriggerLabel = isSellAuto
     ? (smartSell < 0 ? `🪄 Auto (desligado)` : `🪄 Auto (≤ ${eraShort(smartSell)})`)
     : sellLabel;
@@ -10003,7 +10057,7 @@ function autoForgeStep(){
 // auto-decide (equip se passa keep threshold + for upgrade, sell senão),
 // fecha popup, próximo item. Player pode interromper clicando manualmente
 // em EQUIPAR/DESCARTAR — chain aborta nesse caso.
-const AUTO_CEREMONY_MS = 1000;
+const AUTO_CEREMONY_MS = 1200;
 function autoForgeCeremonyChain(rolls, combo){
   const safeCombo = combo || COMBO_DATA.MAXROLL;
   const keepMin   = getAutoForgeKeepMin();
@@ -10059,6 +10113,9 @@ function autoForgeCeremonyChain(rolls, combo){
       }
       // Aplica decisão auto
       if(willEquip){
+        // Recompensa o item antigo substituído em carrots (consistência com manual)
+        const oldItem = arena.items[item.slot];
+        if(oldItem) summary.carrots += autoForgeSellValue(oldItem);
         arena.items[item.slot] = item;
         summary.equipped++;
         if(eraIdx > summary.bestEra) summary.bestEra = eraIdx;
@@ -10147,6 +10204,14 @@ setInterval(()=>{
 // (padrão Magic Lamp / Merge Master).
 document.getElementById('arenaForgeAutoBtn').addEventListener('click', ()=>{
   if(state !== STATE.ARENA_PLAY && state !== STATE.ARENA_TAB) return;
+  // Se já está LIGADO → click desliga direto (sem abrir popup).
+  // Se está DESLIGADO → abre popup pra player configurar/ligar.
+  if(arena.autoForge){
+    arena.autoForge = false;
+    const btn = document.getElementById('arenaForgeAutoBtn');
+    if(btn) btn.classList.remove('active');
+    return;
+  }
   openAutoForgePopup();
 });
 document.getElementById('autoForgeCloseBtn').addEventListener('click', closeAutoForgePopup);
@@ -10160,7 +10225,13 @@ document.getElementById('autoForgeToggleBtn').addEventListener('click', ()=>{
   // sincroniza a classe active no botão externo (CSS já cuida do visual)
   const extBtn = document.getElementById('arenaForgeAutoBtn');
   if(extBtn) extBtn.classList.toggle('active', arena.autoForge);
-  refreshAutoForgePopup();
+  // Ao LIGAR, fecha o popup pra player ver o auto rodando. Ao DESLIGAR,
+  // mantém aberto pra player poder ajustar settings antes de religar.
+  if(arena.autoForge){
+    closeAutoForgePopup();
+  } else {
+    refreshAutoForgePopup();
+  }
 });
 
 function eraOfItem(item){
@@ -10347,12 +10418,11 @@ function renderForgeDice(){
   const lvBtn      = document.getElementById('arenaForgeLevelBtn');
   const autoBtn    = document.getElementById('arenaForgeAutoBtn');
   if(!rollBtn || !confirmBtn) return;
-  // LV e AUTO só aparecem na tela principal (idle/rolling).
-  // Quando entra na fase de decisão após rolar (REROLAR + FORJAR visíveis),
-  // some com LV/AUTO pra dar foco nas ações da rolagem.
-  const showSideBtns = forgeRoll.phase !== 'after-roll';
-  if(lvBtn)   lvBtn.style.display   = showSideBtns ? '' : 'none';
-  if(autoBtn) autoBtn.style.display = showSideBtns ? '' : 'none';
+  // LV e AUTO ficam sempre visíveis — em TODAS as fases (idle / rolling /
+  // after-roll). Player pode acessar upgrade da forja e toggle do auto a
+  // qualquer momento, mesmo durante a animação ou na tela de decisão.
+  if(lvBtn)   lvBtn.style.display   = '';
+  if(autoBtn) autoBtn.style.display = '';
   // AUTO sempre habilitado — o popup mostra o estado lock/unlock + ladder.
   // Tooltip dinâmico ajuda o player a entender o que o botão faz.
   if(autoBtn){
@@ -10863,7 +10933,9 @@ function openForgeCompare(){
   }
   if(newSubs) newSubs.innerHTML = _itemSubsHTML(newItem);
 
-  state = STATE.ARENA_TAB;
+  // Não muda state pra ARENA_TAB — gameplay continua rodando ao fundo enquanto
+  // o popup do item está visível (tanto em manual quanto durante a cerimônia
+  // do auto-forge). Player pode ver inimigos se movendo + bunny atacando.
   showLayer('forgeCompare');
 
   // === JUICE: stagger reveal animations on the popup ===
@@ -10986,6 +11058,9 @@ function closeForge(){
 
 document.getElementById('forgeEquipBtn').addEventListener('click', ()=>{
   if(arena.pendingForgeItem){
+    // Recompensa o item ANTIGO equipado (que vai ser sobrescrito) em carrots.
+    const oldItem = arena.items[arena.pendingForgeItem.slot];
+    if(oldItem) _grantDiscardCarrots(oldItem);
     arena.items[arena.pendingForgeItem.slot] = arena.pendingForgeItem;
     if(typeof Quests   !== 'undefined') Quests.onEquipped();
     if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
@@ -11011,7 +11086,16 @@ document.getElementById('forgeEquipBtn').addEventListener('click', ()=>{
   }
   closeForge();
 });
-document.getElementById('forgeDiscardBtn').addEventListener('click', closeForge);
+document.getElementById('forgeDiscardBtn').addEventListener('click', () => {
+  // Recompensa o item NOVO descartado (não o equipado antigo, esse fica intocado)
+  if(arena.pendingForgeItem){
+    _grantDiscardCarrots(arena.pendingForgeItem);
+    if(typeof spawnArenaParticle === 'function'){
+      spawnArenaParticle(arena.bx, arena.by, '#ff9b3a', 8);
+    }
+  }
+  closeForge();
+});
 
 // Dice forge INLINE: botão principal (Roll/Reroll) + Forjar + toggle hold nos dados
 document.getElementById('arenaForgeRollBtn').addEventListener('click', forgeMainAction);
@@ -11089,9 +11173,15 @@ function renderItemPopup(){
   const it = arena.items[slotKey];
 
   if(!it){
-    // Slot vazio — sem item equipado
-    iconEl.style.fontSize = '';                       // reset caso o icon tinha img antes
-    iconEl.textContent = ARENA_SLOT_ICONS[slotKey] || '⬜';
+    // Slot vazio — sem item equipado. Mostra o NOME do slot em texto (ex: "LUVAS")
+    // no lugar do emoji genérico que representava o tipo do item — emoji ficava
+    // ambíguo (luva e cinto têm icons parecidos, etc).
+    iconEl.style.fontSize = '12px';
+    iconEl.style.fontWeight = 'bold';
+    iconEl.style.textTransform = 'uppercase';
+    iconEl.style.letterSpacing = '0.5px';
+    iconEl.style.color = '#9b8fc4';
+    iconEl.textContent = (ARENA_SLOT_LABELS[slotKey] || slotKey);
     lvBadgeEl.textContent = '';
     if(slotFrame) slotFrame.style.setProperty('--slot-bg', '#e5e1d4');
     nameEl.innerHTML = `<span style="color:#9b8fc4">Vazio</span> · ${(ARENA_SLOT_LABELS[slotKey] || slotKey)}`;
@@ -11103,6 +11193,12 @@ function renderItemPopup(){
   }
 
   // Slot equipado — popula como o forge-compare row
+  // Reseta styles inline aplicados pelo branch de slot vazio (caso o player
+  // tenha clicado num vazio antes — textTransform/color/etc. ficariam grudados).
+  iconEl.style.fontWeight = '';
+  iconEl.style.textTransform = '';
+  iconEl.style.letterSpacing = '';
+  iconEl.style.color = '';
   const slotColorKey = (typeof ERA_SLOT_COLOR !== 'undefined' && ERA_SLOT_COLOR[it.eraIdx]) || 'yellow';
   const slotBgColor = { yellow:'#ffe89a', orange:'#ffb47a', blue:'#aedaf2', purple:'#cdb5e8', green:'#b9e8bb' };
   if(slotFrame) slotFrame.style.setProperty('--slot-bg', slotBgColor[slotColorKey]);
