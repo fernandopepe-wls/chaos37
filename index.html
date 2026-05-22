@@ -1521,16 +1521,18 @@
     position:absolute;
     left:50%;
     transform:translateX(-50%);
-    top:17%;
-    /* tamanho compacto — 50% menor que o original */
-    width:min(30%, 115px);
-    padding:7px 9px;
+    /* Posição + tamanho editáveis via UI Tool (bossBtn*). Fallbacks ficam 10%
+       menores que o tamanho original (115/11px → 103/10px). Padding deriva
+       da font-size (~0.64x vertical, 0.82x horizontal) pra manter proporção. */
+    top: var(--bossbtn-top, 17%);
+    width: min(30%, var(--bossbtn-w, 103px));
+    padding: var(--bossbtn-pad-y, 6.3px) var(--bossbtn-pad-x, 8.1px);
     cursor:pointer;
     border-radius:10px;
     border:2px solid #1a0e08;
     background:linear-gradient(180deg, #ff5252 0%, #b53030 100%);
     color:#fff;
-    font-size:11px;font-weight:bold;letter-spacing:0.3px;
+    font-size: var(--bossbtn-font, 10px);font-weight:bold;letter-spacing:0.3px;
     text-shadow:
       -1px -1px 0 #1a0e08,
        1px -1px 0 #1a0e08,
@@ -4009,6 +4011,10 @@ const LAYOUT_DEFAULTS = {
   floatBtnH: 30,
   floatBtnSideMargin: 11,
   floatBtnBottomOffsetPx: -10, // offset acima do card top
+  // Boss button (DESAFIAR BOSS) — top% raw (não escalado), W e font em logical px
+  bossBtnTopPct: 17,
+  bossBtnW: 103,           // logical px (max-cap em min(30%, W))
+  bossBtnFontSize: 10,     // logical px (padding deriva proporcional)
   // Tab bar (menu)
   tabBarHeight: 80,
   tabBarInsetX: 6,            // inset lateral (←→) — 0 = full width do frame
@@ -4151,6 +4157,14 @@ function _applyLayoutCSSVars(){
     + LAYOUT.floatBtnBottomOffsetPx;
   root.style.setProperty('--layout-floatbtn-bottom',
     `calc(${px(floatBtnFromBottomLogical)} + var(--safe-bottom, 0px))`);
+
+  // Boss button — top % raw (responsivo), W + font escalados por uiScale.
+  // Padding proporcional ao font (0.64x V, 0.82x H — ratio do original 7/11, 9/11).
+  root.style.setProperty('--bossbtn-top',   LAYOUT.bossBtnTopPct + '%');
+  root.style.setProperty('--bossbtn-w',     px(LAYOUT.bossBtnW));
+  root.style.setProperty('--bossbtn-font',  px(LAYOUT.bossBtnFontSize));
+  root.style.setProperty('--bossbtn-pad-y', px(LAYOUT.bossBtnFontSize * 0.64));
+  root.style.setProperty('--bossbtn-pad-x', px(LAYOUT.bossBtnFontSize * 0.82));
 
   // Forge — TRAY (background afundado) — independente
   root.style.setProperty('--tray-bottom-y', px(LAYOUT.trayBottomY));
@@ -4701,6 +4715,10 @@ const LAYOUT_SCHEMA = [
   { key:'floatBtnSideMargin', label:'Side margin', min:0,    max:30,   step:1 },
   // Anchor: above card top + LIFT_BASELINE (17) + offset. Negativo desce.
   { key:'floatBtnBottomOffsetPx', label:'Above card +/- px', min:-30, max:60, step:1 },
+  { section:'Boss button (DESAFIAR BOSS)' },
+  { key:'bossBtnTopPct',   label:'Y from top (%)', min:0,    max:80,   step:0.5, fmt:v=>v.toFixed(1)+'%' },
+  { key:'bossBtnW',        label:'Width (X size)', min:60,   max:200,  step:1 },
+  { key:'bossBtnFontSize', label:'Font size',      min:6,    max:20,   step:0.5 },
   { section:'Tab bar (menu)' },
   { key:'tabBarHeight',         label:'Bar height (Y)', min:40,   max:180,  step:1 },
   { key:'tabBarInsetX',         label:'Inset X (←→ shrink)', min:0, max:120, step:1 },
@@ -7232,12 +7250,14 @@ const UI_PANEL_CARD   = _loadUI('assets/ui-panel-card.png');
 function draw9Slice(img, dx, dy, dw, dh, insets, destInsets){
   if(!img || !img.complete || !img.naturalWidth) return false;
   // Canvas roda em pixel-art mode (imageSmoothingEnabled=false em 2666).
-  // Pra UI HD a gente quer bilinear+high — caso contrário o downscale do
-  // source 2048px vira nearest-neighbor e fica pixelado.
+  // Pra UI HD a gente quer bilinear ON, mas com quality='low' (kernel 2x2 puro).
+  // 'high' usa kernel mais largo (bicúbico-ish) que sangra pixels VIZINHOS pra
+  // dentro das amostras de cada fatia — cria seam visível nas bordas do 9-slice.
+  // 'low' tem bleed muito menor; aparência praticamente igual no downscale 1024→~360.
   const prevSmooth = ctx.imageSmoothingEnabled;
   const prevQuality = ctx.imageSmoothingQuality;
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  ctx.imageSmoothingQuality = 'low';
   const sw = img.naturalWidth, sh = img.naturalHeight;
   const il = (insets && insets.left)   != null ? insets.left   : Math.round(sw * 0.18);
   const ir = (insets && insets.right)  != null ? insets.right  : Math.round(sw * 0.18);
@@ -7264,23 +7284,28 @@ function draw9Slice(img, dx, dy, dw, dh, insets, destInsets){
   }
   const dMidW = Math.max(0, dw - dLeft - dRight);
   const dMidH = Math.max(0, dh - dTop - dBot);
-  // 4 cantos
-  ctx.drawImage(img, 0, 0, sLeft, sTop,                         dx, dy, dLeft, dTop);
-  ctx.drawImage(img, sw-sRight, 0, sRight, sTop,                dx+dw-dRight, dy, dRight, dTop);
-  ctx.drawImage(img, 0, sh-sBot, sLeft, sBot,                   dx, dy+dh-dBot, dLeft, dBot);
-  ctx.drawImage(img, sw-sRight, sh-sBot, sRight, sBot,          dx+dw-dRight, dy+dh-dBot, dRight, dBot);
-  // 4 arestas (escalam em 1 eixo)
-  if(dMidW > 0){
-    ctx.drawImage(img, sLeft, 0, sMidW, sTop,                   dx+dLeft, dy, dMidW, dTop);
-    ctx.drawImage(img, sLeft, sh-sBot, sMidW, sBot,             dx+dLeft, dy+dh-dBot, dMidW, dBot);
+  // Anti-seam: encolhe o SOURCE rect em 0.5px nos lados INTERNOS de cada fatia
+  // (lados que tocam outra fatia). Sem isso, o sampler bilinear na borda do
+  // source samplea o pixel da fatia vizinha — cria linha visível no seam do 9-slice.
+  // O destino fica idêntico (fatias vizinhas continuam encostadas, sem gap).
+  const I = 0.5;
+  // 4 cantos: TL (right+bottom internos), TR (left+bottom), BL (right+top), BR (left+top)
+  ctx.drawImage(img, 0,           0,           sLeft-I,    sTop-I,    dx,            dy,             dLeft,  dTop);
+  ctx.drawImage(img, sw-sRight+I, 0,           sRight-I,   sTop-I,    dx+dw-dRight,  dy,             dRight, dTop);
+  ctx.drawImage(img, 0,           sh-sBot+I,   sLeft-I,    sBot-I,    dx,            dy+dh-dBot,     dLeft,  dBot);
+  ctx.drawImage(img, sw-sRight+I, sh-sBot+I,   sRight-I,   sBot-I,    dx+dw-dRight,  dy+dh-dBot,     dRight, dBot);
+  // 4 arestas: T/B têm left+right+(bottom|top) internos; L/R têm top+bottom+(right|left)
+  if(dMidW > 0 && sMidW > 1){
+    ctx.drawImage(img, sLeft+I,   0,           sMidW-2*I,  sTop-I,    dx+dLeft,      dy,             dMidW,  dTop);
+    ctx.drawImage(img, sLeft+I,   sh-sBot+I,   sMidW-2*I,  sBot-I,    dx+dLeft,      dy+dh-dBot,     dMidW,  dBot);
   }
-  if(dMidH > 0){
-    ctx.drawImage(img, 0, sTop, sLeft, sMidH,                   dx, dy+dTop, dLeft, dMidH);
-    ctx.drawImage(img, sw-sRight, sTop, sRight, sMidH,          dx+dw-dRight, dy+dTop, dRight, dMidH);
+  if(dMidH > 0 && sMidH > 1){
+    ctx.drawImage(img, 0,           sTop+I,    sLeft-I,    sMidH-2*I, dx,            dy+dTop,        dLeft,  dMidH);
+    ctx.drawImage(img, sw-sRight+I, sTop+I,    sRight-I,   sMidH-2*I, dx+dw-dRight,  dy+dTop,        dRight, dMidH);
   }
-  // Centro (escala em 2 eixos)
-  if(dMidW > 0 && dMidH > 0){
-    ctx.drawImage(img, sLeft, sTop, sMidW, sMidH,               dx+dLeft, dy+dTop, dMidW, dMidH);
+  // Centro (todos 4 lados internos)
+  if(dMidW > 0 && dMidH > 0 && sMidW > 1 && sMidH > 1){
+    ctx.drawImage(img, sLeft+I,   sTop+I,      sMidW-2*I,  sMidH-2*I, dx+dLeft,      dy+dTop,        dMidW,  dMidH);
   }
   ctx.imageSmoothingEnabled = prevSmooth;
   ctx.imageSmoothingQuality = prevQuality;
@@ -7580,9 +7605,9 @@ function renderArena(){
       const t = dn.life / dn.maxLife;
       // fade-out: nos últimos 30% da vida, alpha desce de 1 → 0
       ctx.globalAlpha = t < 0.3 ? (t / 0.3) : 1;
-      const size = dn.isCrit ? 17 : 12;
+      const size = dn.isCrit ? 22 : 16;
       ctx.font = '800 ' + size + 'px Fredoka, Trebuchet MS, system-ui, sans-serif';
-      ctx.lineWidth = dn.isCrit ? 3.5 : 2.5;
+      ctx.lineWidth = dn.isCrit ? 4.5 : 3.25;
       ctx.strokeStyle = '#3a1d00';
       ctx.fillStyle = dn.isCrit ? '#ff5fa2' : '#ffcc3d';
       const txt = dn.isCrit ? (dn.value + '!') : String(dn.value);
