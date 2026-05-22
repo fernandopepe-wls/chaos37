@@ -1,7 +1,7 @@
 {
-  "name": "Bunny Chaos! Jump Jump!",
+  "name": "Bunny Chaos! Loot Arena",
   "short_name": "Bunny Chaos",
-  "description": "Roguelite platformer-shooter portrait com dice combos.",
+  "description": "Survivor + idle RPG + loot — forje itens via combo de dados.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "fullscreen",

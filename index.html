@@ -3745,7 +3745,7 @@ const DICE_REROLL_INTERVAL = 60; // frames
 
 // ============ STATE ============
 const STATE = { ARENA_PLAY:8, ARENA_GAMEOVER:10, ARENA_TAB:11 };
-let state = STATE.ARENA_PLAY;
+var state = STATE.ARENA_PLAY; // var (não let) — precisa estar em window pros módulos (back button handler) conseguirem atualizar
 
 function hideAllLayers(){
   for(const id of ['arenaGameover','arenaTab','forgeCompare','forgeLevelLayer','autoForgeLayer']){
@@ -12235,15 +12235,43 @@ if(document.fonts && document.fonts.load){
 enterArena();
 </script>
 
-<!-- Wildlife Platform SDK init — fire-and-forget, falha silenciosa não
-     bloqueia o game. Roda só em ambiente nativo (Capacitor); no browser
-     dev sem Capacitor, o try/catch engole a falha. Per CLAUDE.md pattern:
-     "Platform().initialize({appId: __APP_NAME__, environment: __BUILD_MODE__})"
-     Vite's import.meta.env.MODE = 'development' | 'staging' | 'production'.
-
-     Depois do init, expõe `window._WildlifePlatform` pro código inline (não-
-     module) acessar via window.Analytics.send(). -->
+<!-- Capacitor + Wildlife SDK boot — todas as integrações nativas que rodam
+     UMA vez no startup. Cada bloco try/catch isolado: falha de um não derruba
+     os outros nem o game (no browser dev sem Capacitor, todos falham → OK). -->
 <script type="module">
+  // === 1. CapacitorUpdater.notifyAppReady() ===
+  // O plugin @capgo/capacitor-updater (carregado mesmo com OTA desligado)
+  // exige notifyAppReady() em até `appReadyTimeout` (30s) — senão ele assume
+  // crash + tenta reverter pra bundle anterior (no-op aqui, mas gera warnings).
+  // Chamada early pra livrar o plugin do timeout window.
+  try {
+    const { CapacitorUpdater } = await import('@capgo/capacitor-updater');
+    CapacitorUpdater.notifyAppReady().catch(() => {});
+  } catch(_){ /* plugin não disponível em browser dev */ }
+
+  // === 2. Hardware back button (Android) ===
+  // Default: WebView fecha o app. Override: se algum popup/.layer estiver
+  // aberto, fecha o popup em vez de sair. Senão, exitApp (default Android).
+  try {
+    const { App } = await import('@capacitor/app');
+    App.addListener('backButton', () => {
+      const openLayer = document.querySelector('.layer.show, #itemPopupBackdrop.show');
+      if(openLayer){
+        if(typeof hideAllLayers === 'function') hideAllLayers();
+        if(typeof closeAutoForgePopup === 'function') closeAutoForgePopup();
+        if(typeof closeForgeLevel    === 'function') closeForgeLevel();
+        if(typeof STATE !== 'undefined') state = STATE.ARENA_PLAY;
+        return;
+      }
+      App.exitApp().catch(() => {});
+    });
+  } catch(_){ /* plugin não disponível em browser dev */ }
+
+  // === 3. Wildlife Platform SDK init ===
+  // Per CLAUDE.md pattern: Platform().initialize({appId, environment}).
+  // Vite's import.meta.env.MODE = 'development'|'staging'|'production'.
+  // Expõe `window._WildlifePlatform` pro código inline (não-module) usar via
+  // Analytics.send().
   try {
     const { Platform } = await import('@wildlife/platform-capacitor');
     const appId = 'bunny-chaos-37';
