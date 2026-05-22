@@ -1770,6 +1770,18 @@
       -1px  1px 0 #1a0e08, 1px  1px 0 #1a0e08;
   }
 
+  /* Gem icon inline — usado em quest rewards, skip button, etc.
+     Renderiza o <symbol id="gemSymbol"> definido no body. */
+  .gem-icon{
+    display:inline-block;
+    width:14px;
+    height:16px;
+    vertical-align:-3px;
+    flex-shrink:0;
+  }
+  /* Variante grande pra usos em headings/desc */
+  .gem-icon-lg{width:18px;height:20px;vertical-align:-4px;}
+
   /* Quest popup card — lista de missões com progress + RESGATAR */
   .quest-card{max-width:320px;margin:0 auto;}
   .quest-row{
@@ -2226,6 +2238,22 @@
   <div class="icon">📱</div>
   <div>Gire o celular pra <b>vertical</b></div>
 </div>
+<!-- Gem icon (SVG symbol) — reusado em HTML via <use href="#gemSymbol"/>.
+     Combina visualmente com o gem chapado desenhado via canvas paths no HUD pill. -->
+<svg style="display:none" aria-hidden="true">
+  <defs>
+    <linearGradient id="gemGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#ff9ec0"/>
+      <stop offset="0.55" stop-color="#e85b8a"/>
+      <stop offset="1"    stop-color="#b53063"/>
+    </linearGradient>
+    <symbol id="gemSymbol" viewBox="0 0 14 16">
+      <polygon points="7,0 14,8 7,16 0,8" fill="url(#gemGrad)" stroke="#1a0e08" stroke-width="1.2" stroke-linejoin="round"/>
+      <polygon points="3.5,6 6,2.5 5,7" fill="rgba(255,255,255,0.55)"/>
+    </symbol>
+  </defs>
+</svg>
+
 <div id="stage">
   <div id="frame">
     <canvas id="game"></canvas>
@@ -2261,7 +2289,7 @@
       <!-- Engrenagem cinza chapada, contorno marrom da tab bar (#593c2b).
            fill-rule:evenodd cria o furo central via path único. -->
       <svg class="settings-btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
-        <path fill="#9a9a9a" stroke="#1a0e08" stroke-width="0.9" stroke-linejoin="round" fill-rule="evenodd"
+        <path fill="#b0b0b0" stroke="#1a0e08" stroke-width="0.9" stroke-linejoin="round" fill-rule="evenodd"
               d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
       </svg>
     </button>
@@ -2399,6 +2427,7 @@
 
         <div class="forge-popup-actions">
           <button class="forge-popup-btn red"   id="forgeLevelCloseBtn">Voltar</button>
+          <button class="forge-popup-btn blue"  id="forgeLevelSkipBtn" style="display:none"><svg class="gem-icon" aria-hidden="true"><use href="#gemSymbol"/></svg></button>
           <button class="forge-popup-btn green" id="forgeLevelUpgradeBtn">Melhorar</button>
         </div>
       </div>
@@ -2513,7 +2542,7 @@
       <div class="forge-popup-card quest-card">
         <div class="forge-popup-tag">📜 Missões</div>
         <h2 class="forge-level-title">Missões iniciais</h2>
-        <p class="forge-level-desc">Complete missões e resgate 💎 diamantes pra evoluir mais rápido.</p>
+        <p class="forge-level-desc">Complete missões e resgate <svg class="gem-icon" aria-hidden="true"><use href="#gemSymbol"/></svg> gemas pra evoluir mais rápido.</p>
         <div id="questList"></div>
         <div class="forge-popup-actions">
           <button class="forge-popup-btn red" id="questCloseBtn">Voltar</button>
@@ -4148,7 +4177,7 @@ function initArena(){
   }
   arena.lettuce = 100; // saldo inicial — 100 alfaces (~100 forjas)
   arena.carrots = 0;   // começa sem cenouras (vai acumulando offline + matando inimigos)
-  arena.diamonds = loadDiamonds(); // hard currency — persistida (não reseta entre sessões)
+  arena.diamonds = loadDiamonds(); // gemas (moeda premium) — persistida entre sessões
   arena.power = arenaPower();
   arena.powerDelta = 0;
   arena.powerDeltaTimer = 0;
@@ -4415,11 +4444,11 @@ const LAYOUT_DEFAULTS = {
   carrotPillH: 34,
   carrotPillTextOffsetX: 8,   // offset X do texto dentro do pill (icone fica baked-in à esq.)
   carrotPillTextOffsetY: -2,  // offset Y fino — pra compensar ícone embedded descentrado no PNG
-  // HUD top (Diamond pill — hard currency, empilhado abaixo da carrot)
-  diamondPillX: 270,
-  diamondPillY: 73,           // 35 (carrotY) + 34 (carrotH) + 4 (gap)
-  diamondPillW: 80,
-  diamondPillH: 30,
+  // HUD top (Gem pill — moeda premium, empilhada abaixo da carrot)
+  diamondPillX: 278,
+  diamondPillY: 70,
+  diamondPillW: 70,
+  diamondPillH: 25,
   diamondPillTextOffsetX: 4,
   diamondPillTextOffsetY: 0,
   // HUD top (geral)
@@ -4469,17 +4498,17 @@ const LAYOUT_DEFAULTS = {
   floatBtnSideMargin: 11,
   floatBtnBottomOffsetPx: -10, // offset acima do card top
   // Boss button (DESAFIAR BOSS) — top% raw (não escalado), W e font em logical px
-  bossBtnTopPct: 17,
-  bossBtnW: 103,           // logical px (max-cap em min(30%, W))
+  bossBtnTopPct: 10.5,
+  bossBtnW: 100,           // logical px (max-cap em min(30%, W))
   bossBtnFontSize: 10,     // logical px (padding deriva proporcional)
   // Quest button (missões — float top-right corner)
-  questBtnTop: 115,        // logical px from top
-  questBtnRight: 10,       // logical px from right edge
-  questBtnSize: 48,        // logical px (square)
+  questBtnTop: 124,        // logical px from top
+  questBtnRight: 15,       // logical px from right edge
+  questBtnSize: 44,        // logical px (square)
   // Settings button (config — float top-left, abaixo da sword pill)
-  settingsBtnTop: 72,
+  settingsBtnTop: 75,
   settingsBtnLeft: 10,
-  settingsBtnSize: 48,
+  settingsBtnSize: 30,
   // Tab bar (menu)
   tabBarHeight: 80,
   tabBarInsetX: 6,            // inset lateral (←→) — 0 = full width do frame
@@ -5143,7 +5172,7 @@ const LAYOUT_SCHEMA = [
   { key:'carrotPillH',     label:'H',              min:18,   max:80,   step:1 },
   { key:'carrotPillTextOffsetX', label:'Text X (←/→)',min:-40, max:80,  step:1 },
   { key:'carrotPillTextOffsetY', label:'Text Y (↑/↓)',min:-15, max:15,  step:1 },
-  { section:'HUD top (Diamond pill — hard currency)' },
+  { section:'HUD top (Gem pill — moeda premium)' },
   { key:'diamondPillX',     label:'X',              min:0,    max:340,  step:1 },
   { key:'diamondPillY',     label:'Y',              min:0,    max:240,  step:1 },
   { key:'diamondPillW',     label:'W',              min:40,   max:200,  step:1 },
@@ -7215,9 +7244,9 @@ function drawArenaHUD(){
   const caTxtOffsetY = LAYOUT.carrotPillTextOffsetY || 0;
   ctx.fillText(fmtCompact(arena.carrots || 0, 5), essX+essW/2+LAYOUT.carrotPillTextOffsetX, essY+essH/2+1+caTxtOffsetY);
 
-  // === Diamond pill — design igual ZZZ/AUTO: gradient azul, border preto,
-  // sem drop shadow. Ícone de gem rhombus chapado (pink/red gradient, outline preto)
-  // desenhado via canvas paths — substitui o emoji 💎 antigo. Texto #3a230b.
+  // === Gem pill (moeda premium) — design igual ZZZ/AUTO: gradient azul,
+  // border preto, sem drop shadow. Gem rhombus chapado (pink/red gradient,
+  // outline preto) desenhado via canvas paths. Texto #3a230b.
   const dmW = LAYOUT.diamondPillW, dmH = LAYOUT.diamondPillH;
   const dmX = LAYOUT.diamondPillX, dmY = LAYOUT.diamondPillY + SAFE.topLogical;
   const dmR = 12;
@@ -7235,7 +7264,7 @@ function drawArenaHUD(){
   const gemCx = dmX + 11;
   const gemCy = dmY + dmH/2;
   const gemHW = 7;   // half-width
-  const gemHH = 8;   // half-height (um pouco mais alto = formato de diamante)
+  const gemHH = 8;   // half-height (um pouco mais alto = formato de gema/losango)
   // Fill 2-tone (top mais claro, bottom mais escuro) pra impressão de faceta
   const gemGrad = ctx.createLinearGradient(0, gemCy - gemHH, 0, gemCy + gemHH);
   gemGrad.addColorStop(0,    '#ff9ec0');
@@ -8223,7 +8252,9 @@ const FORGE_LEVEL_KEY    = 'bunnyChaos.forgeLevel';
 const FORGE_PROGRESS_KEY = 'bunnyChaos.forgeUpgradeProgress';
 const DIAMONDS_KEY       = 'bunnyChaos.diamonds';
 
-// Diamond — hard currency (LoM-inspired). Ganhada por quests. Persistida sempre.
+// Gemas — moeda premium (LoM-inspired). Ganhadas por quests. Persistidas sempre.
+// Var interna mantém o nome `diamonds` + key 'bunnyChaos.diamonds' por compat
+// retroativa de localStorage (não invalida save dos players existentes).
 function loadDiamonds(){
   try { const v = parseInt(localStorage.getItem(DIAMONDS_KEY) || '0', 10);
         return (Number.isFinite(v) && v >= 0) ? v : 0; }
@@ -8236,7 +8267,7 @@ function addDiamonds(n){
 
 // ============== QUESTS (FTUE missions + LoM-style ongoing) ==============
 // 5 missões iniciais, sequenciais semanticamente (mas todas trackeam progress).
-// Recompensa = 💎 diamantes. Persiste { progress, claimed } por id em localStorage.
+// Recompensa = 💠 gemas. Persiste { progress, claimed } por id em localStorage.
 const QUEST_DEFS = [
   { id:'roll_dice',     label:'Jogue os dados pela 1ª vez',           target:1, reward:10  },
   { id:'equip_first',   label:'Equipe seu 1º item',                   target:1, reward:20  },
@@ -8349,7 +8380,7 @@ const Quests = (function(){
           <div class="quest-num">${e.progress}/${d.target}</div>
         </div>
         <div class="quest-progress">
-          <span class="quest-reward">💎 ${d.reward}</span>
+          <span class="quest-reward"><svg class="gem-icon" aria-hidden="true"><use href="#gemSymbol"/></svg> ${d.reward}</span>
           ${btnHTML}
         </div>
       `;
@@ -8938,6 +8969,25 @@ function applyForgeUpgradeIfReady(){
   return true;
 }
 
+// === GEM SKIP (Forge Master / LoM-style instant complete) ===
+// Custo: 50 gemas por minuto restante (min 1). Pula o timer e aplica o upgrade.
+const FORGE_SKIP_GEMS_PER_MIN = 50;
+function getForgeUpgradeSkipCost(){
+  if(!isForgeUpgradeInProgress()) return 0;
+  const rem = getForgeUpgradeRemainingSec();
+  return Math.max(1, Math.ceil(rem * FORGE_SKIP_GEMS_PER_MIN / 60));
+}
+function trySkipForgeUpgrade(){
+  if(!isForgeUpgradeInProgress()) return false;
+  const cost = getForgeUpgradeSkipCost();
+  if((arena.diamonds || 0) < cost) return false;
+  addDiamonds(-cost);
+  // Força timer terminado: backdate startedAt pra antes do timeSec inteiro
+  arena.forgeUpgradeStartedAt = Date.now() - ((arena.forgeUpgradeTimeSec || 0) * 1000) - 1000;
+  applyForgeUpgradeIfReady();
+  return true;
+}
+
 // Ícones por era pra exibição no popup
 const ERA_ICONS = {
   primitive:'🪨', medieval:'⚔️', earlymodern:'🎩', modern:'🚂',
@@ -9023,7 +9073,20 @@ function buildForgeLevelInfo(){
 let _forgeLevelRefreshInterval = null;
 function refreshForgeLevelPopup(){
   document.getElementById('forgeLevelInfo').innerHTML = buildForgeLevelInfo();
-  const upBtn = document.getElementById('forgeLevelUpgradeBtn');
+  const upBtn   = document.getElementById('forgeLevelUpgradeBtn');
+  const skipBtn = document.getElementById('forgeLevelSkipBtn');
+  // Skip button só visível quando há upgrade em progresso
+  const inProg = isForgeUpgradeInProgress();
+  if(skipBtn){
+    if(inProg){
+      const cost = getForgeUpgradeSkipCost();
+      skipBtn.style.display = '';
+      skipBtn.innerHTML = `<svg class="gem-icon" aria-hidden="true"><use href="#gemSymbol"/></svg> ${cost}`;
+      skipBtn.disabled = (arena.diamonds || 0) < cost;
+    } else {
+      skipBtn.style.display = 'none';
+    }
+  }
   // opacity é controlada pelo CSS via [disabled] — não setar style.opacity inline
   if(arena.forgeLevel >= FORGE_MAX_LEVEL){
     upBtn.disabled = true;
@@ -9036,7 +9099,7 @@ function refreshForgeLevelPopup(){
     upBtn.textContent = '⚡ Coletar upgrade';
     return;
   }
-  if(isForgeUpgradeInProgress()){
+  if(inProg){
     upBtn.disabled = true;
     upBtn.textContent = `⏳ ${formatOfflineTime(Math.ceil(getForgeUpgradeRemainingSec()))}`;
     return;
@@ -9438,6 +9501,12 @@ document.getElementById('forgeLevelCloseBtn').addEventListener('click', ()=>{
   state = STATE.ARENA_PLAY;
 });
 document.getElementById('forgeLevelUpgradeBtn').addEventListener('click', upgradeForgeLevel);
+document.getElementById('forgeLevelSkipBtn').addEventListener('click', () => {
+  if(trySkipForgeUpgrade()){
+    refreshForgeLevelPopup();
+    if(typeof vibrate === 'function') vibrate(15); // feedback
+  }
+});
 
 // Tick periodico (1Hz) pra auto-aplicar o upgrade quando o timer expira,
 // mesmo se o popup esta fechado. Tambem cobre o caso de o player reabrir
