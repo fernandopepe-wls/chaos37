@@ -9592,7 +9592,7 @@ function autoForgeBatchSize(lvl){
 // Multiplier global sobre a fórmula base de sell. Mantém curva por era intacta,
 // apenas eleva o teto. Aplicado também em descartes manuais (DESCARTAR e EQUIPAR-
 // sobre-item-equipado), pra equilibrar economia manual e auto-forge.
-const SELL_VALUE_MULT = 15;
+const SELL_VALUE_MULT = 1.5;
 function autoForgeSellValue(item){
   const eraIdx = (item && item.eraIdx) ? item.eraIdx : 0;
   return Math.max(1, Math.round(1 + eraIdx*eraIdx*0.5)) * SELL_VALUE_MULT;
