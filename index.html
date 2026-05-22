@@ -652,10 +652,6 @@
       inset 0 -1px 0 rgba(255, 245, 220, 0.45);
   }
   .forge-dice-strip{
-    /* Dice strip INDEPENDENTE do tray — own bottom anchor + width/height +
-       scale. Editáveis via UI Tool. transform-origin bottom center pra
-       escala crescer pra cima (sem bater no tab bar). Container transparente:
-       o visual afundado fica no .forge-dice-tray (z-index abaixo). */
     position:absolute;
     left:50%;
     bottom:calc(var(--dice-bottom-y, 186px) + var(--safe-bottom, 0px));
@@ -668,6 +664,10 @@
     container-type:inline-size;
     padding:0 8px;
     box-sizing:border-box;
+    /* Dice float above tray, items strip, and side buttons even when row
+       scales up — prevents the spin/settle from being clipped. */
+    z-index: 50;
+    overflow: visible;
   }
   .forge-dice-row{
     flex:1;
@@ -1419,39 +1419,34 @@
   #arenaDiceRow .forge-die{
     position:relative;
     box-sizing:border-box;
-    aspect-ratio:1/1;   /* fortalece — caso o parent rule não pegue */
-    border-radius:9px;
-    background-color:#fffdf2;  /* fallback opaco */
-    background-image:linear-gradient(180deg, #fffdf2 0%, #ece1c0 100%);
-    border:2px solid #3a2a18;
-    box-shadow:
-      0 3px 0 rgba(0,0,0,0.22),
-      0 1.5px 0 rgba(255,255,255,0.85) inset,
-      0 -2px 0 rgba(140,100,40,0.18) inset;
+    aspect-ratio:1/1;
+    /* Per-face PNGs cropped tight to die bounds (~288-301px square). Dice
+       fill the element fully with their outline + shine baked in. */
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    background-color: transparent;
+    border: 0;
+    box-shadow: none;
     font-size:0;
     line-height:0;
     cursor:pointer;
-    transition:transform .12s, filter .15s, box-shadow .15s;
+    transition:transform .12s, filter .15s;
     user-select:none;
   }
-  /* Pip = ponto preto redondo. Cada dado tem N pips como filhos diretos.
-     Posicionados em % via inline style (calculado pelo JS conforme face). */
-  .forge-die .pip{
-    position:absolute;
-    width:16%;height:16%;
-    transform:translate(-50%, -50%);
-    border-radius:50%;
-    background:#3a2a18;
-    box-shadow:inset 0 -1px 0 rgba(255,255,255,0.2);
-    pointer-events:none;
-  }
+  /* One PNG per face (square, tight crop). Avoids sprite-sheet math. */
+  #arenaDiceRow .forge-die[data-face="1"]{ background-image: url('assets/forge/face1.png'); }
+  #arenaDiceRow .forge-die[data-face="2"]{ background-image: url('assets/forge/face2.png'); }
+  #arenaDiceRow .forge-die[data-face="3"]{ background-image: url('assets/forge/face3.png'); }
+  #arenaDiceRow .forge-die[data-face="4"]{ background-image: url('assets/forge/face4.png'); }
+  #arenaDiceRow .forge-die[data-face="5"]{ background-image: url('assets/forge/face5.png'); }
+  #arenaDiceRow .forge-die[data-face="6"]{ background-image: url('assets/forge/face6.png'); }
+  /* CSS pips no longer used — sprite carries the pip art now. */
+  .forge-die .pip{ display:none; }
 
   #arenaDiceRow .forge-die.held{
-    border-color:#3a8ab3;
+    /* Sprite carries its own outline now — held adds an outer blue ring via
+       box-shadow + lift. No border manipulation. */
     box-shadow:
-      0 3px 0 rgba(0,0,0,0.22),
-      0 1.5px 0 rgba(255,255,255,0.85) inset,
-      0 -2px 0 rgba(140,100,40,0.18) inset,
       0 0 0 3px rgba(95,176,216,0.9),
       0 0 18px rgba(95,176,216,0.7);
     transform:translateY(-2px);
@@ -1468,37 +1463,62 @@
     75%  { transform:translateY(-3px) rotate(-15deg); }
     100% { transform:translateY(0)    rotate(0deg);   }
   }
-  #arenaDiceRow .forge-die.disabled{opacity:0.6;pointer-events:none;}
+  #arenaDiceRow .forge-die.disabled{pointer-events:none;}
 
   /* Glow nos dados que participam do combo atual; cor vem de --combo-color
      (definido inline em JS). Amarelo → vermelho conforme o tier. */
   #arenaDiceRow .forge-die.combo-glow{
-    border-color: var(--combo-color, #FFCC3D);
-    /* face accent (cream-mais-amarelo do design pro combo) */
-    background-color:#fff6d4;
-    background-image:linear-gradient(180deg, #fff6d4 0%, #ffe09a 100%);
-    /* stroke forte na cor do combo (4px ring sólido) + glow externo + sombras de profundidade */
-    box-shadow:
-      0 3px 0 rgba(0,0,0,0.22),
-      0 1.5px 0 rgba(255,255,255,0.85) inset,
-      0 0 0 4px var(--combo-color, #FFCC3D),
-      0 0 22px var(--combo-color, #FFCC3D);
-    animation: comboPulse 1.1s ease-in-out infinite;
+    /* Glow follows the die's actual outline (background alpha) instead of
+       a rectangular box-shadow around the element. Drop-shadow filter
+       traces the non-transparent silhouette. One-shot "click" pop fires
+       when the class is first added; pulse loops after. */
+    box-shadow: none;
+    animation:
+      forgeComboPop .26s cubic-bezier(.34, 1.56, .64, 1) 1,
+      comboPulse 1.1s ease-in-out infinite;
   }
-  /* held + combo: stroke combo + ring azul interno do held + glow */
+  @keyframes forgeComboPop{
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.20); }
+    70%  { transform: scale(0.96); }
+    100% { transform: scale(1); }
+  }
+  /* Sparkle pieces around combo dice — small star burst on combo land. */
+  .forge-combo-sparkle{
+    position: fixed;
+    pointer-events: none;
+    z-index: 1000;
+    font-size: 18px;
+    color: #fffbe6;
+    text-shadow:
+      0 0 4px var(--sparkle-color, #ffd870),
+      0 0 8px var(--sparkle-color, #ffd870);
+    opacity: 1;
+    animation: forgeComboSparkle .68s cubic-bezier(.22,.7,.4,1) forwards;
+    user-select: none;
+  }
+  @keyframes forgeComboSparkle{
+    0%   { transform: translate(-50%, -50%) scale(.3) rotate(0deg); opacity: 0; }
+    25%  { transform: translate(-50%, calc(-50% - 8px)) scale(1.25) rotate(45deg); opacity: 1; }
+    100% { transform: translate(-50%, calc(-50% - 28px)) scale(.5) rotate(120deg); opacity: 0; }
+  }
   #arenaDiceRow .forge-die.combo-glow.held{
-    border-color: var(--combo-color, #FFCC3D);
-    box-shadow:
-      0 3px 0 rgba(0,0,0,0.22),
-      0 1.5px 0 rgba(255,255,255,0.85) inset,
-      0 0 0 4px var(--combo-color, #FFCC3D),
-      0 0 0 6px rgba(95,176,216,0.9),
-      0 0 18px var(--combo-color, #FFCC3D);
+    box-shadow: none;
     transform:translateY(-2px);
   }
   @keyframes comboPulse{
-    0%, 100% { filter: brightness(1); }
-    50%      { filter: brightness(1.25); }
+    0%, 100% {
+      filter:
+        drop-shadow(0 0 4px var(--combo-color, #FFCC3D))
+        drop-shadow(0 0 10px var(--combo-color, #FFCC3D))
+        brightness(1);
+    }
+    50% {
+      filter:
+        drop-shadow(0 0 6px var(--combo-color, #FFCC3D))
+        drop-shadow(0 0 18px var(--combo-color, #FFCC3D))
+        brightness(1.18);
+    }
   }
 
   /* === JUICE: dice anticipation / settle / combo flash / screen shake === */
@@ -1511,6 +1531,16 @@
     0%   { transform: scale(1)              translateY(0); }
     40%  { transform: scale(.85, 1.15)      translateY(2px); }
     100% { transform: scale(1)              translateY(0); }
+  }
+
+  /* Row-level scale up — dice grow when rolling, shrink back after combo beat.
+     Independent of per-die wobble (.rolling) so gap scales proportionally. */
+  .forge-dice-row{
+    transition: transform .22s cubic-bezier(.34, 1.56, .64, 1);
+    transform-origin: center center;
+  }
+  .forge-dice-row.row-rolling{
+    transform: scale(1.32);
   }
 
   /* Settle: per-die bounce when spin ends. Replaces .rolling for ~280ms. */
@@ -1726,16 +1756,19 @@
     100% { transform: scale(1.6) rotate(180deg); opacity: 0; }
   }
 
-  /* FIVE — confetti rain. Each piece is a DOM div with falling + rotating anim. */
+  /* FIVE — carrot explosion. Each piece is a 🥕 emoji that rains from top
+     with rotation. Size varies per piece for depth. */
   .forge-confetti{
     position: fixed;
-    width: 10px; height: 16px;
     z-index: 999;
     pointer-events: none;
-    top: -24px;
-    border-radius: 2px;
+    top: -32px;
+    line-height: 1;
+    font-size: 28px;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.25);
     will-change: transform, opacity;
     animation: forgeConfettiFall linear forwards;
+    user-select: none;
   }
   @keyframes forgeConfettiFall{
     0%   { transform: translateY(0)       rotate(0);    opacity: 1; }
@@ -4390,7 +4423,7 @@ const COMBO_DATA = {
   THREE:    { id:'THREE',    name:'Três Iguais',     mult:3.0,  tierUp:0.10, doubleUp:0.00, color:'#185FA5' },
   TWOPAIR:  { id:'TWOPAIR',  name:'Dois Pares',      mult:2.5,  tierUp:0.05, doubleUp:0.00, color:'#BA7517' },
   PAIR:     { id:'PAIR',     name:'Um Par',          mult:2.0,  tierUp:0.02, doubleUp:0.00, color:'#888780' },
-  MAXROLL:  { id:'MAXROLL',  name:'Lançamento Máx.', mult:1.5,  tierUp:0.00, doubleUp:0.00, color:'#5F5E5A' },
+  MAXROLL:  { id:'MAXROLL',  name:'QUASE!', mult:1.5,  tierUp:0.00, doubleUp:0.00, color:'#5F5E5A' },
   NONE:     { id:'NONE',     name:'—',               mult:1.0,  tierUp:0.00, doubleUp:0.00, color:'#5F5E5A' },
 };
 
@@ -10871,6 +10904,35 @@ function spawnDieValuePop(dieEl, value){
   setTimeout(() => pop.remove(), 750);
 }
 
+// spawnSparkles(dieEl, color, count): ✨ sparkles bursting around a combo die.
+// Differentiated from spawnDieParticles (which is the settle-land confetti
+// burst) — these are bigger, slower, and use star glyphs for a magical feel.
+function spawnSparkles(dieEl, color, count){
+  if(!dieEl) return;
+  const rect = dieEl.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top  + rect.height/2;
+  const n = count || 6;
+  const glyphs = ['✦', '✧', '✨', '★'];
+  for(let i=0; i<n; i++){
+    const sp = document.createElement('div');
+    sp.className = 'forge-combo-sparkle';
+    sp.textContent = glyphs[i % glyphs.length];
+    if(color) sp.style.setProperty('--sparkle-color', color);
+    // Spread sparkles around the die — random offset within a ring.
+    const a = (i / n) * Math.PI * 2 + Math.random() * 0.6;
+    const r = (rect.width * 0.55) + Math.random() * 10;
+    const x = cx + Math.cos(a) * r;
+    const y = cy + Math.sin(a) * r;
+    sp.style.left = x + 'px';
+    sp.style.top  = y + 'px';
+    sp.style.fontSize = (14 + Math.random() * 10).toFixed(0) + 'px';
+    sp.style.animationDelay = (Math.random() * 0.12).toFixed(2) + 's';
+    document.body.appendChild(sp);
+    setTimeout(() => sp.remove(), 900);
+  }
+}
+
 // spawnDieParticles(dieEl, color): DOM particle burst at die center on land.
 // 8 small divs flying outward in random directions, ~420ms life. Uses CSS
 // var --pdx / --pdy for end translation so each particle has its own vector.
@@ -10964,12 +11026,13 @@ function triggerRays(color){
 }
 
 function spawnConfetti(count){
-  const colors = ['#ff5fa2','#ffcc3d','#5fb0d8','#4cf08e','#ff7a1a','#a86bff'];
   for(let i=0; i<count; i++){
     const p = document.createElement('div');
     p.className = 'forge-confetti';
+    p.textContent = '🥕';
     p.style.left = (Math.random() * 100).toFixed(1) + 'vw';
-    p.style.background = colors[i % colors.length];
+    // Vary size for depth — bigger pieces feel closer.
+    p.style.fontSize = (20 + Math.random() * 22).toFixed(0) + 'px';
     const dur = 1.6 + Math.random() * 1.2;
     p.style.animationDuration = dur.toFixed(2) + 's';
     p.style.animationDelay = (Math.random() * 0.4).toFixed(2) + 's';
@@ -11038,6 +11101,12 @@ function animateForgeRoll(onDone){
   forgeRoll.phase = 'rolling';
   if(typeof Quests   !== 'undefined') Quests.onRolled();
   if(typeof Tutorial !== 'undefined') Tutorial.onRolled();
+
+  // Grow the dice row IMMEDIATELY (CSS transition smooths the grow-in).
+  // Stays big through windup + spin + settle + combo beat — shrunk back
+  // after the combo land effects have read (see post-combo timeout below).
+  const diceRow = document.getElementById('arenaDiceRow');
+  if(diceRow) diceRow.classList.add('row-rolling');
 
   // Anticipation windup: brief squash on unheld dice before the spin starts.
   // Sells the toss — 140ms then the .rolling spin kicks in.
@@ -11127,8 +11196,15 @@ function animateForgeRoll(onDone){
             for(const d of glowDice){
               spawnDieParticles(d, color);
               spawnDieParticles(d, color); // double burst = denser visual link
+              spawnSparkles(d, color, 7);  // magical star sparkle around outline
             }
           }
+          // Shrink the dice row back to rest size ~700ms after the combo beat
+          // so the player reads all the BIG effects before things calm down.
+          setTimeout(() => {
+            const row = document.getElementById('arenaDiceRow');
+            if(row) row.classList.remove('row-rolling');
+          }, 700);
           forgeAdvanceAfterRoll();
         }, totalSettleMs);
       }
