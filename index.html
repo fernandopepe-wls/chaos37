@@ -1433,7 +1433,8 @@
     flex:1;
     display:flex;
     align-items:center;justify-content:center;
-    border:2.5px solid #1a0e08;
+    /* contorno marrom escuro (#593c2b), stroke 3.5px — sem drop shadow chunky */
+    border:3.5px solid #593c2b;
     border-radius:var(--layout-tabbtn-radius, 14px);
     padding:5px 2px 4px;
     color:#fff;
@@ -1443,11 +1444,7 @@
     text-align:center;line-height:1;
     cursor:pointer;
     position:relative;
-    /* drop shadow chunky no bottom (igual DESAFIAR BOSS) + highlight inset no topo */
-    box-shadow:
-      0 4px 0 #1a0e08,
-      0 1px 0 rgba(255,255,255,0.45) inset;
-    transition: transform .08s, box-shadow .08s, filter .12s;
+    transition: transform .08s, filter .12s;
     /* contorno preto chunky no TEXTO (8 direções) — igual DESAFIAR BOSS */
     text-shadow:
       -1.5px -1.5px 0 #1a0e08,
@@ -1462,35 +1459,38 @@
     min-width:0;
   }
   .arenaTab-btn:active{
-    transform:translateY(2px);
-    box-shadow:
-      0 2px 0 #1a0e08,
-      0 1px 0 rgba(255,255,255,0.45) inset;
+    transform:translateY(1px);
   }
   /* (.ico removido — tab bar agora é texto-only com label centralizada) */
 
   /* Cores pastel por tab (gradient vertical: top mais claro → bottom mais saturado) */
   /* 5 tabs (esquerda → direita): PVP, HERÓI, COMBAT (centro/ativo), EXPLORAR, LOJA */
-  .arenaTab-btn[data-tab="pvp"]     { background:linear-gradient(180deg, #ec7c7c 0%, #c84545 100%); }
-  .arenaTab-btn[data-tab="hero"]    { background:linear-gradient(180deg, #f7c5d4 0%, #e9a8be 100%); }
+  /* Tabs com PNG background. Border marrom escuro vem do .arenaTab-btn base. */
+  .arenaTab-btn[data-tab="pvp"]     {
+    background:url('assets/interface/ui-tab-pvp.png') no-repeat center/100% 100%, transparent;
+  }
+  .arenaTab-btn[data-tab="hero"]    {
+    background:url('assets/interface/ui-tab-heroi.png') no-repeat center/100% 100%, transparent;
+  }
+  /* combat mantém gradient amarelo (sem PNG fornecida) — é o tab central/ativo */
   .arenaTab-btn[data-tab="combat"]  { background:linear-gradient(180deg, #ffd770 0%, #f6b850 100%); }
-  .arenaTab-btn[data-tab="explore"] { background:linear-gradient(180deg, #c8e8c4 0%, #5fb060 100%); }
-  .arenaTab-btn[data-tab="shop"]    { background:linear-gradient(180deg, #f7e6c4 0%, #e9d4a4 100%); }
+  .arenaTab-btn[data-tab="explore"] {
+    background:url('assets/interface/ui-tab-explorar.png') no-repeat center/100% 100%, transparent;
+  }
+  .arenaTab-btn[data-tab="shop"]    {
+    background:url('assets/interface/ui-tab-loja.png') no-repeat center/100% 100%, transparent;
+  }
 
-  /* tabs bloqueadas — lock icon flutuante */
+  /* tabs bloqueadas — mantém cor original da PNG, só desliga interação */
   .arenaTab-btn[disabled]{
     cursor:not-allowed;
-    filter:grayscale(0.5) brightness(0.92);
     pointer-events:none;
   }
   /* (badge de cadeado 🔒 removido — visual disabled vem só do filter grayscale) */
-  /* Active state: botão NÃO sobe nem cresce — apenas "acende" com glow
-     amarelado interno + boost de brilho leve. Mantém posição/tamanho dos
-     siblings (visual estável, sem layout shift quando troca de tab).
-     Stack: drop-shadow padrão + inset golden glow + inset white highlight. */
+  /* Active state: botão "acende" com glow amarelado interno + boost de brilho.
+     Sem drop shadow externo (só o glow inset). */
   .arenaTab-btn.active{
     box-shadow:
-      0 2px 0 #1a0e08,
       inset 0 0 14px 2px rgba(255, 204, 61, 0.85),
       inset 0 1px 0 rgba(255,255,255,0.55);
     filter:brightness(1.08) saturate(1.1);
@@ -1568,7 +1568,9 @@
     width:var(--layout-floatbtn-w, 70px);
     height:var(--layout-floatbtn-h, 24px);
     padding:0;
-    border:2.5px solid #1a0e08;
+    /* contorno marrom escuro (#593c2b) 2.5px.
+       Sem box-shadow (flat) — só o border define o pill. */
+    border:2.5px solid #593c2b;
     border-radius:12px;
     color:#fff;
     font-size:11px;font-weight:bold;
@@ -1577,9 +1579,6 @@
     display:none;
     z-index:6;
     line-height:1;
-    box-shadow:
-      0 2px 0 #1a0e08,
-      0 1px 0 rgba(255,255,255,0.4) inset;
     /* contorno preto no texto (8 direções, escala reduzida pra botão pequeno) */
     text-shadow:
       -1px -1px 0 #1a0e08,
@@ -1598,9 +1597,6 @@
   #arenaAutoBtn:active,
   #arenaSleepBtn:active{
     transform:translateY(1px);
-    box-shadow:
-      0 1px 0 #1a0e08,
-      0 1px 0 rgba(255,255,255,0.4) inset;
   }
 
   /* ZZZ — SEMPRE azul (mesmo sem reward pra colher).
@@ -1613,8 +1609,8 @@
     animation:zzzPulse 1.5s infinite;
   }
   @keyframes zzzPulse{
-    0%,100%{box-shadow:0 2px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset, 0 0 6px rgba(95,176,240,.5);}
-    50%    {box-shadow:0 2px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset, 0 0 14px rgba(95,176,240,.95);}
+    0%,100%{box-shadow:0 0 6px rgba(95,176,240,.5);}
+    50%    {box-shadow:0 0 14px rgba(95,176,240,.95);}
   }
 
   /* AUTO — idle: mesmo roxo dessaturado do ZZZ idle (simétrico) */
@@ -2893,6 +2889,10 @@ window.addEventListener('keydown', e=>{
   if(e.key === '1' && !e.repeat && typeof cheatSkipStage === 'function'){
     cheatSkipStage();
   }
+  // === CHEAT: tecla "L" sobe 1 nível da forja (debug / playtesting) ===
+  if((e.key === 'l' || e.key === 'L') && !e.repeat && typeof cheatLevelUpForge === 'function'){
+    cheatLevelUpForge();
+  }
   // === DEBUG OVERLAY toggle: tecla "`" ou "F1" ===
   if((e.key === '`' || e.key === 'F1') && !e.repeat){
     e.preventDefault();
@@ -3853,22 +3853,22 @@ const LAYOUT_DEFAULTS = {
   bottomCapInsetX: 10,
   bottomCapRadius: 15,
   bottomCapTopOffsetPx: -25,
-  bottomCapBottomGapPx: 80,
+  bottomCapBottomGapPx: 94,
   // Float buttons (ZZZ + AUTO)
   floatBtnW: 50,
   floatBtnH: 30,
-  floatBtnSideMargin: 10,
-  floatBtnBottomOffsetPx: 35, // offset acima do card top — alto o bastante p/ ficar acima da moldura decorativa (cantos florais ocupam ~75 logical px do topo do card)
+  floatBtnSideMargin: 11,
+  floatBtnBottomOffsetPx: -10, // offset acima do card top
   // Tab bar (menu)
-  tabBarHeight: 77,
-  tabBarInsetX: 5,            // inset lateral (←→) — 0 = full width do frame
-  tabBarBottomOffsetPx: 14,
+  tabBarHeight: 80,
+  tabBarInsetX: 6,            // inset lateral (←→) — 0 = full width do frame
+  tabBarBottomOffsetPx: 25,
   tabBarPaddingTop: 15,
   tabBarPaddingBottom: 0,
   tabBarGap: 1,
   tabBtnIconSize: 40,
-  tabBtnFontSize: 9,
-  tabBtnRadius: 15,
+  tabBtnFontSize: 10.5,
+  tabBtnRadius: 16,
   // CSS positions
   // forgeTopPct removido — forge inline agora ancora dinamicamente via
   // calc(100% - X - safe-bottom) em _applyLayoutCSSVars (ver fitCanvas).
@@ -4975,6 +4975,33 @@ function drawDebugOverlay(){
 }
 
 // === CHEAT: pula direto pro próximo stage (debug / playtesting) ===
+// === CHEAT: tecla "L" sobe 1 nível da forja na hora (debug / playtesting) ===
+// Pula timer de upgrade + custo de cenoura. Não passa do FORGE_MAX_LEVEL.
+function cheatLevelUpForge(){
+  if(arena.forgeLevel >= FORGE_MAX_LEVEL){
+    console.log(`[cheat] forge já está no max (Lv ${arena.forgeLevel})`);
+    return;
+  }
+  arena.forgeLevel++;
+  // limpa estado de upgrade em progresso (cheat ignora o timer)
+  arena.forgeUpgradeStartedAt = null;
+  arena.forgeUpgradeTargetLevel = null;
+  arena.forgeUpgradeTimeSec = null;
+  // recalcula cooldown do auto-forge pro novo nível (intervalo encurta)
+  arena.forgeCooldown = forgeIntervalAtLevel(arena.forgeLevel);
+  // persiste
+  if(typeof saveForgeLevel === 'function') saveForgeLevel();
+  if(typeof saveForgeProgress === 'function') saveForgeProgress();
+  // feedback visual
+  if(typeof spawnArenaParticle === 'function'){
+    spawnArenaParticle(arena.bx, arena.by, '#ffcc3d', 16);
+  }
+  // refresh popups abertos
+  if(typeof refreshForgeLevelPopup === 'function') refreshForgeLevelPopup();
+  if(typeof refreshAutoForgePopup === 'function' && _autoForgeRefreshInterval) refreshAutoForgePopup();
+  console.log(`[cheat] forge level → ${arena.forgeLevel}/${FORGE_MAX_LEVEL} (batch auto: ${autoForgeBatchSize(arena.forgeLevel)}×)`);
+}
+
 // Pressionar tecla "1" no teclado dispara isso. Limpa inimigos, projéteis,
 // efeitos, reseta wave=1 e arranca o spawn da nova stage do zero.
 function cheatSkipStage(){
@@ -5658,14 +5685,18 @@ function updateArena(){
   bumpArenaPower();
   // (idle income só acumula OFFLINE — via lastSeen timestamp. Não tem tick
   //  passivo enquanto joga; recompensa é coletada pelo botão ZZZ)
-  // auto-forge MVP: cooldown decrementa a cada frame; quando 0, dispara
-  // um batch (escala com forge level) e reseta o cooldown.
+  // auto-forge V2: cooldown decrementa só quando NÃO está rolando (idle).
+  // Quando expira, dispara autoForgeStep() que inicia a animação visual
+  // (igual ao clique em ROLAR). A animação leva ~3s pra concluir, então
+  // gatear o cooldown em phase==='idle' evita pular ciclos.
   if(arena.autoForge && arena.forgeLevel >= AUTO_UNLOCK_LEVEL && arena.lettuce >= FORGE_BASE_COST){
-    if(arena.forgeCooldown == null) arena.forgeCooldown = forgeIntervalAtLevel(arena.forgeLevel);
-    arena.forgeCooldown--;
-    if(arena.forgeCooldown <= 0){
-      autoForgeStep();
-      arena.forgeCooldown = forgeIntervalAtLevel(arena.forgeLevel);
+    if(forgeRoll.phase === 'idle' && state === STATE.ARENA_PLAY){
+      if(arena.forgeCooldown == null) arena.forgeCooldown = forgeIntervalAtLevel(arena.forgeLevel);
+      arena.forgeCooldown--;
+      if(arena.forgeCooldown <= 0){
+        autoForgeStep();
+        arena.forgeCooldown = forgeIntervalAtLevel(arena.forgeLevel);
+      }
     }
   }
 
@@ -7838,46 +7869,64 @@ function getAutoForgeEffectiveBatch(){
   return maxAvail;
 }
 
-// Auto-forge V2: roda batch (escolhido pelo player ou max do level), aplica
-// dois thresholds (keep + sell separados), auto-equipa upgrades, vende o resto.
+// Auto-forge V2: dispara a animação completa de rolagem (dados + combo banner)
+// igual o clique manual em ROLAR, e ao final resolve o batch sem abrir o popup
+// compare. forgeRoll.autoMode é o flag que `forgeAdvanceAfterRoll` lê pra
+// pular o popup e chamar autoForgeResolveBatch().
 function autoForgeStep(){
   if(!arena.autoForge) return;
   if(arena.forgeLevel < AUTO_UNLOCK_LEVEL) return;
+  // só dispara quando o player não está rolando manualmente (ou em popup)
+  if(forgeRoll.phase !== 'idle') return;
+  if(state !== STATE.ARENA_PLAY) return;
+
   const batch = getAutoForgeEffectiveBatch();
   if(batch <= 0) return;
   if(arena.lettuce < FORGE_BASE_COST) return;
   const rolls = Math.min(batch, arena.lettuce);
   arena.lettuce -= rolls * FORGE_BASE_COST;
 
+  // Reseta o estado de roll igual o clique manual em ROLAR faria,
+  // mas marca autoMode pra forgeAdvanceAfterRoll pular o popup compare.
+  forgeRoll.held = [false,false,false,false,false];
+  forgeRoll.autoMode = true;
+  forgeRoll.autoRolls = rolls;
+  animateForgeRoll();
+}
+
+// Resolve N items no fim da animação auto-forge: aplica thresholds
+// (keep / sell), equipa upgrades, vende o resto. Cada item compartilha
+// o COMBO da rolagem (mesmo padrão do manual: 1 click = 1 combo).
+function autoForgeResolveBatch(rolls, combo){
   const keepMin = getAutoForgeKeepMin();
   const sellMax = getAutoForgeSellMax();
+  const safeCombo = combo || COMBO_DATA.MAXROLL;
 
   let equippedCount = 0;
   let soldCount = 0;
   let carrotsGained = 0;
   let bestEquippedEra = -1;
   for(let i=0;i<rolls;i++){
-    const item = rollItem();
+    const item = generateForgedItem(arena.forgeLevel, safeCombo);
     const itemEraIdx = (item && item.eraIdx) ? item.eraIdx : 0;
     if(itemEraIdx <= sellMax){
-      // banda "trash" — instant sell, sem tentar equipar
       carrotsGained += autoForgeSellValue(item);
       soldCount++;
-    } else if(itemEraIdx < keepMin){
-      // banda intermediária (entre sellMax e keepMin) — tenta equipar; sell se não for upgrade
-      const equipped = arenaEquipItem(item);
-      if(equipped){ equippedCount++; if(itemEraIdx > bestEquippedEra) bestEquippedEra = itemEraIdx; }
-      else { carrotsGained += autoForgeSellValue(item); soldCount++; }
     } else {
-      // banda "keep" — tenta equipar; sell se não for upgrade
+      // banda keep OU intermediária: tenta equipar; sell se não for upgrade
       const equipped = arenaEquipItem(item);
-      if(equipped){ equippedCount++; if(itemEraIdx > bestEquippedEra) bestEquippedEra = itemEraIdx; }
-      else { carrotsGained += autoForgeSellValue(item); soldCount++; }
+      if(equipped){
+        equippedCount++;
+        if(itemEraIdx > bestEquippedEra) bestEquippedEra = itemEraIdx;
+      } else {
+        carrotsGained += autoForgeSellValue(item);
+        soldCount++;
+      }
     }
   }
   if(carrotsGained > 0) arena.carrots += carrotsGained;
 
-  // feedback visual proporcional
+  // feedback visual proporcional ao resultado
   if(equippedCount > 0){
     const eraColor = bestEquippedEra >= 0 ? ERAS[bestEquippedEra].color : '#4cf08e';
     spawnArenaParticle(arena.bx, arena.by, eraColor, Math.min(20, 4 + 2*equippedCount));
@@ -8004,6 +8053,8 @@ const forgeRoll = {
   held: [false,false,false,false,false],
   rerollsLeft: 0,
   currentCombo: null,
+  autoMode: false,        // true = roll iniciado pelo auto-forge (pula popup compare)
+  autoRolls: 0,           // quantos items resolver no fim do batch
 };
 
 function _forgeDice(){ return document.querySelectorAll('#arenaDiceRow .forge-die'); }
@@ -8176,6 +8227,8 @@ function openForgeDice(){
   forgeRoll.held = [false,false,false,false,false];
   forgeRoll.rerollsLeft = FORGE_MAX_REROLLS;
   forgeRoll.currentCombo = null;
+  forgeRoll.autoMode = false;
+  forgeRoll.autoRolls = 0;
   renderForgeDice();
 }
 
@@ -8215,9 +8268,9 @@ function animateForgeRoll(onDone){
   }, 70);
 }
 
-// Sequência pós-rolagem: hold → banner → popup. Cada step checa que ainda
-// está em 'after-roll' pra não rodar duplicado se o usuário (ou auto) já
-// avançou (proteção contra closeForge() durante a anim).
+// Sequência pós-rolagem: hold → banner → popup OU resolve auto. Cada step
+// checa que ainda está em 'after-roll' pra não rodar duplicado (proteção
+// contra closeForge() durante a anim).
 function forgeAdvanceAfterRoll(){
   // Tempo segurando os dados visíveis com glow antes do banner subir.
   const HOLD_MS = 1000;
@@ -8226,8 +8279,18 @@ function forgeAdvanceAfterRoll(){
     const combo = forgeRoll.currentCombo || COMBO_DATA.MAXROLL;
     showComboBanner(combo, () => {
       if(forgeRoll.phase !== 'after-roll') return;
-      // dispara o popup compare (mesmo fluxo do antigo FORJAR)
-      forgeConfirm();
+      if(forgeRoll.autoMode){
+        // Auto-forge: aplica o batch sem popup, volta pra idle
+        const rolls = forgeRoll.autoRolls || 1;
+        autoForgeResolveBatch(rolls, combo);
+        forgeRoll.autoMode = false;
+        forgeRoll.autoRolls = 0;
+        forgeRoll.phase = 'idle';
+        renderForgeDice();
+      } else {
+        // Fluxo manual: dispara o popup compare
+        forgeConfirm();
+      }
     });
   }, HOLD_MS);
 }
@@ -8409,6 +8472,8 @@ function closeForge(){
   forgeRoll.held = [false,false,false,false,false];
   forgeRoll.rerollsLeft = FORGE_MAX_REROLLS;
   forgeRoll.currentCombo = null;
+  forgeRoll.autoMode = false;
+  forgeRoll.autoRolls = 0;
   renderForgeDice();
 }
 
