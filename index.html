@@ -1522,25 +1522,26 @@
     left:50%;
     transform:translateX(-50%);
     top:17%;
-    width:min(60%, 230px);
-    padding:14px 18px;
+    /* tamanho compacto — 50% menor que o original */
+    width:min(30%, 115px);
+    padding:7px 9px;
     cursor:pointer;
-    border-radius:14px;
-    border:2.5px solid #1a0e08;
+    border-radius:10px;
+    border:2px solid #1a0e08;
     background:linear-gradient(180deg, #ff5252 0%, #b53030 100%);
     color:#fff;
-    font-size:18px;font-weight:bold;letter-spacing:0.4px;
+    font-size:11px;font-weight:bold;letter-spacing:0.3px;
     text-shadow:
-      -1.5px -1.5px 0 #1a0e08,
-       1.5px -1.5px 0 #1a0e08,
-      -1.5px  1.5px 0 #1a0e08,
-       1.5px  1.5px 0 #1a0e08,
-      -1.5px  0    0 #1a0e08,
-       1.5px  0    0 #1a0e08,
-       0    -1.5px 0 #1a0e08,
-       0     1.5px 0 #1a0e08,
-       0     2px   0 rgba(0,0,0,0.45);
-    box-shadow:0 4px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset;
+      -1px -1px 0 #1a0e08,
+       1px -1px 0 #1a0e08,
+      -1px  1px 0 #1a0e08,
+       1px  1px 0 #1a0e08,
+      -1px  0   0 #1a0e08,
+       1px  0   0 #1a0e08,
+       0   -1px 0 #1a0e08,
+       0    1px 0 #1a0e08,
+       0    1px 0 rgba(0,0,0,0.45);
+    box-shadow:0 2px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset;
     display:none;
     z-index:6;
     transition:transform .08s, box-shadow .08s;
@@ -1548,8 +1549,8 @@
   }
   #arenaBossBtn.show{display:block;}
   #arenaBossBtn:active{
-    transform:translateX(-50%) translateY(2px);
-    box-shadow:0 2px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset;
+    transform:translateX(-50%) translateY(1px);
+    box-shadow:0 1px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset;
   }
   @keyframes bossBtnPulse{
     0%,100%{filter:drop-shadow(0 0 0 rgba(255,82,82,0));}
@@ -2185,6 +2186,8 @@ const AUDIO_CATALOG_DEFAULTS = [
     volume: 1.00, pitchRandom: 0.00,
     fadeIn:  { enabled:true,  ms: 600  },
     fadeOut: { enabled:true,  ms: 1000 },
+    crossfadeIn:  { enabled:true,  ms: 2000 },
+    crossfadeOut: { enabled:true,  ms: 2000 },
   },
   {
     id: 'music_gp01', category: 'music', label: 'Music — Gameplay 01',
@@ -2192,6 +2195,8 @@ const AUDIO_CATALOG_DEFAULTS = [
     volume: 1.00, pitchRandom: 0.00,
     fadeIn:  { enabled:true,  ms: 1000 },
     fadeOut: { enabled:true,  ms: 2000 },
+    crossfadeIn:  { enabled:true,  ms: 2000 },
+    crossfadeOut: { enabled:true,  ms: 2000 },
   },
   {
     id: 'music_gp02', category: 'music', label: 'Music — Gameplay 02',
@@ -2199,6 +2204,17 @@ const AUDIO_CATALOG_DEFAULTS = [
     volume: 1.00, pitchRandom: 0.00,
     fadeIn:  { enabled:true,  ms: 1000 },
     fadeOut: { enabled:true,  ms: 2000 },
+    crossfadeIn:  { enabled:true,  ms: 2000 },
+    crossfadeOut: { enabled:true,  ms: 2000 },
+  },
+  {
+    id: 'music_boss', category: 'music', label: 'Music — Boss Loop',
+    files: ['assets/audio/mx_boss_loop.wav'],
+    volume: 1.00, pitchRandom: 0.00,
+    fadeIn:  { enabled:true,  ms: 1000 },
+    fadeOut: { enabled:true,  ms: 1000 },
+    crossfadeIn:  { enabled:true,  ms: 2000 },
+    crossfadeOut: { enabled:true,  ms: 2000 },
   },
   // === FUTURE SFX / UI (quando os assets forem adicionados, listar aqui) ===
   // {
@@ -2235,6 +2251,8 @@ try {
         if(typeof saved.pitchRandom === 'number') def.pitchRandom = saved.pitchRandom;
         if(saved.fadeIn)  Object.assign(def.fadeIn,  saved.fadeIn);
         if(saved.fadeOut) Object.assign(def.fadeOut, saved.fadeOut);
+        if(saved.crossfadeIn  && def.crossfadeIn)  Object.assign(def.crossfadeIn,  saved.crossfadeIn);
+        if(saved.crossfadeOut && def.crossfadeOut) Object.assign(def.crossfadeOut, saved.crossfadeOut);
       }
     }
   }
@@ -2284,6 +2302,11 @@ const Music = (function(){
   gpAudio[0]._audioId = 'music_gp01';
   gpAudio[1]._audioId = 'music_gp02';
   for(const a of gpAudio){ a.loop = false; a.volume = 0; a.preload = 'auto'; }
+  const bossAudio = new Audio('assets/audio/mx_boss_loop.wav');
+  bossAudio.loop = true;
+  bossAudio.volume = 0;
+  bossAudio.preload = 'auto';
+  bossAudio._audioId = 'music_boss';
   // Volume target dinâmico — lê do AUDIO_CATALOG/MIXER atual (atualiza ao
   // vivo quando user mexe sliders). Fallback 0.55 se catalog não disponível.
   function _liveTarget(audio){
@@ -2293,11 +2316,15 @@ const Music = (function(){
     return 0.55;
   }
   // Catalog lookup: tempos de fade in/out por asset
-  function _catalogFadeMs(audioId, kind /* 'in' | 'out' */){
+  function _catalogFadeMs(audioId, kind /* 'in' | 'out' | 'crossfadeIn' | 'crossfadeOut' */){
     if(typeof AUDIO_CATALOG === 'undefined') return null;
     const a = AUDIO_CATALOG.find(x => x.id === audioId);
     if(!a) return null;
-    const f = (kind === 'in') ? a.fadeIn : a.fadeOut;
+    let f = null;
+    if(kind === 'in')             f = a.fadeIn;
+    else if(kind === 'out')       f = a.fadeOut;
+    else if(kind === 'crossfadeIn')  f = a.crossfadeIn;
+    else if(kind === 'crossfadeOut') f = a.crossfadeOut;
     if(!f || !f.enabled) return 0;
     return f.ms;
   }
@@ -2309,6 +2336,7 @@ const Music = (function(){
     splashAudio.load();
     gpAudio[0].load();
     gpAudio[1].load();
+    bossAudio.load();
   } catch(_){}
 
   // pending = { audio, fadeInMs, onPlay } | null — última chamada que foi
@@ -2486,7 +2514,7 @@ const Music = (function(){
   // do Audio Tool. Snap (sem fade) — feedback imediato pro user enquanto
   // arrasta o slider. Cancela qualquer fade em andamento.
   function refreshLive(){
-    for(const a of [splashAudio, ...gpAudio]){
+    for(const a of [splashAudio, ...gpAudio, bossAudio]){
       if(a.paused) continue;
       if(a._fadeRAF){ cancelAnimationFrame(a._fadeRAF); a._fadeRAF = null; }
       a.volume = _liveTarget(a);
@@ -2502,7 +2530,7 @@ const Music = (function(){
   function pauseGame(){
     if(_gamePaused) return;
     _gamePaused = true;
-    for(const a of [splashAudio, ...gpAudio]){
+    for(const a of [splashAudio, ...gpAudio, bossAudio]){
       a._wasPlaying = !a.paused;
       // Cancela qualquer fade em andamento — congela volume no valor atual.
       if(a._fadeRAF){ cancelAnimationFrame(a._fadeRAF); a._fadeRAF = null; }
@@ -2513,7 +2541,7 @@ const Music = (function(){
     if(!_gamePaused) return;
     _gamePaused = false;
     let resumedAny = false;
-    for(const a of [splashAudio, ...gpAudio]){
+    for(const a of [splashAudio, ...gpAudio, bossAudio]){
       if(a._wasPlaying){
         a._wasPlaying = false;
         // Snap volume pro target atual (caso fade tava interrompido)
@@ -2532,7 +2560,49 @@ const Music = (function(){
   }
   function isPaused(){ return _gamePaused; }
 
-  return { playSplash, crossfadeToGameplay, refreshLive, pauseGame, resumeGame, isPaused };
+  // ===== Boss music crossfade =====
+  // Fade out gameplay → fade in boss music (loop). Durante o boss, gameplay
+  // fica pausado. Quando boss morre, chama crossfadeFromBoss pra inverter.
+  // Durações lidas do AUDIO_CATALOG (crossfadeIn/crossfadeOut do music_boss).
+  let _bossActive = false;
+  function crossfadeToBoss(durationMs){
+    if(_bossActive) return;
+    _bossActive = true;
+    const catMs = _catalogFadeMs('music_boss', 'crossfadeIn');
+    const ms = (catMs != null && catMs > 0) ? catMs : (durationMs || 2000);
+    // Fade current gameplay to 0, depois pause após a fade completar
+    if(currentGp && !currentGp.paused){
+      fadeTo(currentGp, 0, ms);
+      const trackBeingFaded = currentGp;
+      setTimeout(() => {
+        if(_bossActive && trackBeingFaded){
+          try { trackBeingFaded.pause(); } catch(_){}
+        }
+      }, ms + 50);
+    }
+    // Inicia boss music
+    request(bossAudio, ms);
+  }
+  function crossfadeFromBoss(durationMs){
+    if(!_bossActive) return;
+    _bossActive = false;
+    const catMs = _catalogFadeMs('music_boss', 'crossfadeOut');
+    const ms = (catMs != null && catMs > 0) ? catMs : (durationMs || 2000);
+    // Fade boss music out + pause
+    if(!bossAudio.paused){
+      fadeTo(bossAudio, 0, ms);
+      setTimeout(() => {
+        try { bossAudio.pause(); bossAudio.currentTime = 0; } catch(_){}
+      }, ms + 50);
+    }
+    // Retoma gameplay com track random nova (fade in junto = crossfade)
+    if(gameplayStarted && !_gamePaused){
+      startNextGameplay(ms);
+    }
+  }
+  function isBossActive(){ return _bossActive; }
+
+  return { playSplash, crossfadeToGameplay, crossfadeToBoss, crossfadeFromBoss, refreshLive, pauseGame, resumeGame, isPaused, isBossActive };
 })();
 Music.playSplash();
 
@@ -2552,9 +2622,19 @@ const SPLASH_ASSETS = [
   'assets/bunny/bunny_death.png',
   'assets/bunny/weapons/sword_placeholder.png',
   // Bandit Beaver sprite sheets
-  'assets/enemies/beaver_01_bandit/beaver_01_bandit_walk.png',
-  'assets/enemies/beaver_01_bandit/beaver_01_bandit_attack.png',
-  'assets/enemies/beaver_01_bandit/beaver_01_bandit_death.png',
+  'assets/enemies/Burrow/burrow_enemy_bandit/burrow_enemy_bandit_walk.png',
+  'assets/enemies/Burrow/burrow_enemy_bandit/burrow_enemy_bandit_attack.png',
+  'assets/enemies/Burrow/burrow_enemy_bandit/burrow_enemy_bandit_death.png',
+  // Burrow trio (stage 1) — small enemies + boss sprite
+  'assets/enemies/Burrow/burrow_enemy_sporeling_mushroom/burrow_enemy_sporeling_mushroom_walk.png',
+  'assets/enemies/Burrow/burrow_enemy_sporeling_mushroom/burrow_enemy_sporeling_mushroom_attack.png',
+  'assets/enemies/Burrow/burrow_enemy_sporeling_mushroom/burrow_enemy_sporeling_mushroom_death.png',
+  'assets/enemies/Burrow/burrow_enemy_sporepup_slime/burrow_enemy_sporepup_slime_walk.png',
+  'assets/enemies/Burrow/burrow_enemy_sporepup_slime/burrow_enemy_sporepup_slime_attack.png',
+  'assets/enemies/Burrow/burrow_enemy_sporepup_slime/burrow_enemy_sporepup_slime_death.png',
+  'assets/enemies/Burrow/burrow_boss_bloated_sporeking/burrow_boss_bloated_sporeking_walk.png',
+  'assets/enemies/Burrow/burrow_boss_bloated_sporeking/burrow_boss_bloated_sporeking_attack.png',
+  'assets/enemies/Burrow/burrow_boss_bloated_sporeking/burrow_boss_bloated_sporeking_death.png',
   // HUD pills + sprites essenciais (em uso)
   'assets/ui-pill-sword.png',
   'assets/ui-pill-carrot.png',
@@ -3629,6 +3709,7 @@ function initArena(){
   // arma inicial: galho (a pior arma do jogo, melee) — schema novo com currentLevel
   arena.items.weapon = {
     slot:'weapon', name:'Galho', stat:'dmg', icon:'🌿',
+    sprite:'assets/items/era1/weapon_wood_stick.png',
     rarity:'primitive', eraKey:'primitive', eraIdx:0, era: ERAS[0].name, eraColor:'#888780',
     weaponType:'melee',
     currentLevel:1, initialLevel:1, maxLevel: MAX_ITEM_LEVEL, level:1,
@@ -3645,7 +3726,7 @@ function initArena(){
   arena.wave = 1;
   arena.maxStageReached = 1;
   arena.waveState = 'spawning';
-  arena.waveEnemiesToSpawn = enemiesPerWave(1);
+  arena.waveEnemiesToSpawn = enemiesPerWave(1, 1);
   arena.waveSpawnTimer = 60; // 1s antes da primeira leva
   arena.waveTransitionTimer = 0;
   arena.stageClearBannerTimer = 0;
@@ -3654,21 +3735,92 @@ function initArena(){
   arena.regions = 0;
 }
 
-const ARENA_ENEMY_DEFS = {
-  // bandit = Bandit Beaver (sprite sheet animado — substitui o placeholder slime)
-  // demais entries continuam procedurais até receberem sprites
-  bandit:   { color:'#8b6b3a', r:9,  hp:8,  speed:0.55, dmg:8  },
-  bat:      { color:'#a86bff', r:8,  hp:5,  speed:0.95, dmg:6  },
-  skeleton: { color:'#fff7e0', r:9,  hp:14, speed:0.7,  dmg:10 },
-  knight:   { color:'#9b8fc4', r:11, hp:28, speed:0.45, dmg:14 },
-  boss:     { color:'#ff5252', r:18, hp:120,speed:0.35, dmg:22 },
+// ===== ENEMY ARCHETYPES — base stats per role =====
+// swarmer = fast + fragile + low dmg
+// grunt   = balanced
+// tank    = slow + durable + higher dmg
+// Cada era gera 3 enemies (um por archetype) usando esses templates como base.
+// Stage scaling (1.15^(stage-1)) multiplica hp/dmg em runtime — não precisa
+// ajustar manualmente por era.
+const ENEMY_ARCHETYPES = {
+  swarmer: { r:7,  hp:5,  speed:0.85, dmg:5  },
+  grunt:   { r:9,  hp:10, speed:0.55, dmg:8  },
+  tank:    { r:11, hp:20, speed:0.40, dmg:13 },
 };
+
+const ARENA_ENEMY_DEFS = {
+  // BURROW ERA (stage 1) — sprite-backed (named kinds):
+  bandit:    { color:'#8b6b3a', r:9,  hp:8,   speed:0.55, dmg:8  },
+  sporeling: { color:'#b5a25d', r:9,  hp:12,  speed:0.42, dmg:6  },
+  sporepup:  { color:'#7fc950', r:8,  hp:5,   speed:0.78, dmg:5  },
+  sporeking: { color:'#d85a30', r:23, hp:120, speed:0.35, dmg:22 },
+  // Legacy placeholders — ainda referenciados em alguns lugares
+  bat:       { color:'#a86bff', r:8,  hp:5,   speed:0.95, dmg:6  },
+  skeleton:  { color:'#fff7e0', r:9,  hp:14,  speed:0.7,  dmg:10 },
+  knight:    { color:'#9b8fc4', r:11, hp:28,  speed:0.45, dmg:14 },
+  boss:      { color:'#ff5252', r:23, hp:120, speed:0.35, dmg:22 },
+};
+// Auto-populate eras 2-10 (medieval..divine) com 3 archetypes × cor da era.
+// Naming: <eraKey>_<archetype>. Ex: medieval_swarmer, industrial_tank, etc.
+// Renderizam como shapes procedurais (sem sprite) até receberem arte própria.
+for(let i = 1; i < ERAS.length; i++){
+  const era = ERAS[i];
+  for(const [arch, base] of Object.entries(ENEMY_ARCHETYPES)){
+    ARENA_ENEMY_DEFS[`${era.key}_${arch}`] = { ...base, color: era.color };
+  }
+}
+
+// ===== STAGE PROGRESSION =====
+// STAGE_NEW_ENEMIES: a cada stage, define os 3 NOVOS enemies que aparecem
+// pela primeira vez. stagePool(stage) acumula 1..stage → pool cumulativa.
+// Stage 1 = 3 enemies, Stage 2 = 6 enemies, Stage 3 = 9, ... Stage 10 = 30.
+const STAGE_NEW_ENEMIES = {
+  1: ['bandit', 'sporeling', 'sporepup'],  // Burrow — sprite-backed
+};
+// Auto-fill stages 2-10 com triade era-archetype
+for(let stage = 2; stage <= 10; stage++){
+  const era = ERAS[stage - 1];  // stage 1 = era 0, stage 2 = era 1, ...
+  if(!era) continue;
+  STAGE_NEW_ENEMIES[stage] = [
+    `${era.key}_swarmer`,
+    `${era.key}_grunt`,
+    `${era.key}_tank`,
+  ];
+}
+
+// STAGE_BOSSES: 1 boss kind por stage. Default 'boss' (placeholder vermelho).
+// Stage 1 já tem sprite (sporeking); demais usam fallback até receberem arte.
+const STAGE_BOSSES = {
+  1: 'sporeking',
+};
+function stageBossKind(stage){
+  return STAGE_BOSSES[stage] || 'boss';
+}
 
 // ====== WAVE / STAGE SYSTEM ======
 const WAVES_PER_STAGE = 6; // 5 normais + 1 boss (mapeia 1:1 nos slots da ui-stage-bar.png)
-function enemiesPerWave(stage){
-  // cresce levemente conforme stage; piso de 4 e teto de 12
-  return Math.min(12, 4 + Math.floor((stage-1)/2));
+
+// ===== WAVE_MODS — escalada de dificuldade DENTRO de cada stage =====
+// Wave 1 = tutorial fácil, wave 5 = gate desenhado pra forçar o player a
+// equipar pelo menos 2 items antes de tentar (caso contrário a DPS do bunny
+// não dá pra clear 7 inimigos × 16-24 HP em tempo razoável).
+// Multipliers são MULTIPLICATIVOS em cima de stageScale (entre stages).
+// Boss wave (6) tem scaling próprio em spawnArenaBoss (× 1.2 vs def).
+const WAVE_MODS = {
+  1: { hp: 0.8, dmg: 0.6, count: 4 },  // tutorial — base bunny clear easy
+  2: { hp: 1.0, dmg: 0.8, count: 4 },  // aquecendo
+  3: { hp: 1.2, dmg: 1.0, count: 5 },  // "hora de forjar"
+  4: { hp: 1.5, dmg: 1.2, count: 6 },  // apertando
+  5: { hp: 2.0, dmg: 1.5, count: 7 },  // GATE — precisa items
+};
+function waveMod(wave){
+  return WAVE_MODS[wave] || WAVE_MODS[5];
+}
+function enemiesPerWave(stage, wave){
+  const baseCount = waveMod(wave || 1).count;
+  // Stages avançados spawnam +1 enemy a cada 3 stages (escalada inter-stage).
+  // Cap em 15 enemies/wave pra não saturar visualmente.
+  return Math.min(15, baseCount + Math.floor((stage-1) / 3));
 }
 function waveSpawnInterval(stage){
   // intervalo entre spawns dentro de uma wave; mais rápido em stages altos
@@ -3679,15 +3831,13 @@ function stageScale(stage){
   return Math.pow(1.15, stage-1);
 }
 function stagePool(stage){
-  // tier de inimigos por stage
-  const pool = ['bandit','bandit'];
-  if(stage >= 2) pool.push('bandit','bat');
-  if(stage >= 3) pool.push('bat');
-  if(stage >= 5) pool.push('skeleton');
-  if(stage >= 8) pool.push('skeleton','knight');
-  if(stage >= 12) pool.push('knight','skeleton');
-  if(stage >= 16) pool.push('knight','knight');
-  return pool;
+  // Pool cumulativa: agrega os "novos" enemies de todos os stages 1..N.
+  // Drives the unlock progression — stage N = stage N-1 pool + 3 novos.
+  const pool = [];
+  for(let s = 1; s <= stage; s++){
+    if(STAGE_NEW_ENEMIES[s]) pool.push(...STAGE_NEW_ENEMIES[s]);
+  }
+  return pool.length > 0 ? pool : ['bandit'];  // fallback defensive
 }
 function stageLabel(s){
   // formato X-Y (chapter-stage), 5 stages por chapter
@@ -3704,7 +3854,7 @@ function startNewWave(){
     arena.waveEnemiesToSpawn = 0;
     arena.waveState = 'fighting';
   } else {
-    arena.waveEnemiesToSpawn = enemiesPerWave(arena.stage);
+    arena.waveEnemiesToSpawn = enemiesPerWave(arena.stage, arena.wave);
     arena.waveSpawnTimer = 20;
   }
 }
@@ -4179,6 +4329,19 @@ function _audioToolBuildAssetRow(asset){
         <input type="number" min="0" max="10000" step="50" value="${asset.fadeOut.ms}" data-id="${asset.id}" data-prop="fadeOutMs">
         <span class="val">ms</span>
       </div>
+      ${asset.category === 'music' ? `
+      <div class="audioTool-asset-row toggle">
+        <input type="checkbox" ${(asset.crossfadeIn && asset.crossfadeIn.enabled) ? 'checked' : ''} data-id="${asset.id}" data-prop="crossfadeInEnabled">
+        <span class="lbl">Crossfade in</span>
+        <input type="number" min="0" max="10000" step="50" value="${(asset.crossfadeIn && asset.crossfadeIn.ms) || 2000}" data-id="${asset.id}" data-prop="crossfadeInMs">
+        <span class="val">ms</span>
+      </div>
+      <div class="audioTool-asset-row toggle">
+        <input type="checkbox" ${(asset.crossfadeOut && asset.crossfadeOut.enabled) ? 'checked' : ''} data-id="${asset.id}" data-prop="crossfadeOutEnabled">
+        <span class="lbl">Crossfade out</span>
+        <input type="number" min="0" max="10000" step="50" value="${(asset.crossfadeOut && asset.crossfadeOut.ms) || 2000}" data-id="${asset.id}" data-prop="crossfadeOutMs">
+        <span class="val">ms</span>
+      </div>` : ''}
       ${_audioToolBuildVariationsHTML(asset)}
     </div>
   `;
@@ -4438,6 +4601,18 @@ function _wireAudioTool(){
         asset.fadeOut.enabled = !!t.checked;
       } else if(prop === 'fadeOutMs'){
         asset.fadeOut.ms = parseInt(t.value, 10) || 0;
+      } else if(prop === 'crossfadeInEnabled'){
+        if(!asset.crossfadeIn) asset.crossfadeIn = { enabled:false, ms:2000 };
+        asset.crossfadeIn.enabled = !!t.checked;
+      } else if(prop === 'crossfadeInMs'){
+        if(!asset.crossfadeIn) asset.crossfadeIn = { enabled:true, ms:2000 };
+        asset.crossfadeIn.ms = parseInt(t.value, 10) || 0;
+      } else if(prop === 'crossfadeOutEnabled'){
+        if(!asset.crossfadeOut) asset.crossfadeOut = { enabled:false, ms:2000 };
+        asset.crossfadeOut.enabled = !!t.checked;
+      } else if(prop === 'crossfadeOutMs'){
+        if(!asset.crossfadeOut) asset.crossfadeOut = { enabled:true, ms:2000 };
+        asset.crossfadeOut.ms = parseInt(t.value, 10) || 0;
       }
       _saveAudioCatalog();
       if(typeof Music !== 'undefined' && Music.refreshLive) Music.refreshLive();
@@ -5083,13 +5258,17 @@ function spawnArenaEnemy(){
   // visualmente com as "aberturas entre arbustos" das imagens das eras.
   const { x, y } = _randomSpawnPoint();
   const scale = stageScale(arena.stage);
+  // Wave mods: HP/dmg escalam DENTRO do stage (wave 1 = 0.8×, wave 5 = 2.0× HP).
+  // Multiplicativo em cima de stageScale.
+  const wmod = waveMod(arena.wave);
+  const hp = Math.max(1, Math.round(def.hp*scale*wmod.hp));
   // Bandits começam em estado walk com facing direção do bunny
   const facing = (arena.bx > x) ? 'right' : 'left';
   arena.enemies.push({
     kind, x, y, r:def.r,
-    hp: Math.round(def.hp*scale), maxHp: Math.round(def.hp*scale),
+    hp, maxHp: hp,
     speed: def.speed,
-    dmg: Math.round(def.dmg*scale*0.8),
+    dmg: Math.max(1, Math.round(def.dmg*scale*wmod.dmg*0.8)),
     xp: Math.round(def.xp * (1 + (arena.stage-1)*0.1)),
     color: def.color,
     hurtTimer: 0,
@@ -5104,21 +5283,32 @@ function spawnArenaEnemy(){
 }
 
 function spawnArenaBoss(){
-  const def = ARENA_ENEMY_DEFS.boss;
+  // Boss kind vem da tabela STAGE_BOSSES. Stage 1 = sporeking (sprite). Demais
+  // stages usam 'boss' (placeholder) até receberem sprite próprio.
+  const bossKind = stageBossKind(arena.stage);
+  const def = ARENA_ENEMY_DEFS[bossKind];
   const scale = stageScale(arena.stage) * 1.2;
-  // Boss spawna no CENTRO das duas zonas pra entrada dramática vinda do meio
-  // do bottom edge (não de um canto específico).
-  const bossX = W / 2;
+  // Boss SEMPRE entra pela DIREITA (entrada dramática) caminhando em direção
+  // ao centro/bunny. Y no meio das spawn zones (mesma faixa dos minions).
+  const bossX = W - 25;  // logo dentro da borda direita do play area
   const bossY = (LAYOUT.spawnZoneYMin + LAYOUT.spawnZoneYMax) / 2;
+  const facing = 'left';  // vindo da direita → olhando pra esquerda
   arena.enemies.push({
-    kind:'boss',
+    kind: bossKind,
     x: bossX, y: bossY,
     r:def.r,
     hp: Math.round(def.hp*scale), maxHp: Math.round(def.hp*scale),
     speed: def.speed, dmg: Math.round(def.dmg*scale),
     xp: def.xp, color: def.color, hurtTimer:0, isBoss:true,
+    // sprite state machine (usado se o boss tiver sprite em ENEMY_SPRITE_DEFS)
+    animState: 'walk', animFrame: 0, _animTickCounter: 0, _animDone: false,
+    facing, dying: false,
   });
   spawnArenaParticle(bossX, bossY, '#ff5252', 24);
+  // Crossfade pra música de boss (duração do catalog — default 2s)
+  if(typeof Music !== 'undefined' && Music.crossfadeToBoss){
+    Music.crossfadeToBoss();
+  }
 }
 
 // Mantido como shim pra qualquer chamada antiga — rolagem direta sem combo
@@ -5212,12 +5402,16 @@ function killArenaEnemy(idx, e){
   if(e.isBoss){
     arena.regions++;
     spawnArenaParticle(e.x, e.y, '#ff5252', 30);
+    // Crossfade de volta pra música de gameplay
+    if(typeof Music !== 'undefined' && Music.crossfadeFromBoss){
+      Music.crossfadeFromBoss();
+    }
   } else {
     spawnArenaParticle(e.x, e.y, e.color, 14);
   }
-  // Bandits com sprite sheet: tocam death anim ANTES de remover do array. Outras
-  // kinds (placeholders procedurais) ainda removem instantaneamente.
-  if(e.kind === 'bandit'){
+  // Enemies com sprite sheet: tocam death anim ANTES de remover do array.
+  // Outras kinds (placeholders procedurais) removem instantaneamente.
+  if(ENEMY_SPRITE_DEFS[e.kind]){
     e.dying = true;
     e.hp = 0;
     _setBanditAnim(e, 'death');
@@ -5712,8 +5906,9 @@ function updateArena(){
     const dx2 = arena.bx - e.x, dy2 = arena.by - e.y;
     const d = Math.hypot(dx2, dy2) || 1;
 
-    // === Bandit beaver: state machine + anim tick (overrides movimento default) ===
-    if(e.kind === 'bandit'){
+    // === Enemies com sprite sheet (bandit/sporeling/sporepup/sporeking/etc):
+    // state machine + anim tick (overrides movimento default) ===
+    if(ENEMY_SPRITE_DEFS[e.kind]){
       // Inimigo morrendo: avança death anim e remove quando termina. Não move,
       // não atinge o bunny, é ignorado por hits novos.
       if(e.dying){
@@ -6050,6 +6245,18 @@ function drawArenaBunny(){
   if(bunny && bunny.draw){
     const scale = LAYOUT.bunnyDrawScale || 0.14;
     const flipX = (bunnyFacing === 'left');
+    // Sprite source é 256×256; dw/dh = display em logical px
+    const dw = 256 * scale;
+    const dh = 256 * scale;
+    // Drop shadow no foot — conecta o bunny ao chão visualmente.
+    // Elipse achatada (~22% horizontal × 3.5% vertical do display),
+    // posicionada exatamente nos pés (foot anchor + 5px pro chão).
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.30)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 5, dw * 0.22, dh * 0.035, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
     // Liga imageSmoothing pro sprite ficar suave (canvas default é nearest-neighbor)
     const prevSmooth = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = true;
@@ -6100,10 +6307,10 @@ function drawArenaBunny(){
 }
 
 function drawArenaEnemy(e){
-  // Bandit Beaver — sprite sheet animado. _drawBanditSprite cuida de tudo
-  // (frame atual, flip facing, flash branco no hurt, fade out na death anim,
+  // Enemy com sprite sheet — _drawBanditSprite cuida de tudo (frame atual,
+  // flip per defaultFacing, flash branco no hurt, fade out na death anim,
   // sombra). Cai pro fallback procedural se a imagem ainda não carregou.
-  if(e.kind === 'bandit'){
+  if(ENEMY_SPRITE_DEFS[e.kind]){
     if(_drawBanditSprite(e, e.x, e.y)){
       // hp bar só enquanto vivo (não mostra durante death anim) e quando dano levado
       if(!e.dying && e.hp < e.maxHp){
@@ -6147,6 +6354,26 @@ function drawArenaEnemy(e){
       ctx.fillStyle = '#fff'; ctx.fillRect(e.x-7, e.y-4, 3, 4); ctx.fillRect(e.x+4, e.y-4, 3, 4);
       ctx.fillStyle = '#000'; ctx.fillRect(e.x-6, e.y-3, 2, 2); ctx.fillRect(e.x+5, e.y-3, 2, 2);
       ctx.fillStyle = '#ffcc3d'; ctx.fillRect(e.x-8, e.y-e.r-4, 16, 4); // coroa
+    }
+  } else if(e.kind.indexOf('_') > 0){
+    // Era × archetype kinds (medieval_swarmer, industrial_tank, etc) — fallback
+    // procedural. Shape varia por archetype: swarmer=círculo, grunt=quadrado,
+    // tank=retângulo vertical maior. Cor vem do def (era color).
+    const archetype = e.kind.split('_')[1] || 'grunt';
+    if(archetype === 'swarmer'){
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r, 0, Math.PI*2);
+      ctx.fill();
+    } else if(archetype === 'tank'){
+      ctx.fillRect(e.x-e.r, e.y-e.r*1.2, e.r*2, e.r*2.4);
+    } else {  // grunt
+      ctx.fillRect(e.x-e.r, e.y-e.r, e.r*2, e.r*2);
+    }
+    // Olhos pequenos pra dar personalidade
+    if(!flash){
+      ctx.fillStyle = '#000';
+      ctx.fillRect(e.x-e.r*0.45, e.y-e.r*0.2, 2, 2);
+      ctx.fillRect(e.x+e.r*0.25, e.y-e.r*0.2, 2, 2);
     }
   }
   // hp bar
@@ -6655,24 +6882,53 @@ function drawArenaHUD(){
   }
 }
 
-// ============== BANDIT BEAVER — sprite sheet animation system ==============
-// Sprite assets: 3 sheets (walk loop 30f, attack 20f one-shot, death 15f one-shot + fade).
+// ============== ENEMY SPRITES — generic sprite sheet system ==============
+// 3 sheets por kind (walk loop 30f, attack 20f one-shot, death 15f one-shot + fade).
 // Cada frame source = 256×256 dentro do sheet (cols=6 fixo).
-// Game runs @ 60fps fixed timestep; anim @ 30fps → advance 1 anim frame a cada 2 game ticks.
-const BANDIT_BEAVER_SRC = 'assets/enemies/beaver_01_bandit';
-const BANDIT_BEAVER_FRAME = 256;          // source frame size (px)
-const BANDIT_BEAVER_DISPLAY = 44;         // display size em logical coords (game world)
-const BANDIT_BEAVER_FRAME_TICKS = 2;      // 60fps game / 30fps anim = 2 game-ticks por anim-frame
-const BANDIT_BEAVER_ANIMS = {
+// Game runs @ 60fps; anim @ 30fps → advance 1 anim frame a cada 2 game ticks.
+// Adicionar novos enemies: append em ENEMY_SPRITE_DEFS + ARENA_ENEMY_DEFS.
+const ENEMY_SPRITE_FRAME = 256;
+const ENEMY_SPRITE_FRAME_TICKS = 2;
+const ENEMY_SPRITE_ANIMS = {
   walk:   { frames:30, cols:6, loop:true,  fadeOut:false },
   attack: { frames:20, cols:6, loop:false, fadeOut:false },
   death:  { frames:15, cols:6, loop:false, fadeOut:true  },
 };
-const BANDIT_BEAVER_IMG = {};
-for(const state of Object.keys(BANDIT_BEAVER_ANIMS)){
-  const img = new Image();
-  img.src = `${BANDIT_BEAVER_SRC}/beaver_01_bandit_${state}.png`;
-  BANDIT_BEAVER_IMG[state] = img;
+// Per-kind: pasta src, nome base do arquivo, tamanho de display em logical px,
+// e direção default que o sprite source aponta (right = como o beaver original
+// foi desenhado; left = como os sprites do Burrow foram desenhados).
+const ENEMY_SPRITE_DEFS = {
+  bandit: {
+    src: 'assets/enemies/Burrow/burrow_enemy_bandit', base: 'burrow_enemy_bandit',
+    display: 44, defaultFacing: 'left',
+  },
+  sporeling: {
+    src: 'assets/enemies/Burrow/burrow_enemy_sporeling_mushroom',
+    base: 'burrow_enemy_sporeling_mushroom',
+    display: 42, defaultFacing: 'left',
+  },
+  sporepup: {
+    src: 'assets/enemies/Burrow/burrow_enemy_sporepup_slime',
+    base: 'burrow_enemy_sporepup_slime',
+    display: 38, defaultFacing: 'left',
+  },
+  sporeking: {
+    src: 'assets/enemies/Burrow/burrow_boss_bloated_sporeking',
+    base: 'burrow_boss_bloated_sporeking',
+    display: 100, defaultFacing: 'left',  // +25% vs original (80)
+    shadowY: 14,  // boss tem espaço extra no bottom do sprite — desce a sombra +14px do default
+  },
+};
+// ENEMY_SPRITE_IMG[kind][state] = Image
+const ENEMY_SPRITE_IMG = {};
+for(const kind of Object.keys(ENEMY_SPRITE_DEFS)){
+  const def = ENEMY_SPRITE_DEFS[kind];
+  ENEMY_SPRITE_IMG[kind] = {};
+  for(const state of Object.keys(ENEMY_SPRITE_ANIMS)){
+    const img = new Image();
+    img.src = `${def.src}/${def.base}_${state}.png`;
+    ENEMY_SPRITE_IMG[kind][state] = img;
+  }
 }
 
 // Troca de animação (zera frame counter)
@@ -6686,10 +6942,10 @@ function _setBanditAnim(e, state){
 
 // Avança o frame da animação 1 unidade a cada N game-ticks
 function _tickBanditAnim(e){
-  const def = BANDIT_BEAVER_ANIMS[e.animState];
+  const def = ENEMY_SPRITE_ANIMS[e.animState];
   if(!def) return;
   e._animTickCounter = (e._animTickCounter || 0) + 1;
-  if(e._animTickCounter < BANDIT_BEAVER_FRAME_TICKS) return;
+  if(e._animTickCounter < ENEMY_SPRITE_FRAME_TICKS) return;
   e._animTickCounter = 0;
   e.animFrame = (e.animFrame || 0) + 1;
   if(e.animFrame >= def.frames){
@@ -6702,46 +6958,47 @@ function _tickBanditAnim(e){
   }
 }
 
-// Desenha o frame atual do sprite sheet do bandit beaver na posição (x, y)
-// (centro). Retorna false se a imagem ainda não carregou (callsite usa fallback procedural).
+// Desenha o frame atual do sprite sheet do enemy na posição (x, y) (centro).
+// Lê per-kind: src path, display size, default facing. Retorna false se a
+// imagem ainda não carregou (callsite usa fallback procedural).
 function _drawBanditSprite(e, x, y){
-  const def = BANDIT_BEAVER_ANIMS[e.animState] || BANDIT_BEAVER_ANIMS.walk;
-  const img = BANDIT_BEAVER_IMG[e.animState] || BANDIT_BEAVER_IMG.walk;
+  const spriteDef = ENEMY_SPRITE_DEFS[e.kind];
+  if(!spriteDef) return false;
+  const animDef = ENEMY_SPRITE_ANIMS[e.animState] || ENEMY_SPRITE_ANIMS.walk;
+  const kindImgs = ENEMY_SPRITE_IMG[e.kind] || {};
+  const img = kindImgs[e.animState] || kindImgs.walk;
   if(!img || !img.complete || !img.naturalWidth) return false;
-  const fs = BANDIT_BEAVER_FRAME;
-  const ds = BANDIT_BEAVER_DISPLAY;
-  const col = e.animFrame % def.cols;
-  const row = Math.floor(e.animFrame / def.cols);
+  const fs = ENEMY_SPRITE_FRAME;
+  const ds = spriteDef.display;
+  const col = e.animFrame % animDef.cols;
+  const row = Math.floor(e.animFrame / animDef.cols);
   const sx = col * fs;
   const sy = row * fs;
   // fade out na death anim — alpha desce a partir do meio da animação
   let alpha = 1;
-  if(def.fadeOut){
-    const t = e.animFrame / Math.max(1, def.frames - 1);
+  if(animDef.fadeOut){
+    const t = e.animFrame / Math.max(1, animDef.frames - 1);
     alpha = Math.max(0, 1 - Math.pow(Math.max(0, t - 0.45) * 1.8, 1.3));
   }
   ctx.save();
   if(alpha < 1) ctx.globalAlpha = alpha;
-  // sombra elíptica debaixo (preserva grounding mesmo durante fade)
+  // sombra elíptica debaixo (preserva grounding mesmo durante fade).
+  // shadowY default = 3 (default downward offset). Boss/etc podem override
+  // via spriteDef.shadowY pra ajustar à proporção do sprite.
+  const shadowY = (spriteDef.shadowY != null) ? spriteDef.shadowY : 3;
   ctx.fillStyle = `rgba(0,0,0,${0.22 * alpha})`;
   ctx.beginPath();
-  ctx.ellipse(x, y + ds*0.28, ds*0.30, ds*0.10, 0, 0, Math.PI*2);
+  ctx.ellipse(x, y + ds*0.28 + shadowY, ds*0.30, ds*0.10, 0, 0, Math.PI*2);
   ctx.fill();
-  // Liga image smoothing pro sprite renderizar suave (canvas global é
-  // nearest-neighbor pra pixel-art procedural; sprite é cartoon polished).
+  // Liga image smoothing pro sprite renderizar suave.
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  // Flash branco quando levou hit — usa ctx.filter (brightness + dessat)
-  // ao invés de source-atop. source-atop pinta sobre TODO o canvas abaixo
-  // (incluindo background) e gerava um quadrado branco 44×44 quando o hit
-  // batia junto com a death anim. filter é state-encapsulado pelo save().
-  // Não aplica filter durante dying — death anim já comunica o kill.
+  // Flash branco quando levou hit — filter encapsulado pelo save().
   if(e.hurtTimer > 0 && !e.dying){
     ctx.filter = 'brightness(2.2) saturate(0)';
   }
-  // Aplica flip horizontal se o bandit está olhando pra esquerda. Coords
-  // do drawImage ficam relativas ao novo origin pós-translate/scale.
-  const flip = (e.facing === 'left');
+  // Flip horizontal quando facing atual != direção default do sprite source.
+  const flip = (spriteDef.defaultFacing !== e.facing);
   const dx = flip ? -ds/2 : (x - ds/2);
   const dy = y - ds/2;
   if(flip){
@@ -7349,10 +7606,11 @@ function autoForgeSmartThreshold(){
 //
 // Modos sugeridos (design-forge-upgrade §9):
 //   EXPRESS   (testes/QA):     COST = 0.1,  TIME = 0.1   → ~25 min, ~200k
-//   STANDARD  (padrão atual):  COST = 1.0,  TIME = 1.0   → ~4h, ~2M
+//   HACKATHON (atual):         COST = 1.0,  TIME = 0.5   → ~2h, ~2M  ← rampa razoável
+//   STANDARD  (mid-term):      COST = 1.0,  TIME = 1.0   → ~4h, ~2M
 //   LONG_BURN (pré-launch):    COST = 5.0,  TIME = 10.0  → ~40h, ~10M
-const FORGE_COST_MULT = 20.0;
-const FORGE_TIME_MULT = 20.0;
+const FORGE_COST_MULT = 1.0;
+const FORGE_TIME_MULT = 0.5;
 
 function getForgeUpgradeInfo(level){
   const raw = FORGE_UPGRADES.find(u => u.from === level);
