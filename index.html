@@ -3070,6 +3070,35 @@ const Music = (function(){
   }
   function isPaused(){ return _gamePaused; }
 
+  // ===== Visibility / focus pause =====
+  // Pausa audio quando app perde foreground (visibilitychange / blur). State
+  // SEPARADO do _gamePaused (user toggle) — assim auto-pause não confunde
+  // a UI do Audio Tool, e auto-resume respeita pause manual existente.
+  let _visHidden = false;
+  function setVisibilityHidden(hidden){
+    if(hidden){
+      if(_visHidden) return;
+      _visHidden = true;
+      for(const a of [splashAudio, ...gpAudio, bossAudio]){
+        a._visWasPlaying = !a.paused;
+        if(a._fadeRAF){ cancelAnimationFrame(a._fadeRAF); a._fadeRAF = null; }
+        if(!a.paused){ try { a.pause(); } catch(_){} }
+      }
+    } else {
+      if(!_visHidden) return;
+      _visHidden = false;
+      // Se o usuário pausou manualmente, NÃO retoma — respeita o toggle do Audio Tool
+      if(_gamePaused) return;
+      for(const a of [splashAudio, ...gpAudio, bossAudio]){
+        if(a._visWasPlaying){
+          a._visWasPlaying = false;
+          a.volume = _liveTarget(a);
+          try { a.play().catch(() => {}); } catch(_){}
+        }
+      }
+    }
+  }
+
   // ===== Boss music crossfade =====
   // Fade out gameplay → fade in boss music (loop). Durante o boss, gameplay
   // fica pausado. Quando boss morre, chama crossfadeFromBoss pra inverter.
@@ -3112,7 +3141,7 @@ const Music = (function(){
   }
   function isBossActive(){ return _bossActive; }
 
-  return { playSplash, crossfadeToGameplay, crossfadeToBoss, crossfadeFromBoss, refreshLive, pauseGame, resumeGame, isPaused, isBossActive };
+  return { playSplash, crossfadeToGameplay, crossfadeToBoss, crossfadeFromBoss, refreshLive, pauseGame, resumeGame, isPaused, isBossActive, setVisibilityHidden };
 })();
 Music.playSplash();
 
@@ -8934,8 +8963,11 @@ if(document.readyState === 'loading'){
 }
 
 function forgeIntervalAtLevel(lvl){
-  // L1=15s, decresce até mínimo 3s no level 25+
-  return Math.max(180, Math.round(900 - (lvl-1) * 30));
+  // Ciclo fixo de 1s (60 frames @ 60fps) — não escala com forge level.
+  // O reward de subir Forge Level vira BATCH SIZE (e raridades melhores),
+  // não velocidade. Alfaces vão ser o gargalo principal — outras fontes
+  // de drop de alface serão adicionadas separadamente.
+  return 60;
 }
 
 // ============== AUTO-FORGE (MVP) ==============
@@ -9336,7 +9368,7 @@ function buildAutoForgeContent(){
     ? `🪄 Auto (${maxBatch}× /ciclo)`
     : `${effBatch} ${effBatch > 1 ? 'itens' : 'item'} /ciclo`;
   const batchDD = `
-    <div class="auto-forge-section-title">Quantidade por ciclo</div>
+    <div class="auto-forge-section-title">Quantidade por rolar</div>
     <div class="dd-trigger ${batchOpen?'open':''}" data-dd-toggle="batch">
       <span class="dd-trigger-val">${batchTriggerLabel}</span>
       <span class="dd-arrow">${batchOpen?'▴':'▾'}</span>
@@ -9573,9 +9605,87 @@ function autoForgeStep(){
   animateForgeRoll();
 }
 
+// Auto-forge ceremônia chain: mostra popup compare per-item, espera 1s,
+// auto-decide (equip se passa keep threshold + for upgrade, sell senão),
+// fecha popup, próximo item. Player pode interromper clicando manualmente
+// em EQUIPAR/DESCARTAR — chain aborta nesse caso.
+const AUTO_CEREMONY_MS = 1000;
+function autoForgeCeremonyChain(rolls, combo){
+  const safeCombo = combo || COMBO_DATA.MAXROLL;
+  const keepMin   = getAutoForgeKeepMin();
+  const sellMax   = getAutoForgeSellMax();
+  const RARITY_KEYS = Object.keys(RARITY);
+  let i = 0;
+  let summary = { equipped:0, sold:0, carrots:0, bestEra:-1 };
+
+  function _endChain(){
+    if(summary.carrots > 0) arena.carrots += summary.carrots;
+    if(summary.equipped > 0){
+      const eraColor = summary.bestEra >= 0 ? ERAS[summary.bestEra].color : '#4cf08e';
+      spawnArenaParticle(arena.bx, arena.by, eraColor, Math.min(20, 4 + 2*summary.equipped));
+    } else if(summary.sold > 0){
+      spawnArenaParticle(arena.bx, arena.by, '#ff9b3a', Math.min(10, 2 + summary.sold));
+    }
+    arena.pendingForgeItem = null;
+    hideAllLayers();
+    state = STATE.ARENA_PLAY;
+    forgeRoll.autoMode = false;
+    forgeRoll.autoRolls = 0;
+    forgeRoll.phase = 'idle';
+    renderForgeDice();
+  }
+
+  function _showNext(){
+    if(!arena.autoForge || i >= rolls){ _endChain(); return; }
+    const item = generateForgedItem(arena.forgeLevel, safeCombo);
+    const eraIdx = (item && item.eraIdx) ? item.eraIdx : 0;
+    // Decisão auto (replica lógica de autoForgeResolveBatch + arenaEquipItem)
+    let willEquip;
+    if(eraIdx <= sellMax){
+      willEquip = false;
+    } else {
+      const cur = arena.items[item.slot];
+      if(!cur){ willEquip = true; }
+      else {
+        const curRank = RARITY_KEYS.indexOf(cur.rarity);
+        const newRank = RARITY_KEYS.indexOf(item.rarity);
+        willEquip = (newRank > curRank || (newRank === curRank && item.value > cur.value));
+      }
+    }
+    arena.pendingForgeItem = item;
+    openForgeCompare();
+    setTimeout(() => {
+      // Player interferiu (clicou EQUIPAR/DESCARTAR manualmente)?
+      // closeForge reseta pendingForgeItem — detect via reference check.
+      if(arena.pendingForgeItem !== item || !arena.autoForge){
+        forgeRoll.autoMode = false;
+        forgeRoll.autoRolls = 0;
+        forgeRoll.phase = 'idle';
+        return;
+      }
+      // Aplica decisão auto
+      if(willEquip){
+        arena.items[item.slot] = item;
+        summary.equipped++;
+        if(eraIdx > summary.bestEra) summary.bestEra = eraIdx;
+        if(typeof Quests   !== 'undefined') Quests.onEquipped();
+        if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
+      } else {
+        summary.carrots += autoForgeSellValue(item);
+        summary.sold++;
+      }
+      arena.pendingForgeItem = null;
+      i++;
+      _showNext();
+    }, AUTO_CEREMONY_MS);
+  }
+  _showNext();
+}
+
 // Resolve N items no fim da animação auto-forge: aplica thresholds
 // (keep / sell), equipa upgrades, vende o resto. Cada item compartilha
 // o COMBO da rolagem (mesmo padrão do manual: 1 click = 1 combo).
+// LEGACY: usado quando auto rodava sem cerimônia. Hoje fica como fallback.
 function autoForgeResolveBatch(rolls, combo){
   const keepMin = getAutoForgeKeepMin();
   const sellMax = getAutoForgeSellMax();
@@ -9967,13 +10077,10 @@ function forgeAdvanceAfterRoll(){
     showComboBanner(combo, () => {
       if(forgeRoll.phase !== 'after-roll') return;
       if(forgeRoll.autoMode){
-        // Auto-forge: aplica o batch sem popup, volta pra idle
+        // Auto-forge: per-item ceremony (popup → 1s → decisão auto → próximo)
         const rolls = forgeRoll.autoRolls || 1;
-        autoForgeResolveBatch(rolls, combo);
-        forgeRoll.autoMode = false;
-        forgeRoll.autoRolls = 0;
-        forgeRoll.phase = 'idle';
-        renderForgeDice();
+        autoForgeCeremonyChain(rolls, combo);
+        // NÃO reseta autoMode/phase aqui — a chain é async e cuida do cleanup.
       } else {
         // Fluxo manual: dispara o popup compare
         forgeConfirm();
@@ -10677,8 +10784,23 @@ document.getElementById('offlineCloseBtn').addEventListener('click', ()=>{
 setInterval(accruePendingFromLastSeen, 5000);
 document.addEventListener('visibilitychange', ()=>{
   if(document.hidden) accruePendingFromLastSeen();
+  // Pausa/retoma música quando app perde/ganha foreground
+  if(typeof Music !== 'undefined' && Music.setVisibilityHidden){
+    Music.setVisibilityHidden(document.hidden);
+  }
 });
-window.addEventListener('pagehide', accruePendingFromLastSeen);
+// Backup pra mobile (alguns Android WebViews não disparam visibilitychange
+// confiável quando o usuário sai do app pra notificação/multitarefa).
+window.addEventListener('blur',  () => { if(Music && Music.setVisibilityHidden) Music.setVisibilityHidden(true);  });
+window.addEventListener('focus', () => { if(Music && Music.setVisibilityHidden) Music.setVisibilityHidden(false); });
+// Page lifecycle (iOS Safari + Capacitor WebKit emite pagehide quando suspende)
+window.addEventListener('pagehide', () => {
+  accruePendingFromLastSeen();
+  if(typeof Music !== 'undefined' && Music.setVisibilityHidden) Music.setVisibilityHidden(true);
+});
+window.addEventListener('pageshow', () => {
+  if(typeof Music !== 'undefined' && Music.setVisibilityHidden) Music.setVisibilityHidden(false);
+});
 window.addEventListener('beforeunload', accruePendingFromLastSeen);
 // atualiza o glow do botão ZZZ uma vez por segundo
 setInterval(updateSleepBtnGlow, 1000);
