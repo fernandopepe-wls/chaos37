@@ -4339,16 +4339,16 @@ const ARENA_SLOT_LABELS = {
 // Cada era tem: nome, cor, mult (escala stat primário), substats slots,
 // unlock (nível mínimo de forja pra começar a dropar)
 const ERAS = [
-  { key:'primitive',    idx:0, name:'The Burrow Age',          color:'#888780', mult:1.0,  substats:0, unlock:1  },
-  { key:'medieval',     idx:1, name:'The Meadow Kingdom',      color:'#5F5E5A', mult:1.5,  substats:0, unlock:4  },
-  { key:'earlymodern',  idx:2, name:'The Industrial Hutch',    color:'#BA7517', mult:2.2,  substats:0, unlock:7  },
-  { key:'modern',       idx:3, name:'The Skyhop Era',          color:'#378ADD', mult:3.2,  substats:1, unlock:11 },
-  { key:'space',        idx:4, name:'The Cosmic Carrot Age',   color:'#185FA5', mult:4.6,  substats:1, unlock:15 },
-  { key:'interstellar', idx:5, name:'The Glimmerwarp',         color:'#0C447C', mult:6.5,  substats:1, unlock:19 },
-  { key:'multiverse',   idx:6, name:'The Dreamburrow',         color:'#7F77DD', mult:9.5,  substats:2, unlock:23 },
-  { key:'quantum',      idx:7, name:'The Hollow Realm',        color:'#534AB7', mult:13.5, substats:2, unlock:27 },
-  { key:'underworld',   idx:8, name:'The Emberforge Underdeep',color:'#D85A30', mult:19.0, substats:2, unlock:30 },
-  { key:'divine',       idx:9, name:'The Verdant Eternal',     color:'#1D9E75', mult:27.0, substats:2, unlock:33 },
+  { key:'primitive',    idx:0, name:'Era da Toca',              color:'#888780', mult:1.0,  substats:0, unlock:1  },
+  { key:'medieval',     idx:1, name:'Reino do Prado',           color:'#5F5E5A', mult:1.5,  substats:0, unlock:4  },
+  { key:'earlymodern',  idx:2, name:'Coelheira Industrial',     color:'#BA7517', mult:2.2,  substats:0, unlock:7  },
+  { key:'modern',       idx:3, name:'Era do Salto Celeste',     color:'#378ADD', mult:3.2,  substats:1, unlock:11 },
+  { key:'space',        idx:4, name:'Era da Cenoura Cósmica',   color:'#185FA5', mult:4.6,  substats:1, unlock:15 },
+  { key:'interstellar', idx:5, name:'Distorção Cintilante',     color:'#0C447C', mult:6.5,  substats:1, unlock:19 },
+  { key:'multiverse',   idx:6, name:'Toca dos Sonhos',          color:'#7F77DD', mult:9.5,  substats:2, unlock:23 },
+  { key:'quantum',      idx:7, name:'Reino Oco',                color:'#534AB7', mult:13.5, substats:2, unlock:27 },
+  { key:'underworld',   idx:8, name:'Forja Abissal das Brasas', color:'#D85A30', mult:19.0, substats:2, unlock:30 },
+  { key:'divine',       idx:9, name:'Verdejante Eterno',        color:'#1D9E75', mult:27.0, substats:2, unlock:33 },
 ];
 const ERA_KEYS = ERAS.map(e=>e.key);
 const ERA_BY_KEY = Object.fromEntries(ERAS.map(e=>[e.key, e]));
@@ -7359,7 +7359,7 @@ function enterArenaGameOver(){
     }
   }
   stats.innerHTML = `
-    <div class="row"><span>Stage máximo</span><span style="color:#ffcc3d">${stageLabel(arena.maxStageReached)}</span></div>
+    <div class="row"><span>Fase máxima</span><span style="color:#ffcc3d">${stageLabel(arena.maxStageReached)}</span></div>
     <div class="row"><span>Kills</span><span>${arena.killCount}</span></div>
     <div class="row"><span>Bosses derrotados</span><span>${arena.regions}</span></div>
     <div class="row"><span>⚡ Power final</span><span style="color:#ffcc3d">${arena.power}</span></div>
@@ -8019,8 +8019,8 @@ function drawArenaHUD(){
   ctx.lineWidth = 5;
   ctx.strokeStyle = '#1a0e08';
   ctx.fillStyle   = '#fff7e0';
-  ctx.strokeText(`STAGE ${stageLabel(arena.stage)}`, cxLbl, stageLblY + 38);
-  ctx.fillText  (`STAGE ${stageLabel(arena.stage)}`, cxLbl, stageLblY + 38);
+  ctx.strokeText(`FASE ${stageLabel(arena.stage)}`, cxLbl, stageLblY + 38);
+  ctx.fillText  (`FASE ${stageLabel(arena.stage)}`, cxLbl, stageLblY + 38);
   ctx.textBaseline = 'middle'; // restaura default usado no resto do HUD
 
   // === STAGE WAVE DOTS — ROW 2: 6 círculos com contorno preto chunky.
@@ -8255,7 +8255,7 @@ function drawArenaHUD(){
     ctx.fillText('DERROTADO', W/2, ARENA.TOP_Y+114);
     ctx.font = 'bold 12px Fredoka, system-ui, monospace';
     ctx.fillStyle = '#fff7e0';
-    ctx.fillText(`Stage ${stageLabel(arena.stage)} — Wave 1`, W/2, ARENA.TOP_Y+136);
+    ctx.fillText(`Fase ${stageLabel(arena.stage)} — Onda 1`, W/2, ARENA.TOP_Y+136);
     ctx.textAlign = 'left';
     ctx.globalAlpha = 1;
   }
@@ -11683,8 +11683,8 @@ function buildArenaTabContent(key){
   if(key === 'world'){
     const t = Math.floor((performance.now()-arena.startTime)/1000);
     return `<div class="stats">
-      <div class="row"><span>Stage atual</span><span style="color:#ffcc3d">${stageLabel(arena.stage)} (Wave ${arena.wave}/${WAVES_PER_STAGE})</span></div>
-      <div class="row"><span>Stage máximo atingido</span><span style="color:#4cf08e">${stageLabel(arena.maxStageReached)}</span></div>
+      <div class="row"><span>Fase atual</span><span style="color:#ffcc3d">${stageLabel(arena.stage)} (Onda ${arena.wave}/${WAVES_PER_STAGE})</span></div>
+      <div class="row"><span>Fase máxima atingida</span><span style="color:#4cf08e">${stageLabel(arena.maxStageReached)}</span></div>
       <div class="row"><span>🗺 Bosses derrotados</span><span>${arena.regions}</span></div>
       <div class="row"><span>Total kills</span><span>${arena.killCount}</span></div>
       <div class="row"><span>Tempo na arena</span><span>${t}s</span></div>
