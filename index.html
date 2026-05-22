@@ -1864,12 +1864,36 @@
     background:url('assets/interface/ui-tab-loja.png') no-repeat center/100% 100%, transparent;
   }
 
-  /* tabs bloqueadas — mantém cor original da PNG, só desliga interação */
+  /* Tabs bloqueadas — apaga visual + esconde label + 🔒 grande no meio.
+     Aplica em PVP / HERÓI / EXPLORAR / LOJA (tudo que tem [disabled]). */
   .arenaTab-btn[disabled]{
     cursor:not-allowed;
     pointer-events:none;
+    opacity:0.55;
+    filter:grayscale(0.6) brightness(0.8);
+    position:relative;
+    /* Esconde label (o cadeado ::after assume o "centro" do botão) */
+    color:transparent;
+    text-shadow:none;
   }
-  /* (badge de cadeado 🔒 removido — visual disabled vem só do filter grayscale) */
+  .arenaTab-btn[disabled]::after{
+    content:'🔒';
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:26px;
+    line-height:1;
+    color:#fff7e0;
+    /* Stroke preto 8 direções pra leitura em qualquer background */
+    text-shadow:
+      -1.5px -1.5px 0 #1a0e08, 1.5px -1.5px 0 #1a0e08,
+      -1.5px  1.5px 0 #1a0e08, 1.5px  1.5px 0 #1a0e08,
+      -1.5px  0    0 #1a0e08, 1.5px  0    0 #1a0e08,
+       0    -1.5px 0 #1a0e08, 0     1.5px 0 #1a0e08;
+    pointer-events:none;
+  }
   /* Active state: botão "acende" com glow amarelado interno + boost de brilho.
      Sem drop shadow externo (só o glow inset). */
   .arenaTab-btn.active{
