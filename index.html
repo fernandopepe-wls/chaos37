@@ -2092,42 +2092,50 @@
 
   /* ===== IAP Cosmic Weapon button — float top-right, abaixo do questBtn ===== */
   #iapCosmicBtn{
+    /* Button is just the weapon image now — no background frame. Magenta
+       drop-shadow glow pulses to draw the eye. */
     position:absolute;
     right: var(--iap-cosmic-right, 15px);
     top:   var(--iap-cosmic-top, 178px);
     width:  var(--iap-cosmic-size, 56px);
     height: var(--iap-cosmic-size, 56px);
-    border-radius:12px;
-    border:2px solid #1a0e08;
-    background:linear-gradient(180deg, #a86ed8 0%, #5a3da0 100%);
-    color:#fff7e0;
-    cursor:pointer;
-    box-shadow:0 3px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset, 0 0 12px rgba(168,110,216,0.6);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:2px;
-    z-index:6;
-    transition:transform .08s, box-shadow .08s;
-    animation:iapCosmicPulse 2.2s ease-in-out infinite;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    z-index: 6;
+    transition: transform .08s;
+    /* Glow pulses on the button frame; the inner img sways side-to-side. */
+    animation: iapCosmicPulse 2.2s ease-in-out infinite;
   }
   #iapCosmicBtn.hidden{display:none;}
-  #iapCosmicBtn:active{
-    transform:translateY(1px);
-    box-shadow:0 1px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset, 0 0 8px rgba(168,110,216,0.4);
-  }
+  #iapCosmicBtn:active{ transform: translateY(1px) scale(.95); }
   #iapCosmicBtn .iap-icon{
-    font-size:22px;line-height:1;
-    filter:drop-shadow(0 1px 0 rgba(0,0,0,0.5));
+    width: 100%; height: 100%;
+    object-fit: contain;
+    display: block;
+    pointer-events: none;
+    transform-origin: 50% 100%;
+    animation: iapCosmicSway 2.4s ease-in-out infinite;
   }
-  #iapCosmicBtn .iap-price{
-    font-size:9.5px;font-weight:900;
-    margin-top:2px;letter-spacing:0.3px;
-    text-shadow:
-      -1px -1px 0 #1a0e08, 1px -1px 0 #1a0e08,
-      -1px  1px 0 #1a0e08, 1px  1px 0 #1a0e08;
+  @keyframes iapCosmicSway{
+    0%, 100% { transform: rotate(-5deg); }
+    50%      { transform: rotate( 5deg); }
   }
+  /* Glow pulses on the image silhouette (via filter drop-shadow chain). */
   @keyframes iapCosmicPulse{
-    0%,100%{box-shadow:0 3px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset, 0 0 10px rgba(168,110,216,0.5);}
-    50%    {box-shadow:0 3px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset, 0 0 22px rgba(168,110,216,0.95);}
+    0%, 100% {
+      filter:
+        drop-shadow(0 0 6px  rgba(216,140,255,0.7))
+        drop-shadow(0 0 14px rgba(168,110,216,0.5))
+        drop-shadow(0 2px 0  rgba(0,0,0,0.45));
+    }
+    50% {
+      filter:
+        drop-shadow(0 0 10px rgba(255,200,255,0.95))
+        drop-shadow(0 0 24px rgba(216,140,255,0.85))
+        drop-shadow(0 2px 0  rgba(0,0,0,0.45));
+    }
   }
   .iap-card{max-width:320px;margin:0 auto;}
   /* Preview do item dentro do modal IAP — icon esquerda + stats direita */
@@ -2865,7 +2873,7 @@
     <!-- IAP — Cosmic Weapon (Mundo 5). Esconde após compra (localStorage flag).
          Preço só aparece no modal de confirmação, não no botão. -->
     <button id="iapCosmicBtn" title="Arma Cósmica — Mundo 5">
-      <span class="iap-icon">🌌</span>
+      <img class="iap-icon" src="assets/items/era_05/cosmic_blaster/cosmic_blaster.png" alt="Cosmic Blaster"/>
     </button>
     <!-- Red-dot notification badge — SIBLING do pill (não filho) pra evitar
          clipping/stacking context. Mesmo padrão do #arenaSleepDot.
@@ -3087,7 +3095,7 @@
         </p>
         <!-- Preview do item: icon na esquerda + stats na direita -->
         <div class="iap-preview-row">
-          <div class="iap-preview-icon">🌌</div>
+          <div class="iap-preview-icon"><img src="assets/items/era_05/cosmic_blaster/cosmic_blaster.png" alt="" style="width:100%;height:100%;object-fit:contain;display:block;"/></div>
           <div class="iap-preview-stats">
             <div class="iap-stat-name"     id="iapPreviewName">Cosmic Blaster</div>
             <div class="iap-stat-era"      id="iapPreviewEra">—</div>
@@ -6739,22 +6747,97 @@ function cheatKillBoss(){
 // só renderiza em melee/ranged states). Pivot mismatch = oportunidade
 // pra tunar pivot_px do JSON correspondente.
 let _cheatWeaponIdx = -1;
+// Cheat roster — every weapon the player can wield, including IAP-only ones.
+// Each entry pins an era for testing so era 2/3/5 art shows up immediately
+// without rolling. Cosmic Blaster is synthesized inline (not in pool).
+const _CHEAT_WEAPON_ROSTER = [
+  { eraIdx: 0, defId: 'Galho' }, // initial wood stick (synth below)
+  { eraIdx: 0, defId: 'Burrow Pike' },
+  { eraIdx: 0, defId: 'Smith’s Mallet' },
+  { eraIdx: 0, defId: 'Acorn Slingshot' },
+  { eraIdx: 0, defId: 'Twin Throwing Acorns' },
+  { eraIdx: 0, defId: 'Acorn Scattershot' },
+  { eraIdx: 1, defId: 'Burrow Pike' },              // era 2 variant
+  { eraIdx: 1, defId: 'Smith’s Mallet' },
+  { eraIdx: 1, defId: 'Knight’s Longsword' },       // era 2 (new weapon)
+  { eraIdx: 1, defId: 'Glade Longbow' },            // era 2 (new weapon)
+  { eraIdx: 2, defId: 'Knight’s Longsword' },       // era 3 variant
+  { eraIdx: 2, defId: 'Warden’s Spear' },           // era 3 (new weapon)
+  { eraIdx: 2, defId: 'Acorn Scattershot' },        // era 3 variant
+  { eraIdx: 4, defId: 'Cosmic Blaster' },           // IAP-only era 5
+];
+
+function _showCheatWeaponToast(name, archetype){
+  let el = document.getElementById('cheatWeaponToast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'cheatWeaponToast';
+    el.style.cssText = 'position:fixed;left:50%;top:18%;transform:translateX(-50%);'
+      + 'background:rgba(20,12,40,0.92);color:#fff7e0;padding:8px 16px;border-radius:12px;'
+      + 'font-family:Fredoka,system-ui,sans-serif;font-weight:900;font-size:14px;letter-spacing:0.4px;'
+      + 'border:2px solid #a86bff;box-shadow:0 4px 0 rgba(0,0,0,0.45),0 0 20px rgba(168,107,255,0.7);'
+      + 'pointer-events:none;z-index:5000;opacity:0;transition:opacity .18s,transform .18s;';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `🎮 ${name}<br><span style="font-size:11px;opacity:0.85;font-weight:400">${archetype || '—'}</span>`;
+  el.style.opacity = '1';
+  el.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(-50%) translateY(-8px)';
+  }, 1100);
+}
+
 function cheatCycleWeapon(){
   if(state !== STATE.ARENA_PLAY) return;
-  const weaponPool = ARENA_ITEM_POOL.filter(d => d.slot === 'weapon');
-  if(!weaponPool.length) return;
-  _cheatWeaponIdx = (_cheatWeaponIdx + 1) % weaponPool.length;
-  const def = weaponPool[_cheatWeaponIdx];
-  arena.items.weapon = {
-    ...def,
-    rarity:'common', eraKey:'primitive', eraIdx:0, era: ERAS[0].name, eraColor:'#888780',
-    currentLevel:1, initialLevel:1, maxLevel: MAX_ITEM_LEVEL, level:1,
-    substats:[],
-    value: def.base,
-  };
+  _cheatWeaponIdx = (_cheatWeaponIdx + 1) % _CHEAT_WEAPON_ROSTER.length;
+  const slot = _CHEAT_WEAPON_ROSTER[_cheatWeaponIdx];
+  const era = ERAS[slot.eraIdx] || ERAS[0];
+  let item;
+  if(slot.defId === 'Cosmic Blaster'){
+    // Synth the IAP cosmic blaster inline (matches _grantWeapon shape).
+    item = {
+      slot:'weapon', name:'Cosmic Blaster', icon:'🌌',
+      sprite:'assets/items/era_05/cosmic_blaster/cosmic_blaster.png',
+      handSprite: undefined,
+      archetype:'ranged_cosmic', weaponType:'ranged',
+      stat:'projectiles',
+      value: typeof baseStat === 'function' ? baseStat('weapon', slot.eraIdx, 50) : 5,
+      rarity: era.key, era: era.name, eraKey: era.key, eraIdx: slot.eraIdx, eraColor: era.color,
+      originalEraIdx: slot.eraIdx, tiersUp: 0,
+      currentLevel: 50, initialLevel: 50, maxLevel: MAX_ITEM_LEVEL, level: 50,
+      substats: [], combo:'CHEAT', comboId:'CHEAT', multiplier:1, forgeLevel: 1,
+    };
+  } else if(slot.defId === 'Galho'){
+    item = {
+      slot:'weapon', name:'Galho', stat:'dmg', icon:'🌿',
+      sprite:'assets/items/era1/weapon_wood_stick.png',
+      handSprite:'assets/bunny/weapons/weapon-wood-stick',
+      archetype:'melee_swing', weaponType:'melee',
+      rarity: era.key, eraKey: era.key, eraIdx: slot.eraIdx, era: era.name, eraColor: era.color,
+      currentLevel: 1, initialLevel: 1, maxLevel: MAX_ITEM_LEVEL, level: 1,
+      substats: [],
+      value: typeof baseStat === 'function' ? baseStat('weapon', slot.eraIdx, 1) : 4,
+    };
+  } else {
+    const def = ARENA_ITEM_POOL.find(d => d.slot === 'weapon' && d.name === slot.defId);
+    if(!def) return;
+    item = {
+      ...def,
+      sprite: typeof resolveItemSpriteByEra === 'function' ? resolveItemSpriteByEra(def, slot.eraIdx) : def.sprite,
+      rarity: era.key, eraKey: era.key, eraIdx: slot.eraIdx, era: era.name, eraColor: era.color,
+      originalEraIdx: slot.eraIdx, tiersUp: 0,
+      currentLevel: 1, initialLevel: 1, maxLevel: MAX_ITEM_LEVEL, level: 1,
+      substats: [],
+      value: typeof baseStat === 'function' ? baseStat('weapon', slot.eraIdx, 1) : def.base,
+    };
+  }
+  arena.items.weapon = item;
   if(typeof bunnyApplyEquippedWeapon === 'function') bunnyApplyEquippedWeapon();
-  if(bunny && typeof bunny.trigger === 'function') bunny.trigger(def.weaponType);
-  console.log(`[cheat] weapon → ${def.name} (${def.archetype}) handSprite=${def.handSprite}`);
+  if(bunny && typeof bunny.trigger === 'function') bunny.trigger(item.weaponType);
+  _showCheatWeaponToast(`${item.name} · ${era.name}`, item.archetype);
+  console.log(`[cheat] weapon → ${item.name} (${item.archetype}) era=${era.name} handSprite=${item.handSprite}`);
 }
 
 function tickArenaWave(){
@@ -7157,7 +7240,8 @@ function updateArenaEffects(){
     }
     else if(ef.kind === 'rangedProj'){
       ef.x += ef.vx; ef.y += ef.vy;
-      // colisão: para no primeiro inimigo, gasta o projétil
+      // colisão. Default: para no primeiro inimigo. Cosmic: pierces — keep
+      // going, damage each enemy in path once.
       for(let j=arena.enemies.length-1;j>=0;j--){
         const e = arena.enemies[j];
         if(ef.hit.has(e)) continue;
@@ -7169,11 +7253,15 @@ function updateArenaEffects(){
           e.hp -= dmg;
           e.hurtTimer = 6;
           ef.hit.add(e);
-          spawnArenaParticle(e.x, e.y, isCrit ? '#ff5fa2' : '#ff7a1a', 6);
+          spawnArenaParticle(e.x, e.y, ef.cosmic ? '#d75fff' : (isCrit ? '#ff5fa2' : '#ff7a1a'), 6);
           spawnArenaDamage(e.x, e.y, dmg, isCrit);
-          ef.frame = ef.lifeFrames; // marca pra remover
+          if(!ef.cosmic){
+            ef.frame = ef.lifeFrames; // non-cosmic consumed on first hit
+            if(e.hp <= 0) killArenaEnemy(j, e);
+            break;
+          }
           if(e.hp <= 0) killArenaEnemy(j, e);
-          break;
+          // cosmic keeps flying — no break, continues damaging line
         }
       }
       // remove se sair da arena
@@ -7181,6 +7269,10 @@ function updateArenaEffects(){
          ef.y < ARENA.TOP_Y-20 || ef.y > ARENA.BOT_Y+20){
         ef.frame = ef.lifeFrames;
       }
+    }
+    else if(ef.kind === 'cosmicBeam'){
+      // Pure VFX — no damage logic here (projectiles in parallel handle hits).
+      // Just tick frame so it gets cleaned up at lifeFrames.
     }
     else if(ef.kind === 'orbiter'){
       ef.angle += 0.15;
@@ -7418,6 +7510,9 @@ function arenaRangedShot(target){
   const projCount = Math.max(1, Math.round(arenaTotalStat('projectiles')));
   const dmg = arenaTotalStat('dmg');
   const crit = arenaTotalStat('crit');
+  // Cosmic blaster — projectile is invisible + pierces (doesn't stop on first hit).
+  const _wpn = arena.items && arena.items.weapon;
+  const isCosmic = _wpn && (_wpn.archetype === 'ranged_cosmic' || _wpn.name === 'Cosmic Blaster');
   for(let i=0;i<projCount;i++){
     const spread = (i - (projCount-1)/2) * 0.18;
     const a = angle + spread;
@@ -7430,6 +7525,7 @@ function arenaRangedShot(target){
       dmg, crit,
       frame:0, lifeFrames: 45,
       hit: new Set(),
+      cosmic: !!isCosmic,  // invisible + pierces all enemies along path
     });
   }
   // muzzle flash leve
@@ -7441,6 +7537,78 @@ function arenaRangedShot(target){
       vy: Math.sin(angle)*(2+Math.random()),
       life: 8, color:'#ffcc3d',
     });
+  }
+
+  // === COSMIC BLASTER beam VFX ===
+  // Beam + origin/target sparkles + expanding charge ring for a juicy fire.
+  const w = arena.items && arena.items.weapon;
+  if(w && (w.archetype === 'ranged_cosmic' || w.name === 'Cosmic Blaster')){
+    // Extend beam past target out to the canvas edge — find intersection of
+    // the ray (arena.bx, arena.by) + t·(cos,sin) with the canvas bounds.
+    const cw = (typeof W === 'number' ? W : (canvas ? canvas.width  : 1024));
+    const ch = (typeof H === 'number' ? H : (canvas ? canvas.height : 1024));
+    const dirX = Math.cos(angle), dirY = Math.sin(angle);
+    const tMax = (() => {
+      const cand = [];
+      if(dirX > 0) cand.push((cw - arena.bx) / dirX);
+      else if(dirX < 0) cand.push((0 - arena.bx) / dirX);
+      if(dirY > 0) cand.push((ch - arena.by) / dirY);
+      else if(dirY < 0) cand.push((0 - arena.by) / dirY);
+      return cand.length ? Math.min(...cand.filter(t => t > 0)) : 1000;
+    })();
+    arena.effects.push({
+      kind: 'cosmicBeam',
+      x: arena.bx, y: arena.by,
+      tx: arena.bx + dirX * tMax,
+      ty: arena.by + dirY * tMax,
+      angle: angle,
+      frame: 0, lifeFrames: 22,
+    });
+    // Charge ring — expanding bright ring at origin, sells the "FIRE" moment.
+    arena.effects.push({
+      kind: 'cosmicCharge',
+      x: arena.bx, y: arena.by,
+      r0: 4, r1: 26,
+      frame: 0, lifeFrames: 10,
+    });
+    // Origin star burst — beefier, mixed magenta/white sparkle.
+    for(let i=0; i<20; i++){
+      const a = (i / 20) * Math.PI * 2 + Math.random()*0.2;
+      const sp = 2 + Math.random()*3.5;
+      arena.particles.push({
+        x: arena.bx + Math.cos(a) * 5,
+        y: arena.by + Math.sin(a) * 5,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: 12 + ((Math.random()*8)|0),
+        color: i%3===0 ? '#fff0ff' : (i%3===1 ? '#d75fff' : '#a86bff'),
+      });
+    }
+    // Forward-biased streaks shooting along beam path (sells the surge).
+    const cosA = Math.cos(angle), sinA = Math.sin(angle);
+    for(let i=0; i<8; i++){
+      const dist = 4 + i*5;
+      arena.particles.push({
+        x: arena.bx + cosA * dist,
+        y: arena.by + sinA * dist,
+        vx: cosA * (4 + Math.random()*2),
+        vy: sinA * (4 + Math.random()*2),
+        life: 8 + ((Math.random()*4)|0),
+        color: i<4 ? '#fff0ff' : '#d75fff',
+      });
+    }
+    // Target impact sparkles.
+    for(let i=0; i<12; i++){
+      const a = (i / 12) * Math.PI * 2;
+      arena.particles.push({
+        x: target.x + Math.cos(a) * 4,
+        y: target.y + Math.sin(a) * 4,
+        vx: Math.cos(a) * (3 + Math.random()*2),
+        vy: Math.sin(a) * (3 + Math.random()*2),
+        life: 16 + ((Math.random()*6)|0),
+        color: i%2===0 ? '#d75fff' : '#fff0ff',
+      });
+    }
   }
 }
 
@@ -9555,21 +9723,31 @@ function renderArena(){
       ctx.restore();
     }
     else if(ef.kind === 'rangedProj'){
-      // Acorn-bullet PNG, rotated to travel direction. Fallback to procedural
-      // if image not ready (first frame after load).
-      ctx.save();
-      ctx.translate(ef.x, ef.y);
-      ctx.rotate(ef.angle);
-      if(ACORN_BULLET_IMG.complete && ACORN_BULLET_IMG.naturalWidth){
-        const s = ACORN_BULLET_DRAW_SIZE;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(ACORN_BULLET_IMG, -s/2, -s/2, s, s);
-      } else {
-        ctx.fillStyle = '#ff7a1a';
-        ctx.fillRect(-6, -3, 12, 6);
+      // Cosmic projectile is invisible — only the beam VFX is visible.
+      if(ef.cosmic){ /* skip draw */ }
+      else {
+        ctx.save();
+        ctx.translate(ef.x, ef.y);
+        ctx.rotate(ef.angle);
+        if(ACORN_BULLET_IMG.complete && ACORN_BULLET_IMG.naturalWidth){
+          const s = ACORN_BULLET_DRAW_SIZE;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(ACORN_BULLET_IMG, -s/2, -s/2, s, s);
+        } else {
+          ctx.fillStyle = '#ff7a1a';
+          ctx.fillRect(-6, -3, 12, 6);
+        }
+        ctx.restore();
       }
-      ctx.restore();
+    }
+    else if(ef.kind === 'cosmicBeam'){
+      // Drawn in a separate top-of-everything pass at the end of renderArena
+      // (see drawCosmicBeams). Skip here so it can't be obscured by enemies,
+      // bunny, swings, or any other arena element.
+    }
+    else if(ef.kind === 'cosmicCharge'){
+      // Charge ring drawn in same top pass — skip here.
     }
     else if(ef.kind === 'orbiter'){
       const a = ef.frame > ef.lifeFrames-30 ? (ef.lifeFrames-ef.frame)/30 : 1;
@@ -9695,9 +9873,67 @@ function renderArena(){
 
   drawArenaHUD();
 
+  // === COSMIC BEAM — drawn last so it sits ON TOP of every game element ===
+  // Solid colors (no translucency), bright stacked layers, juicier charge.
+  drawCosmicBeams();
+
   // === DEBUG OVERLAY — última camada (em cima de tudo) ===
   _tickFps();
   drawDebugOverlay();
+}
+
+// Cosmic beam top-of-everything pass. Iterates arena.effects, draws only
+// cosmicBeam + cosmicCharge with full opacity. Three layers per beam: outer
+// magenta halo, mid violet body, hot white-pink core.
+function drawCosmicBeams(){
+  for(const ef of arena.effects){
+    if(ef.kind === 'cosmicCharge'){
+      // Expanding magenta ring at origin during charge phase — sells the "fire".
+      const t = ef.frame / ef.lifeFrames;
+      const r = ef.r0 + (ef.r1 - ef.r0) * t;
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#fff0ff';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(ef.x, ef.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = '#d75fff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(ef.x, ef.y, r + 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      continue;
+    }
+    if(ef.kind !== 'cosmicBeam') continue;
+    // Phases — charge / climax / dissipation.
+    const t = ef.frame / ef.lifeFrames;
+    let widthMult;
+    if(t < 0.15)      widthMult = t / 0.15;          // fast charge
+    else if(t < 0.75) widthMult = 1;                  // full beam
+    else              widthMult = 1 - ((t - 0.75) / 0.25) * 0.6; // shrink in dissipation
+    const dx = ef.tx - ef.x, dy = ef.ty - ef.y;
+    const len = Math.hypot(dx, dy);
+    if(len <= 1) continue;
+    ctx.save();
+    ctx.translate(ef.x, ef.y);
+    ctx.rotate(ef.angle);
+    ctx.globalAlpha = 1; // solid — no translucency
+    // Outer violet halo.
+    ctx.fillStyle = '#5a2da0';
+    ctx.fillRect(0, -12 * widthMult, len, 24 * widthMult);
+    // Mid magenta body.
+    ctx.fillStyle = '#a86bff';
+    ctx.fillRect(0, -8 * widthMult, len, 16 * widthMult);
+    // Bright magenta layer.
+    ctx.fillStyle = '#d75fff';
+    ctx.fillRect(0, -5 * widthMult, len, 10 * widthMult);
+    // Hot white core — fully opaque, brightest.
+    ctx.fillStyle = '#fff0ff';
+    ctx.fillRect(0, -2.5 * widthMult, len, 5 * widthMult);
+    ctx.restore();
+  }
 }
 
 // ============== FORGE — UPGRADE (design-forge-upgrade.md) ==============
@@ -10398,9 +10634,9 @@ const CosmicIAP = (function(){
       slot: 'weapon',
       name: 'Cosmic Blaster',
       icon: '🌌',
-      sprite: 'assets/items/era1/weapon-acorn-scattershot.png', // placeholder até ter sprite era4
+      sprite: 'assets/items/era_05/cosmic_blaster/cosmic_blaster.png',
       handSprite: undefined,
-      archetype: 'ranged_triple', // 3+ projéteis (matches scattershot template)
+      archetype: 'ranged_cosmic', // cosmic beam variant (uses arenaRangedShot + beam VFX)
       weaponType: 'ranged',
       stat: 'projectiles',
       value: typeof baseStat === 'function' ? baseStat('weapon', eraIdx, initialLevel) : 5,
