@@ -4453,7 +4453,10 @@ const SUBSTAT_LEVEL_FLOOR = 0.4; // Lv.1 mostra 40% do roll
 const SUBSTAT_LEVEL_RANGE = 0.6; // ganha +60% até Lv.100
 
 // Upgrade cost (§5.2) — cenouras gastas pra subir item de level
-const BASE_ESSENCE        = 10;
+// BASE_ESSENCE = 100 (era 10, multiplicado por 10× pra encarecer upgrades).
+// Tudo escala linear: era1 Lv1 = 100, era1 Lv50 = ~1230, era10 Lv99 = ~100k.
+// Batch 10× (totalUpgradeCost) escala junto automaticamente.
+const BASE_ESSENCE        = 100;
 const ESSENCE_ERA_MULT    = 1.6;
 const COST_LEVEL_FACTOR   = 9;
 
