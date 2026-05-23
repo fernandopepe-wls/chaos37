@@ -9404,7 +9404,10 @@ function drawArenaBunny(){
         idle:   { scaleMult: 0.98, srcFoot: 0.91, frame: 256 },
         walk:   { scaleMult: 1.00, srcFoot: 0.91, frame: 320 },
         melee:  { scaleMult: 0.98, srcFoot: 0.91, frame: 256 },
-        ranged: { scaleMult: 0.72, srcFoot: 0.90, frame: 256 },
+        // ranged agora usa o mesmo bunny_attack_spritesheet.png do melee
+        // (8 frames, bunny ocupa mesma área do frame). Antes era 0.72/0.90
+        // pra compensar o sheet antigo (bunny_ranged.png recuado/aim pose).
+        ranged: { scaleMult: 0.98, srcFoot: 0.91, frame: 256 },
         death:  { scaleMult: 0.85, srcFoot: 0.90, frame: 256 },
       };
       const t = TUNE[bunny.currentState] || { scaleMult: 1, srcFoot: 0.85, frame: 256 };
