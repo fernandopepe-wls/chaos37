@@ -31,6 +31,11 @@ stages:
 # Not run unless a job extends it.
 .default_vars:
   variables: &default_vars
+    # Full git history — scripts/bump-build.js derives versionCode from
+    # `git rev-list --count HEAD`. GitLab Runner's default GIT_DEPTH=20 was
+    # capping the count at 20 forever, producing identical 0.1.0.20 (20)
+    # builds on every pipeline. GIT_DEPTH=0 disables shallow clone.
+    GIT_DEPTH: "0"
     CAPACITOR_APP_ROOT: "."
     CAPACITOR_PACKAGE_MANAGER: "npm"
     CAPACITOR_WEB_BUILD_SCRIPT: "build"

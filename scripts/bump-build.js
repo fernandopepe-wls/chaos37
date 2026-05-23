@@ -32,6 +32,21 @@ function git(args, fallback) {
 const pkg = JSON.parse(readFileSync(resolve('package.json'), 'utf-8'));
 const version = pkg.version || '0.0.0';
 
+// Defensive unshallow: GitLab Runner defaults to GIT_DEPTH=20, which caps
+// `git rev-list --count HEAD` at 20 — every CI build then stamps versionCode
+// 20 and Firebase Distribution silently dedupes them as "the same release."
+// We set GIT_DEPTH=0 in ci/build.yml, but if the shared SRE template ever
+// overrides it at the job level, this catch-all unshallows before counting.
+const isShallow = git('rev-parse --is-shallow-repository', 'false') === 'true';
+if (isShallow) {
+  console.log('bump-build → shallow clone detected, unshallowing for accurate commit count');
+  try {
+    execSync('git fetch --unshallow', { stdio: 'inherit' });
+  } catch (e) {
+    console.warn(`bump-build → unshallow failed: ${e.message}. versionCode may be capped.`);
+  }
+}
+
 // git rev-list --count HEAD = total commit count from initial commit to HEAD.
 // Monotonic; collision-free across the lifetime of a branch's history.
 const commitCount = parseInt(git('rev-list --count HEAD', '0'), 10) || 0;
