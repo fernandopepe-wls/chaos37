@@ -3930,10 +3930,28 @@ const Music = (function(){
           // parou (gameplay tracks são loops curtos, então é aceitável).
           try { a.currentTime = 0; } catch(_){}
           a.volume = _liveTarget(a);
-          try { a.play().catch(() => {}); } catch(_){}
+          // play() pode rejeitar silencioso no iOS se o AVAudioSession ainda
+          // não acordou. Antes só engulia o erro — música ficava muda até o
+          // próximo evento qualquer. Agora: registra retry-once em pointerdown
+          // pra reanimar no primeiro touch do player depois do resume.
+          _playAudioWithRetry(a);
         }
       }
     }
+  }
+  function _playAudioWithRetry(a){
+    try {
+      a.play().catch(() => {
+        // Failed → schedule retry on next user gesture (iOS gesture-gate fallback)
+        const onTap = () => {
+          document.removeEventListener('pointerdown', onTap);
+          document.removeEventListener('touchstart', onTap);
+          try { a.play().catch(() => {}); } catch(_){}
+        };
+        document.addEventListener('pointerdown', onTap, { once:true });
+        document.addEventListener('touchstart', onTap, { once:true, passive:true });
+      });
+    } catch(_){}
   }
 
   // ===== Boss music crossfade =====
@@ -14036,12 +14054,22 @@ enterArena();
   // Os 3 blocos rodam em IIFE async cada — Vite build target default (chrome87,
   // safari14) não suporta top-level await; encapsular dentro de async fn é compat.
   (async () => {
-    // === 1. CapacitorUpdater.notifyAppReady() ===
-    // O plugin @capgo/capacitor-updater (carregado mesmo com OTA desligado)
-    // exige notifyAppReady() em até `appReadyTimeout` (30s) — senão ele assume
-    // crash + tenta reverter pra bundle anterior (no-op aqui, mas gera warnings).
+    // === 1. CapacitorUpdater: reset + notifyAppReady ===
+    // O plugin @capgo/capacitor-updater é NATIVO — roda antes do JS começar.
+    // Mesmo com `autoUpdate: false`, ele mantém uma lista de bundles baixados
+    // em sessões anteriores e pode escolher servir um deles em vez do BUILTIN
+    // (o bundle que veio dentro do IPA/APK).
+    //
+    // Sintoma sem o reset: "cada launch abre uma versão diferente do app"
+    // (HUD diferente, música tocando ou não, etc) — porque o plugin alterna
+    // entre bundle BUILTIN e bundles que sobraram de testes anteriores via
+    // Firebase Distribution.
+    //
+    // reset() apaga bundles baixados e força usar o BUILTIN. notifyAppReady()
+    // logo depois confirma que está OK (sem o ack em 30s, o plugin reverte).
     try {
       const { CapacitorUpdater } = await import('@capgo/capacitor-updater');
+      try { await CapacitorUpdater.reset({ toLastSuccessful: false }); } catch(_){}
       CapacitorUpdater.notifyAppReady().catch(() => {});
     } catch(_){ /* plugin não disponível em browser dev */ }
   })();
@@ -14071,6 +14099,13 @@ enterArena();
       App.addListener('appStateChange', ({ isActive }) => {
         if(typeof Music !== 'undefined' && Music.setVisibilityHidden){
           Music.setVisibilityHidden(!isActive);
+        }
+        // Recompute layout no resume: iOS pode ter mudado safe-area (rotação
+        // mudou em outro app, multitasking), e o computed style de --safe-top
+        // pode ter drift. Sem isso, o HUD às vezes volta com pills atrás do
+        // notch ou ARENA.BOT_Y errado. Roda uma vez no foreground.
+        if(isActive && typeof fitCanvas === 'function'){
+          requestAnimationFrame(fitCanvas);
         }
         // Telemetria de sessão — app_paused é o melhor proxy de "session end"
         // em mobile (iOS/Android não disparam unload confiável). bg_duration no
