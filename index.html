@@ -2381,6 +2381,51 @@
   /* Variante grande pra usos em headings/desc */
   .gem-icon-lg{width:18px;height:20px;vertical-align:-4px;}
 
+  /* Stats / power popup — clicado pelo sword pill no HUD canvas */
+  .stats-card{max-width:340px;margin:0 auto;}
+  .stats-card #statsPowerBig{
+    font-size:42px;line-height:1;
+    color:#ffcc3d;
+    text-shadow:0 3px 0 #6b1454, 0 0 12px rgba(255,204,61,0.5);
+    margin:8px 0 4px 0;
+    text-align:center;
+    letter-spacing:1px;
+  }
+  .stats-breakdown{
+    background:#fff7e0;
+    border:2px solid #b07a3a;
+    border-radius:10px;
+    padding:6px 12px;
+    margin:8px 0;
+    color:#3a230b;
+    font-size:13px;
+  }
+  .stats-breakdown .stb-row{
+    display:flex;align-items:center;
+    padding:5px 0;
+    border-bottom:1px dashed rgba(176,122,58,0.25);
+  }
+  .stats-breakdown .stb-row:last-child{border-bottom:none;}
+  .stats-breakdown .stb-label{flex:1;font-weight:bold;text-align:left;}
+  .stats-breakdown .stb-val{
+    color:#5a4499;
+    font-variant-numeric:tabular-nums;
+    margin:0 10px;
+    min-width:54px;text-align:right;
+  }
+  .stats-breakdown .stb-power{
+    color:#b06b00;font-weight:bold;
+    font-variant-numeric:tabular-nums;
+    min-width:46px;text-align:right;
+  }
+  .stats-breakdown .stb-total{
+    margin-top:4px;padding-top:8px;
+    border-top:2px solid #b07a3a;
+    border-bottom:none;
+  }
+  .stats-breakdown .stb-total .stb-label{font-size:14px;color:#3a230b;}
+  .stats-breakdown .stb-total .stb-power{color:#3a230b;font-size:16px;}
+
   /* Quest popup card — lista de missões com progress + RESGATAR */
   .quest-card{max-width:320px;margin:0 auto;}
   .quest-row{
@@ -3198,6 +3243,21 @@
 
         <div class="forge-popup-actions">
           <button class="forge-popup-btn red" id="settingsCloseBtn">Voltar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- stats / power breakdown popup — abre ao clicar na espadinha (sword pill HUD).
+         Mostra cada stat agregada com o peso usado em arenaPower() e a
+         contribuição final, justificando o número do poder total. -->
+    <div class="layer" id="statsLayer">
+      <div class="forge-popup-card stats-card">
+        <div class="forge-popup-tag">⚔ Poder</div>
+        <h2 class="forge-level-title" id="statsPowerBig">0</h2>
+        <p class="forge-level-desc">Soma das suas stats × peso de cada uma. Equipe e melhore items pra crescer.</p>
+        <div class="stats-breakdown" id="statsBreakdown"></div>
+        <div class="forge-popup-actions">
+          <button class="forge-popup-btn red" id="statsCloseBtn">Voltar</button>
         </div>
       </div>
     </div>
@@ -11974,6 +12034,81 @@ if(document.readyState === 'loading'){
   Settings.init();
 }
 
+// ============== STATS / POWER POPUP ==============
+// Clicar na espadinha (sword pill no HUD) abre essa popup com o breakdown
+// completo do power. Cada linha mostra: stat name | valor atual | contribuição
+// pro poder (= valor × peso definido em arenaPower()). Justifica o número
+// que aparece na pill e ajuda o player a entender qual stat tá mais forte.
+//
+// SFX: main_tap no abrir (disparado pelo canvas-click handler, não pelo
+// uiSfxDelegate — pill é canvas-drawn). Back no fechar (delegate trata via
+// id 'statsCloseBtn' na lista BACK/CLOSE).
+const StatsPopup = (function(){
+  function _el(id){ return document.getElementById(id); }
+  // Ordem = ordem de impacto típica no power total. Pesos batem 1:1 com
+  // arenaPower(). Se mudar lá, sincronizar aqui — senão o número total dos
+  // rows não bate com o big number no topo.
+  const STAT_ROWS = [
+    { name:'dmg',         label:'⚔ Dano',          weight:10,  fmt:v => v.toFixed(1) },
+    { name:'maxHp',       label:'❤ HP',            weight:1,   fmt:v => Math.round(v).toString() },
+    { name:'atkSpeed',    label:'⚡ Vel. Ataque',   weight:60,  fmt:v => '+'+Math.round(v*100)+'%' },
+    { name:'moveSpeed',   label:'👟 Vel. Movim.',  weight:50,  fmt:v => '+'+Math.round(v*100)+'%' },
+    { name:'crit',        label:'💥 Crit',          weight:220, fmt:v => Math.round(v*100)+'%' },
+    { name:'dodge',       label:'🌀 Esquiva',       weight:200, fmt:v => Math.round(v*100)+'%' },
+    { name:'projectiles', label:'🗡 Lâmina',        weight:80,  fmt:v => '+'+Math.round(v) },
+    { name:'pickupRange', label:'🧲 Raio Coleta',   weight:0.5, fmt:v => Math.round(v)+'px' },
+  ];
+  function _render(){
+    let html = '';
+    for(const row of STAT_ROWS){
+      const v = arenaTotalStat(row.name);
+      const contrib = Math.round(v * row.weight);
+      html += `<div class="stb-row">`
+            + `<span class="stb-label">${row.label}</span>`
+            + `<span class="stb-val">${row.fmt(v)}</span>`
+            + `<span class="stb-power">+${contrib}</span>`
+            + `</div>`;
+    }
+    // Total — apenas exibido. arenaPower() pode divergir 1-2 do somatório
+    // dos rows por causa do round() vs raw soma (cada row arredonda antes
+    // de somar; arenaPower arredonda a soma). Mostramos o oficial.
+    const total = arenaPower();
+    html += `<div class="stb-row stb-total">`
+          + `<span class="stb-label">⚔ TOTAL</span>`
+          + `<span class="stb-val"></span>`
+          + `<span class="stb-power">${total}</span>`
+          + `</div>`;
+    const bd = _el('statsBreakdown');
+    if(bd) bd.innerHTML = html;
+    const big = _el('statsPowerBig');
+    if(big) big.textContent = total.toString();
+  }
+  function open(){
+    const l = _el('statsLayer');
+    if(!l) return;
+    _render();
+    l.classList.add('show');
+  }
+  function close(){
+    const l = _el('statsLayer');
+    if(l) l.classList.remove('show');
+  }
+  function isOpen(){
+    const l = _el('statsLayer');
+    return !!(l && l.classList.contains('show'));
+  }
+  function init(){
+    const closeBtn = _el('statsCloseBtn');
+    if(closeBtn) closeBtn.addEventListener('click', close);
+  }
+  return { open, close, isOpen, init };
+})();
+if(document.readyState === 'loading'){
+  window.addEventListener('DOMContentLoaded', StatsPopup.init);
+} else {
+  StatsPopup.init();
+}
+
 // ============== CONSENT (LGPD/GDPR) + iOS ATT ==============
 // Modal interno de consent REMOVIDO: o prompt ATT nativo do iOS já é disparado
 // automaticamente pelo Wildlife SDK / Singular durante Platform().initialize(),
@@ -14332,7 +14467,8 @@ function hideItemPopup(){
     // Verificado ANTES do main_tap pra não cair no catch-all.
     if(id === 'settingsCloseBtn'  || id === 'questCloseBtn'
        || id === 'offlineCloseBtn'   || id === 'forgeLevelCloseBtn'
-       || id === 'autoForgeCloseBtn' || id === 'iapCosmicCancelBtn'){
+       || id === 'autoForgeCloseBtn' || id === 'iapCosmicCancelBtn'
+       || id === 'statsCloseBtn'){
       return 'sfx_ui_back';
     }
     // AUTO forge antes do unlock (Lv 3) — abre o popup que mostra a ladder bloqueada.
@@ -14423,6 +14559,22 @@ function hideItemPopup(){
     const cssY = e.clientY - rect.top;
     const lx = cssX / rect.width  * W;
     const ly = cssY / rect.height * H;
+
+    // ===== Sword/Power pill (HUD canvas) =====
+    // Pill é canvas-drawn, então o uiSfxDelegate não pega — testamos
+    // manualmente aqui. Abre o StatsPopup com o breakdown do poder e
+    // toca sfx_ui_main_tap (sfx_ui_back fica por conta do close button
+    // via uiSfxDelegate). Hit-test idêntico aos params usados em
+    // drawArenaHUD (LAYOUT.swordPillX/Y/W/H + SAFE.topLogical).
+    if(typeof LAYOUT !== 'undefined' && LAYOUT.swordPillX != null){
+      const swPX = LAYOUT.swordPillX, swPY = LAYOUT.swordPillY + SAFE.topLogical;
+      const swPW = LAYOUT.swordPillW, swPH = LAYOUT.swordPillH;
+      if(lx >= swPX && lx <= swPX + swPW && ly >= swPY && ly <= swPY + swPH){
+        if(typeof playSfx === 'function') playSfx('sfx_ui_main_tap');
+        if(typeof StatsPopup !== 'undefined') StatsPopup.open();
+        return;
+      }
+    }
 
     // grid 2×5 — sync com drawArenaHUD via LAYOUT
     const slotW = LAYOUT.itemSlotW, slotH = LAYOUT.itemSlotH;
