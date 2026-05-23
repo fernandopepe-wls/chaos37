@@ -9,8 +9,9 @@
 //      is smaller (palette can lose vs truecolor on photographic content)
 //   4. Only overwrite if new file is smaller than original
 //
-// Originals backed up to public/.png-bak/ (gitignored) — `git checkout`
-// also recovers them via the previous commit.
+// Originals backed up to .png-bak/ at project root (gitignored, OUTSIDE
+// public/ so Vite doesn't bundle them into dist/). `git checkout HEAD~N`
+// also recovers them via the pre-optimization commit.
 //
 // Concurrency: 4 workers (most modern CPUs benefit; sharp itself uses
 // libvips with internal threading too).
@@ -24,7 +25,7 @@ import { readdir } from 'fs/promises';
 import sharp from 'sharp';
 
 const SRC_DIR = resolve('public/assets');
-const BAK_DIR = resolve('public/.png-bak');
+const BAK_DIR = resolve('.png-bak');  // raiz do projeto — FORA de public/
 const MIN_SIZE = 50 * 1024;      // 50 KB — skip tiny files
 const CONCURRENCY = 4;
 
@@ -136,7 +137,7 @@ async function main() {
   console.log(`After:     ${fmtMB(totalAfter)}`);
   console.log(`Saved:     ${fmtMB(saved)} (-${((saved / totalBefore) * 100).toFixed(1)}%)`);
   console.log(`\nOriginals backed up to: ${BAK_DIR}`);
-  console.log(`Revert one file:   cp public/.png-bak/<path>.png public/assets/<path>.png`);
+  console.log(`Revert one file:   cp .png-bak/<path>.png public/assets/<path>.png`);
   console.log(`Revert all:        git checkout HEAD -- public/assets`);
 }
 

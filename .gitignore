@@ -7,7 +7,9 @@ releases
 scripts/.build-info.json
 
 # PNG optimization backups (script: scripts/optimize-pngs.js)
-public/.png-bak/
+# IMPORTANTE: fora de public/ — Vite copia tudo de public/ (inclusive dot-folders)
+# pro dist/, então um .png-bak/ dentro de public/ bloatava o build em 255 MB.
+.png-bak/
 
 # Environment (secrets) — .env.example is tracked
 .env
