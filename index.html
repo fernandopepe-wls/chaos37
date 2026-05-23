@@ -11555,10 +11555,11 @@ function autoForgeSmartThreshold(){
 //
 // Modos sugeridos (design-forge-upgrade §9):
 //   EXPRESS   (testes/QA):     COST = 0.1,  TIME = 0.1   → ~25 min, ~200k
-//   HACKATHON (atual):         COST = 1.0,  TIME = 0.5   → ~2h, ~2M  ← rampa razoável
+//   HACKATHON (atual):         COST = 20.0, TIME = 0.5   → bem caro, rampa rápida
 //   STANDARD  (mid-term):      COST = 1.0,  TIME = 1.0   → ~4h, ~2M
 //   LONG_BURN (pré-launch):    COST = 5.0,  TIME = 10.0  → ~40h, ~10M
-const FORGE_COST_MULT = 1.0;
+// Subido de 1.0 → 20.0 a pedido — força player a sentir o peso do upgrade.
+const FORGE_COST_MULT = 20.0;
 const FORGE_TIME_MULT = 0.5;
 
 function getForgeUpgradeInfo(level){
@@ -11804,10 +11805,13 @@ function refreshForgeLevelPopup(){
     return;
   }
   if(isForgeUpgradeReady()){
-    // timer terminou — botão vira "Coletar" (aplica o upgrade)
-    upBtn.disabled = false;
-    upBtn.textContent = '⚡ Coletar upgrade';
-    return;
+    // Timer terminou — APLICA automaticamente o upgrade sem precisar do
+    // player clicar "Coletar". UX mais fluido + remove botão estranho
+    // (o ⚡ renderizava esquisito em algumas fontes do iOS).
+    // Após apply, o estado vira "pode iniciar próximo level" → cai no
+    // branch canStartForgeUpgrade abaixo no próximo refresh.
+    applyForgeUpgradeIfReady();
+    // fall-through: re-render baseado no novo estado pós-upgrade
   }
   if(inProg){
     upBtn.disabled = true;
