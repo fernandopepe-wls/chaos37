@@ -14059,22 +14059,19 @@ enterArena();
   // Os 3 blocos rodam em IIFE async cada — Vite build target default (chrome87,
   // safari14) não suporta top-level await; encapsular dentro de async fn é compat.
   (async () => {
-    // === 1. CapacitorUpdater: reset + notifyAppReady ===
-    // O plugin @capgo/capacitor-updater é NATIVO — roda antes do JS começar.
-    // Mesmo com `autoUpdate: false`, ele mantém uma lista de bundles baixados
-    // em sessões anteriores e pode escolher servir um deles em vez do BUILTIN
-    // (o bundle que veio dentro do IPA/APK).
+    // === 1. CapacitorUpdater.notifyAppReady() ===
+    // O plugin @capgo/capacitor-updater (carregado mesmo com OTA desligado)
+    // exige notifyAppReady() em até `appReadyTimeout` (30s) — senão ele assume
+    // crash + tenta reverter pra bundle anterior (no-op aqui, mas gera warnings).
     //
-    // Sintoma sem o reset: "cada launch abre uma versão diferente do app"
-    // (HUD diferente, música tocando ou não, etc) — porque o plugin alterna
-    // entre bundle BUILTIN e bundles que sobraram de testes anteriores via
-    // Firebase Distribution.
-    //
-    // reset() apaga bundles baixados e força usar o BUILTIN. notifyAppReady()
-    // logo depois confirma que está OK (sem o ack em 30s, o plugin reverte).
+    // REMOVIDO: a chamada `CapacitorUpdater.reset({ toLastSuccessful: false })`
+    // que tinha entrado pra resolver o sintoma "abre versão diferente cada vez".
+    // Em iOS, reset() forçava re-init do WebView → boot reiniciava → reset() de
+    // novo → loop infinito de tela preta piscando. Quebrou 100% no iPhone.
+    // Sintoma original (versões diferentes) provavelmente era race/visual, não
+    // bundle juggling — voltar a investigar via debug overlay se reaparecer.
     try {
       const { CapacitorUpdater } = await import('@capgo/capacitor-updater');
-      try { await CapacitorUpdater.reset({ toLastSuccessful: false }); } catch(_){}
       CapacitorUpdater.notifyAppReady().catch(() => {});
     } catch(_){ /* plugin não disponível em browser dev */ }
   })();
