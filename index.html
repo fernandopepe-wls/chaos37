@@ -2601,7 +2601,10 @@
   }
   /* (regra duplicada de :active removida — já coberta no bloco unificado acima) */
 
-  /* Offline rewards popup */
+  /* Offline rewards popup — refatorado pra usar o visual cream-paper
+     dos demais popups (.forge-popup-card). Mantém os IDs internos que
+     o JS já mexe (rateCarrotRing/Lettuce, offlineTime/Carrots/Lettuce,
+     offlineCollectBtn, offlineCloseBtn). */
   #offlinePopup{
     position:absolute;
     inset:0;
@@ -2612,45 +2615,29 @@
     z-index:30;
     padding:14px;
     box-sizing:border-box;
-    gap:14px;
   }
   #offlinePopup.show{display:flex;}
-  .offline-card{
-    width:100%;
-    max-width:340px;
-    display:flex;
-    flex-direction:column;
-    border-radius:14px;
-    overflow:hidden;
-    box-shadow:0 12px 32px rgba(0,0,0,0.55);
-  }
-  .offline-header{
-    background:linear-gradient(180deg,#5a4a8a,#3b2a70);
-    padding:16px 14px 14px;
-    color:#fff7e0;
-    text-align:center;
-  }
-  .offline-header h3{
-    font-size:17px;
-    font-weight:bold;
-    letter-spacing:.6px;
-    margin-bottom:4px;
-  }
-  .offline-time{
+  /* .offline-card herda quase tudo de .forge-popup-card; só ajusta largura
+     pra reservar espaço pros 2 rings + reward row sem ficar apertado. */
+  .offline-card{ max-width:320px; text-align:center; }
+  .offline-card .offline-time{
+    margin-top:-4px;
     font-size:13px;
-    color:#fff7e0;
+    color:#3a2a18;
   }
-  .offline-time span{color:#4cf08e;font-weight:bold;}
+  .offline-card .offline-time span{ color:#2a8a4a; font-weight:bold; }
   .offline-rates{
     display:flex;justify-content:center;gap:34px;
-    margin-top:12px;
+    margin-top:14px;margin-bottom:6px;
   }
   .offline-rate{
     display:flex;flex-direction:column;align-items:center;gap:3px;
   }
-  /* Ring de "relogio" no icone: conic-gradient gira em loop (cinza→branco)
-     pra mostrar a velocidade que o jogador ganha esse recurso offline.
-     Carrot: 1 ciclo/segundo (1/s). Lettuce: 1 ciclo/minuto (1/m). */
+  /* Ring de "relogio" no icone: conic-gradient gira em loop (marrom escuro
+     → marrom claro) pra mostrar a velocidade que o jogador ganha cada
+     recurso offline. Carrot: 1 ciclo/s. Lettuce: 1 ciclo/min.
+     Versão cream-friendly: ring marrom dark, miolo cream — combina com
+     o card cream-paper. */
   .offline-rate .ico{
     --lp: 0;
     position:relative;
@@ -2658,57 +2645,25 @@
     display:flex;align-items:center;justify-content:center;
     border-radius:50%;
     background:
-      conic-gradient(#fff7e0 calc(var(--lp) * 1%), rgba(255,255,255,0.18) 0);
+      conic-gradient(#3a2a18 calc(var(--lp) * 1%), rgba(58,42,24,0.15) 0);
     font-size:22px;
   }
   .offline-rate .ico::before{
     content:'';
     position:absolute;
     inset:4px;
-    background:#3b2a70;
+    background:#f5ecd2;
     border-radius:50%;
   }
   .offline-rate .ico > * { position:relative; z-index:1; }
-  .offline-rate .lbl{font-size:12px;font-weight:bold;}
-  .offline-rate.carrot .lbl{color:#ffcc3d;}
-  .offline-rate.lettuce .lbl{color:#4cf08e;}
-
-  .offline-body{
-    background:#fff7e0;
-    color:#0d0a1a;
-    padding:24px 16px 20px;
-    text-align:center;
-  }
-  .offline-rewards{
-    display:flex;justify-content:center;gap:20px;
-    font-size:24px;font-weight:bold;
-    margin-bottom:18px;
-    color:#0d0a1a;
+  .offline-rate .lbl{font-size:12px;font-weight:bold;color:#3a2a18;}
+  .offline-rates ~ .offline-rewards{
+    margin-top:14px;
+    display:flex;justify-content:center;gap:24px;
+    font-size:22px;font-weight:bold;color:#3a2a18;
   }
   .offline-rewards .rwd{display:flex;align-items:center;gap:6px;}
-  .offline-rewards .ico{font-size:28px;}
-  .btn-collect{
-    width:100%;
-    padding:14px;
-    background:linear-gradient(180deg,#5fb0d8,#3a8db8);
-    border:0;
-    border-radius:12px;
-    color:#fff7e0;
-    font-size:18px;font-weight:bold;letter-spacing:1px;
-    cursor:pointer;
-    box-shadow:0 4px 0 #2a6f95;
-  }
-  .btn-collect:active{transform:translateY(2px);box-shadow:0 2px 0 #2a6f95;}
-  .offline-close-x{
-    width:48px;height:48px;
-    border:0;cursor:pointer;
-    border-radius:50%;
-    background:linear-gradient(180deg,#ff5252,#b53030);
-    color:#fff;
-    font-size:24px;font-weight:bold;line-height:1;
-    box-shadow:0 3px 0 #6b1414;
-  }
-  .offline-close-x:active{transform:translateY(1px);box-shadow:0 1px 0 #6b1414;}
+  .offline-rewards .ico{font-size:26px;}
 
   /* pause button (combo sheet) */
   #pauseBtn{
@@ -2892,30 +2847,29 @@
 
     <!-- popup de recompensa offline -->
     <div id="offlinePopup">
-      <div class="offline-card">
-        <div class="offline-header">
-          <h3>Recompensa offline</h3>
-          <div class="offline-time">Tempo de coleta: <span id="offlineTime">--</span></div>
-          <div class="offline-rates">
-            <div class="offline-rate carrot">
-              <span class="ico" id="rateCarrotRing"><span>🥕</span></span>
-              <span class="lbl">1/s</span>
-            </div>
-            <div class="offline-rate lettuce">
-              <span class="ico" id="rateLettuceRing"><span>🥬</span></span>
-              <span class="lbl">1/m</span>
-            </div>
+      <div class="forge-popup-card offline-card">
+        <div class="forge-popup-tag">😴 Recompensa Offline</div>
+        <h2 class="forge-level-title">Recompensas Acumuladas</h2>
+        <div class="offline-time">Tempo de coleta: <span id="offlineTime">--</span></div>
+        <div class="offline-rates">
+          <div class="offline-rate carrot">
+            <span class="ico" id="rateCarrotRing"><span>🥕</span></span>
+            <span class="lbl">1/s</span>
+          </div>
+          <div class="offline-rate lettuce">
+            <span class="ico" id="rateLettuceRing"><span>🥬</span></span>
+            <span class="lbl">1/m</span>
           </div>
         </div>
-        <div class="offline-body">
-          <div class="offline-rewards">
-            <span class="rwd"><span class="ico">🥕</span><span id="offlineCarrots">0</span></span>
-            <span class="rwd"><span class="ico">🥬</span><span id="offlineLettuce">0</span></span>
-          </div>
-          <button id="offlineCollectBtn" class="btn-collect">Coletar</button>
+        <div class="offline-rewards">
+          <span class="rwd"><span class="ico">🥕</span><span id="offlineCarrots">0</span></span>
+          <span class="rwd"><span class="ico">🥬</span><span id="offlineLettuce">0</span></span>
+        </div>
+        <div class="forge-popup-actions">
+          <button class="forge-popup-btn red"   id="offlineCloseBtn">Fechar</button>
+          <button class="forge-popup-btn green" id="offlineCollectBtn">Coletar</button>
         </div>
       </div>
-      <button id="offlineCloseBtn" class="offline-close-x">×</button>
     </div>
 
     <!-- arena forge inline: dice tray + dice strip + action row em widgets
