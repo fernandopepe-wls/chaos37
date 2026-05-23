@@ -3297,7 +3297,7 @@ BUNNY_FORWARD_IMG.src = 'assets/bunny/bunny_walk_foward_spritesheet.png';
 // inline até carregar (matches the JSON values). Format compatível com as
 // outras animações (bunny_walk.json, bunny_idle.json, etc).
 const BUNNY_FORWARD_META = {
-  frame: 320, cols: 8, rows: 5, frames: 38, fps: 30, footAnchor: 0.92,
+  frame: 320, cols: 8, rows: 5, frames: 32, fps: 30, footAnchor: 0.92,
 };
 (async () => {
   try {
@@ -3319,6 +3319,11 @@ const BUNNY_FORWARD_META = {
 // renova essa trava. Sem isso o bunny gira no eixo quando AI orbita em volta
 // de inimigos (movement dx alterna sinal a cada frame).
 let bunnyFacingLockedUntil = 0;    // performance.now() timestamp (ms)
+// Last attack angle in radians (atan2 target dx,dy). Captured on each
+// melee/ranged trigger; used to compute 2D lunge vector + decide whether to
+// render the forward walk sprite during a downward attack (looks correct when
+// bunny stabs an enemy below it on screen).
+let bunnyAttackAngle = null;
 // Acorn-bullet sprite for ranged projectiles. Native loaded once at boot,
 // used by the rangedProj render branch (replaces procedural carrot-arrow).
 const ACORN_BULLET_IMG = new Image();
@@ -3654,6 +3659,28 @@ const Music = (function(){
   let currentGp = null;
   let gameplayStarted = false;
   let splashCurrentlyPlaying = false;
+  // Single source of truth — only ONE track may be logically "active" at a time.
+  // Set by _doPlay on success; cleared on explicit stop. Visibility resume only
+  // restarts _activeMusic — prevents the "blur mid-crossfade → 2 tracks on focus"
+  // bug where both old + new track had _visWasPlaying flagged true.
+  let _activeMusic = null;
+
+  // Hard silence everything except `keep`. Synchronous: cancels fades, zeroes
+  // volume, pauses, rewinds, clears visibility/pause flags. Use whenever we
+  // need a strict "only one track is playing" guarantee (visibility transitions,
+  // explicit track switches that must not overlap).
+  function _hardSilenceAllExcept(keep){
+    for(const a of [splashAudio, ...gpAudio, bossAudio]){
+      if(a === keep) continue;
+      if(a._fadeRAF){ cancelAnimationFrame(a._fadeRAF); a._fadeRAF = null; }
+      a.volume = 0;
+      if(!a.paused){ try { a.pause(); } catch(_){} }
+      try { a.currentTime = 0; } catch(_){}
+      a._visWasPlaying = false;
+      a._wasPlaying = false;
+      a._mutedByVolume = false;
+    }
+  }
 
   // Fade linear RAF-based — cancela qualquer fade anterior na MESMA audio
   function fadeTo(audio, target, durationMs){
@@ -3682,21 +3709,29 @@ const Music = (function(){
     // Single-music guarantee — fade out + pause any OTHER music track that
     // happens to be playing. Prevents two tracks layering when crossfade
     // calls overlap (e.g., spam-pressing boss button, or rapid state flips).
+    // Mark them _deactivating so visibility handlers skip them entirely
+    // (otherwise a blur mid-fade would flag them as _visWasPlaying and resume
+    // them on focus return, causing the "2 tracks playing" bug).
     for(const other of [splashAudio, ...gpAudio, bossAudio]){
       if(other === audio) continue;
+      other._deactivating = true;
+      other._visWasPlaying = false;
       if(other.paused) continue;
       if(other._fadeRAF){ cancelAnimationFrame(other._fadeRAF); other._fadeRAF = null; }
       fadeTo(other, 0, 250);
       const t = other;
       setTimeout(() => {
         try { t.pause(); t.currentTime = 0; } catch(_){}
+        t._deactivating = false;
       }, 280);
     }
+    audio._deactivating = false;
     audio.currentTime = 0;
     audio.volume = 0;
     const p = audio.play();
     const ok = () => {
       pending = null;
+      _activeMusic = audio; // claim active slot
       // Usa fade time do catalog se disponível, senão o passado pelo caller
       const catFadeIn = _catalogFadeMs(audio._audioId, 'in');
       const ms = (catFadeIn != null) ? catFadeIn : fadeInMs;
@@ -3870,31 +3905,27 @@ const Music = (function(){
   function pauseGame(){
     if(_gamePaused) return;
     _gamePaused = true;
+    // Hard-silence everything. Only mark _activeMusic for resume — same single-
+    // track guarantee as visibility pause. Prevents 2-track resume after pause.
     for(const a of [splashAudio, ...gpAudio, bossAudio]){
-      a._wasPlaying = !a.paused;
-      // Cancela qualquer fade em andamento — congela volume no valor atual.
       if(a._fadeRAF){ cancelAnimationFrame(a._fadeRAF); a._fadeRAF = null; }
       if(!a.paused){ try { a.pause(); } catch(_){} }
+      a._wasPlaying = false;
     }
+    if(_activeMusic) _activeMusic._wasPlaying = true;
   }
   function resumeGame(){
     if(!_gamePaused) return;
     _gamePaused = false;
-    let resumedAny = false;
-    for(const a of [splashAudio, ...gpAudio, bossAudio]){
-      if(a._wasPlaying){
-        a._wasPlaying = false;
-        // Snap volume pro target atual (caso fade tava interrompido)
-        a.volume = _liveTarget(a);
-        try { a.play().catch(() => {}); } catch(_){}
-        // Reagenda fade-out + silêncio + próxima track pra essa audio
-        if(a === currentGp) scheduleEnd(a);
-        resumedAny = true;
-      }
-    }
-    // Pause pegou o ciclo no GAP de silêncio entre tracks (nada estava tocando).
-    // Reinicia o ciclo de gameplay manualmente.
-    if(!resumedAny && gameplayStarted){
+    _hardSilenceAllExcept(_activeMusic);
+    const a = _activeMusic;
+    if(a && a._wasPlaying){
+      a._wasPlaying = false;
+      a.volume = _liveTarget(a);
+      try { a.play().catch(() => {}); } catch(_){}
+      if(a === currentGp) scheduleEnd(a);
+    } else if(gameplayStarted){
+      // Pause pegou o ciclo no GAP de silêncio entre tracks (nada estava tocando).
       startNextGameplay(1500);
     }
   }
@@ -3909,34 +3940,45 @@ const Music = (function(){
     if(hidden){
       if(_visHidden) return;
       _visHidden = true;
+      // HARD pause everything. Only the _activeMusic ref is allowed to resume
+      // on focus — every other track is force-silenced and stays that way.
+      // Prevents the "blur mid-crossfade → 2 tracks resume on focus" bug.
       for(const a of [splashAudio, ...gpAudio, bossAudio]){
-        a._visWasPlaying = !a.paused;
         if(a._fadeRAF){ cancelAnimationFrame(a._fadeRAF); a._fadeRAF = null; }
         if(!a.paused){ try { a.pause(); } catch(_){} }
+        a._visWasPlaying = false;
+      }
+      if(_activeMusic){
+        // Flag the SINGLE track allowed to resume. Even if it was mid-fade-in
+        // (volume not yet at target), we still want it back on focus.
+        _activeMusic._visWasPlaying = true;
       }
     } else {
       if(!_visHidden) return;
       _visHidden = false;
       // Se o usuário pausou manualmente, NÃO retoma — respeita o toggle do Audio Tool
       if(_gamePaused) return;
-      for(const a of [splashAudio, ...gpAudio, bossAudio]){
-        if(a._visWasPlaying){
-          a._visWasPlaying = false;
-          // iOS WKWebView: o AVAudioSession entra em sleep quando o app vai
-          // pro background. Chamar play() direto resolve a promise mas a saída
-          // de áudio fica muda por vários segundos enquanto a session reacorda.
-          // Forçar currentTime = 0 dispara um re-seek que prima o audio engine
-          // imediatamente — música volta sem o gap silencioso de "depois volta".
-          // Trade-off: a faixa reinicia do começo em vez de continuar de onde
-          // parou (gameplay tracks são loops curtos, então é aceitável).
-          try { a.currentTime = 0; } catch(_){}
-          a.volume = _liveTarget(a);
-          // play() pode rejeitar silencioso no iOS se o AVAudioSession ainda
-          // não acordou. Antes só engulia o erro — música ficava muda até o
-          // próximo evento qualquer. Agora: registra retry-once em pointerdown
-          // pra reanimar no primeiro touch do player depois do resume.
-          _playAudioWithRetry(a);
-        }
+      // Strict single-track resume: hard-silence everything that is NOT the
+      // active track first (defense in depth — even if another track somehow
+      // un-paused, kill it before we play).
+      _hardSilenceAllExcept(_activeMusic);
+      const a = _activeMusic;
+      if(a && a._visWasPlaying){
+        a._visWasPlaying = false;
+        // iOS WKWebView: o AVAudioSession entra em sleep quando o app vai
+        // pro background. Chamar play() direto resolve a promise mas a saída
+        // de áudio fica muda por vários segundos enquanto a session reacorda.
+        // Forçar currentTime = 0 dispara um re-seek que prima o audio engine
+        // imediatamente — música volta sem o gap silencioso de "depois volta".
+        // Trade-off: a faixa reinicia do começo em vez de continuar de onde
+        // parou (gameplay tracks são loops curtos, então é aceitável).
+        try { a.currentTime = 0; } catch(_){}
+        a.volume = _liveTarget(a);
+        // play() pode rejeitar silencioso no iOS se o AVAudioSession ainda
+        // não acordou. Antes só engulia o erro — música ficava muda até o
+        // próximo evento qualquer. Agora: registra retry-once em pointerdown
+        // pra reanimar no primeiro touch do player depois do resume.
+        _playAudioWithRetry(a);
       }
     }
   }
@@ -4010,10 +4052,10 @@ const SPLASH_ASSETS = [
   // Background da era 1 (entra direto no jogo)
   'assets/env-era1-burrow-NEW.webp',
   // Bunny sprite sheets (5 estados) + weapon placeholder
-  'assets/bunny/bunny_idle.png',
+  'assets/bunny/bunny_idle_spritesheet.png',
   'assets/bunny/bunny_walk_side.png',
   'assets/bunny/bunny_walk_foward_spritesheet.png',
-  'assets/bunny/bunny_melee.png',
+  'assets/bunny/bunny_attack_spritesheet.png',
   'assets/bunny/bunny_ranged.png',
   'assets/bunny/bunny_death.png',
   'assets/bunny/weapons/sword_placeholder.png',
@@ -7605,6 +7647,7 @@ function arenaMeleeSwing(target){
   if(bunny){
     bunnyFacing = (target.x > arena.bx) ? 'right' : 'left';
     bunnyFacingLockedUntil = performance.now() + 800;
+    bunnyAttackAngle = targetAngle;
     bunny.trigger('melee');
   }
   const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
@@ -7870,6 +7913,7 @@ function arenaMeleeThrust(target){
   if(bunny){
     bunnyFacing = (target.x > arena.bx) ? 'right' : 'left';
     bunnyFacingLockedUntil = performance.now() + 500;
+    bunnyAttackAngle = angle;
     bunny.trigger('melee');
   }
   const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
@@ -7919,6 +7963,7 @@ function arenaMeleeSlam(target){
   if(bunny){
     bunnyFacing = (target.x > arena.bx) ? 'right' : 'left';
     bunnyFacingLockedUntil = performance.now() + 1000;
+    bunnyAttackAngle = angle;
     bunny.trigger('melee');
   }
   const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
@@ -8883,9 +8928,9 @@ function drawArenaBunny(){
       // frame source — passamos y ajustado pra que TODOS os states aterrissem
       // com pé exatamente em game.y.
       const TUNE = {
-        idle:   { scaleMult: 0.85, srcFoot: 0.90, frame: 256 },
+        idle:   { scaleMult: 0.98, srcFoot: 0.91, frame: 256 },
         walk:   { scaleMult: 1.00, srcFoot: 0.91, frame: 320 },
-        melee:  { scaleMult: 0.72, srcFoot: 0.90, frame: 256 },
+        melee:  { scaleMult: 0.98, srcFoot: 0.91, frame: 256 },
         ranged: { scaleMult: 0.72, srcFoot: 0.90, frame: 256 },
         death:  { scaleMult: 0.85, srcFoot: 0.90, frame: 256 },
       };
@@ -8898,10 +8943,25 @@ function drawArenaBunny(){
       //    onde enemies aterrissam (enemy renderer usa e.y + ds*0.28 ≈ +12px).
       const yShift = -(t.srcFoot - 0.85) * dhState;
       const groundOffset = 10;
-      bunny.draw(ctx, x, y + yShift + groundOffset, stateScale, flipX);
+      // Melee lunge: subtle forward shove during swing makes the attack read.
+      // Original sprite sheet only moves bunny's silhouette ~11px in source
+      // space — at display scale that's ~1.5 logical px and reads as idle wobble.
+      // Add a parabolic forward push (peak mid-swing, returns by end) in the
+      // facing direction. ~16% of display height = noticeable lunge without
+      // overshooting the enemy hitbox.
+      let lungeX = 0;
+      if(bunny.currentState === 'melee'){
+        const meta = bunny.states.melee.meta;
+        const elapsed = (performance.now()/1000) - bunny.stateStartTime;
+        const prog = Math.max(0, Math.min(1, elapsed / (meta.frames / meta.fps)));
+        const curve = Math.sin(prog * Math.PI);            // 0 → 1 → 0
+        const lungePx = dhState * 0.16 * curve;
+        lungeX = lungePx * (flipX ? -1 : 1);
+      }
+      bunny.draw(ctx, x + lungeX, y + yShift + groundOffset, stateScale, flipX);
       if(arena.hurtTimer > 0){
         const intensity = Math.min(0.55, arena.hurtTimer / 40);
-        bunny.drawHurtTint(ctx, x, y + yShift + groundOffset, stateScale, intensity);
+        bunny.drawHurtTint(ctx, x + lungeX, y + yShift + groundOffset, stateScale, intensity);
       }
     }
     ctx.imageSmoothingEnabled = prevSmooth;
