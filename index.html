@@ -5264,10 +5264,10 @@ const LAYOUT_DEFAULTS = {
   questBtnTop: 124,        // logical px from top
   questBtnRight: 15,       // logical px from right edge
   questBtnSize: 44,        // logical px (square)
-  // IAP Cosmic Weapon button (abaixo do questBtn)
+  // IAP Cosmic Weapon button (abaixo do questBtn — mesmo tamanho)
   iapCosmicTop: 178,
   iapCosmicRight: 15,
-  iapCosmicSize: 56,
+  iapCosmicSize: 44,
   // Settings button (config — float top-left, abaixo da sword pill)
   settingsBtnTop: 75,
   settingsBtnLeft: 10,
@@ -10067,7 +10067,7 @@ const CosmicIAP = (function(){
     // a level 5 (decentemente forte mid-game, mas não overpowered late).
     const eraIdx = 4;
     const era = ERAS[eraIdx];
-    const initialLevel = 5;
+    const initialLevel = 50;
     const item = {
       slot: 'weapon',
       name: 'Cosmic Blaster',
@@ -10121,7 +10121,7 @@ const CosmicIAP = (function(){
     try {
       const eraIdx = 4;
       const era = ERAS[eraIdx];
-      const initialLevel = 5;
+      const initialLevel = 50;
       const previewItem = {
         slot: 'weapon',
         name: 'Cosmic Blaster',
@@ -10739,42 +10739,10 @@ function buildAutoForgeContent(){
     </div>
     <div class="dd-list ${keepOpen?'show':''}">${keepOpts}</div>`;
 
-  let sellOpts = '';
-  // "Desligado" = não vende nada baseado nesse threshold
-  const isSellAuto = arena.autoForgeSellMax == null;
-  const smartSell = Math.max(-1, autoForgeSmartThreshold() - 2);
-  sellOpts += _ddOptionRow({
-    kind:'sell', value:'auto',
-    label:`🪄 Automático <span class="dd-sub">(${smartSell < 0 ? 'desligado' : '≤ ' + eraShort(smartSell)})</span>`,
-    locked:false, active:isSellAuto,
-  });
-  sellOpts += _ddOptionRow({
-    kind:'sell', value:'-1',
-    label:`🚫 Não vender (decisão própria)`,
-    locked:false, active: !isSellAuto && (sellMax < 0),
-  });
-  for(let i=0;i<ERAS.length-1;i++){  // não inclui última era (não faz sentido vender tudo)
-    // sellMax precisa ser < keepMin pra fazer sentido
-    const conflict = i >= keepMin;
-    sellOpts += _ddOptionRow({
-      kind:'sell', value:String(i),
-      label:`${eraDot(i)} ≤ ${eraShort(i)}`,
-      locked:conflict, lockReason: conflict ? `Define Manter > ${eraShort(i)}` : '',
-      active: !isSellAuto && sellMax === i,
-    });
-  }
-  const sellOpen = _autoForgeOpenDropdown === 'sell';
-  const sellLabel = sellMax < 0 ? '🚫 Não vender (decisão própria)' : `${eraDot(sellMax)} ≤ ${eraShort(sellMax)}`;
-  const sellTriggerLabel = isSellAuto
-    ? (smartSell < 0 ? `🪄 Auto (desligado)` : `🪄 Auto (≤ ${eraShort(smartSell)})`)
-    : sellLabel;
-  const sellDD = `
-    <div class="auto-forge-section-title">Vender (≤ instant sell)</div>
-    <div class="dd-trigger ${sellOpen?'open':''}" data-dd-toggle="sell">
-      <span class="dd-trigger-val">${sellTriggerLabel}</span>
-      <span class="dd-arrow">${sellOpen?'▴':'▾'}</span>
-    </div>
-    <div class="dd-list ${sellOpen?'show':''}">${sellOpts}</div>`;
+  // (Dropdown "Vender (≤ instant sell)" REMOVIDO da UI — o state arena.autoForgeSellMax
+  // continua existindo + smart default no chain (autoForgeSellValue auto-vende eras
+  // muito abaixo do equipado), mas player não configura mais. Sidegrades agora
+  // são governados pelo toggle "Vender se item pior" abaixo.)
 
   // === Toggle: Vender se item pior (sidegrade) — desbloqueado em Lv ≥ 5 ===
   const sellWorseLocked = arena.forgeLevel < AUTO_SELL_WORSE_UNLOCK;
@@ -10796,7 +10764,7 @@ function buildAutoForgeContent(){
       </label>
     </div>`;
 
-  return head + batchDD + keepDD + sellDD + sellWorseDD;
+  return head + batchDD + keepDD + sellWorseDD;
 }
 
 // Ladder read-only (mostrada quando o auto ainda não desbloqueou)
@@ -12762,50 +12730,56 @@ enterArena();
      UMA vez no startup. Cada bloco try/catch isolado: falha de um não derruba
      os outros nem o game (no browser dev sem Capacitor, todos falham → OK). -->
 <script type="module">
-  // === 1. CapacitorUpdater.notifyAppReady() ===
-  // O plugin @capgo/capacitor-updater (carregado mesmo com OTA desligado)
-  // exige notifyAppReady() em até `appReadyTimeout` (30s) — senão ele assume
-  // crash + tenta reverter pra bundle anterior (no-op aqui, mas gera warnings).
-  // Chamada early pra livrar o plugin do timeout window.
-  try {
-    const { CapacitorUpdater } = await import('@capgo/capacitor-updater');
-    CapacitorUpdater.notifyAppReady().catch(() => {});
-  } catch(_){ /* plugin não disponível em browser dev */ }
+  // Os 3 blocos rodam em IIFE async cada — Vite build target default (chrome87,
+  // safari14) não suporta top-level await; encapsular dentro de async fn é compat.
+  (async () => {
+    // === 1. CapacitorUpdater.notifyAppReady() ===
+    // O plugin @capgo/capacitor-updater (carregado mesmo com OTA desligado)
+    // exige notifyAppReady() em até `appReadyTimeout` (30s) — senão ele assume
+    // crash + tenta reverter pra bundle anterior (no-op aqui, mas gera warnings).
+    try {
+      const { CapacitorUpdater } = await import('@capgo/capacitor-updater');
+      CapacitorUpdater.notifyAppReady().catch(() => {});
+    } catch(_){ /* plugin não disponível em browser dev */ }
+  })();
 
-  // === 2. Hardware back button (Android) ===
-  // Default: WebView fecha o app. Override: se algum popup/.layer estiver
-  // aberto, fecha o popup em vez de sair. Senão, exitApp (default Android).
-  try {
-    const { App } = await import('@capacitor/app');
-    App.addListener('backButton', () => {
-      const openLayer = document.querySelector('.layer.show, #itemPopupBackdrop.show');
-      if(openLayer){
-        if(typeof hideAllLayers === 'function') hideAllLayers();
-        if(typeof closeAutoForgePopup === 'function') closeAutoForgePopup();
-        if(typeof closeForgeLevel    === 'function') closeForgeLevel();
-        if(typeof STATE !== 'undefined') state = STATE.ARENA_PLAY;
-        return;
-      }
-      App.exitApp().catch(() => {});
-    });
-  } catch(_){ /* plugin não disponível em browser dev */ }
+  (async () => {
+    // === 2. Hardware back button (Android) ===
+    // Default: WebView fecha o app. Override: se algum popup/.layer estiver
+    // aberto, fecha o popup em vez de sair. Senão, exitApp (default Android).
+    try {
+      const { App } = await import('@capacitor/app');
+      App.addListener('backButton', () => {
+        const openLayer = document.querySelector('.layer.show, #itemPopupBackdrop.show');
+        if(openLayer){
+          if(typeof hideAllLayers === 'function') hideAllLayers();
+          if(typeof closeAutoForgePopup === 'function') closeAutoForgePopup();
+          if(typeof closeForgeLevel    === 'function') closeForgeLevel();
+          if(typeof STATE !== 'undefined') state = STATE.ARENA_PLAY;
+          return;
+        }
+        App.exitApp().catch(() => {});
+      });
+    } catch(_){ /* plugin não disponível em browser dev */ }
+  })();
 
-  // === 3. Wildlife Platform SDK init ===
-  // Per CLAUDE.md pattern: Platform().initialize({appId, environment}).
-  // Vite's import.meta.env.MODE = 'development'|'staging'|'production'.
-  // Expõe `window._WildlifePlatform` pro código inline (não-module) usar via
-  // Analytics.send().
-  try {
-    const { Platform } = await import('@wildlife/platform-capacitor');
-    const appId = 'bunny-chaos-37';
-    const environment = import.meta.env.MODE || 'development';
-    const platform = Platform();
-    await platform.initialize({ appId, environment });
-    window._WildlifePlatform = platform;
-    console.log(`[Platform] SDK inicializado (${appId} / ${environment})`);
-  } catch(e){
-    console.warn('[Platform] SDK init falhou — game continua sem analytics/attribution', e && e.message);
-  }
+  (async () => {
+    // === 3. Wildlife Platform SDK init ===
+    // Per CLAUDE.md pattern: Platform().initialize({appId, environment}).
+    // Expõe `window._WildlifePlatform` pro código inline (não-module) usar via
+    // Analytics.send().
+    try {
+      const { Platform } = await import('@wildlife/platform-capacitor');
+      const appId = 'bunny-chaos-37';
+      const environment = import.meta.env.MODE || 'development';
+      const platform = Platform();
+      await platform.initialize({ appId, environment });
+      window._WildlifePlatform = platform;
+      console.log(`[Platform] SDK inicializado (${appId} / ${environment})`);
+    } catch(e){
+      console.warn('[Platform] SDK init falhou — game continua sem analytics/attribution', e && e.message);
+    }
+  })();
 </script>
 
 <!-- Analytics wrapper — template padrão pra disparar eventos do jogo.
