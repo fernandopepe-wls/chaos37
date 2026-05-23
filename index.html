@@ -8769,8 +8769,13 @@ function updateArena(){
     }
 
     if(e.hurtTimer>0) e.hurtTimer--;
-    // damage on contact (skip dying bandits — eles não atacam mais)
-    if(!e.dying && d < e.r + ARENA.BUNNY_R && arena.hurtTimer<=0){
+    // damage on contact — skip se:
+    //  - inimigo morrendo (death anim)
+    //  - bunny ainda em iframes (arena.hurtTimer > 0)
+    //  - inimigo em hurt stun (e.hurtTimer > 0) — recém-acertado pelo bunny,
+    //    não dá dano de retorno até o stun acabar. Sem isso, um inimigo
+    //    encostado podia atacar EM PARALELO ao bunny atacando ele.
+    if(!e.dying && d < e.r + ARENA.BUNNY_R && arena.hurtTimer<=0 && e.hurtTimer<=0){
       const dodge = arenaTotalStat('dodge');
       if(Math.random() < dodge){
         // esquivou
