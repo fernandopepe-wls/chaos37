@@ -9297,12 +9297,12 @@ function drawArenaBunny(){
     const dw = 256 * scale;
     const dh = 256 * scale;
     // Drop shadow no foot — conecta o bunny ao chão visualmente.
-    // Offset Y: era +5 originalmente. Subiu pra -3 depois que bunnyDrawScale
+    // Offset Y: era +5 originalmente. Subiu pra -2 depois que bunnyDrawScale
     // foi pra 0.264 (+20%) — sombra agora gruda nos pés visíveis do sprite.
     ctx.save();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.30)';
     ctx.beginPath();
-    ctx.ellipse(x, y - 3, dw * 0.22, dh * 0.035, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y - 2, dw * 0.22, dh * 0.035, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
     const prevSmooth = ctx.imageSmoothingEnabled;
