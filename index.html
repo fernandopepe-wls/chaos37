@@ -11011,7 +11011,9 @@ function renderArena(){
       const ext = Math.sin(t * Math.PI);
       const forward = ext * sw.range * 0.12;
       const x = arena.bx + Math.cos(sw.centerAngle) * forward;
-      const y = arena.by + Math.sin(sw.centerAngle) * forward;
+      // Y offset -2 sobe a lança/pike/spear pra centralizar visualmente no
+      // torso do bunny em vez de ficar na altura do pé (arena.by = foot anchor).
+      const y = arena.by + Math.sin(sw.centerAngle) * forward - 2;
       drawArenaHandSprite(x, y, sw.centerAngle, t);
     } else if(sw.kind === 'slam'){
       // Pure top-down slam: weapon starts pointing UP (-π/2, overhead) and
