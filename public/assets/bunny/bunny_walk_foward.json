@@ -1,0 +1,19 @@
+{
+  "character": "bunny",
+  "state": "walk_foward",
+  "frames": 38,
+  "fps": 30,
+  "frame_width": 320,
+  "frame_height": 320,
+  "cols": 8,
+  "rows": 5,
+  "sheet_width": 2560,
+  "sheet_height": 1600,
+  "loop": true,
+  "method": "procedural-v1-bunny-forward",
+  "foot_anchor_norm": [0.5, 0.92],
+  "files": {
+    "spritesheet": "bunny_walk_foward_spritesheet.png"
+  },
+  "notes": "Forward-facing walk cycle. Bunny moves toward camera. Used by drawArenaBunny when player walks down (dy>0.5, |dx|<0.4). Row 5 only has 6 filled bunnies (last 2 cells empty) → frames=38, not 40."
+}

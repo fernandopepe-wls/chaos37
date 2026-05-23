@@ -2036,26 +2036,32 @@
     top:   var(--quest-btn-top, 115px);
     width:  var(--quest-btn-size, 48px);
     height: var(--quest-btn-size, 48px);
-    border-radius:12px;
-    border:2px solid #1a0e08;
-    background:linear-gradient(180deg, #ffcc3d 0%, #e6a823 100%);
-    color:#3a230b;
-    font-size:22px;
-    font-weight:bold;
+    /* Cream-parchment disc — contrasta o journal icon contra qualquer bg de era.
+       Border preto grosso + drop-shadow inferior dão peso visual (LoM-style). */
+    background:radial-gradient(circle at 35% 30%, #fff4d0 0%, #ecd4a0 70%, #cda86a 100%);
+    border:2.5px solid #1a0e08;
+    border-radius:50%;
+    box-shadow:0 3px 0 #1a0e08, 0 5px 8px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.6) inset;
     cursor:pointer;
-    box-shadow:0 3px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset;
     display:flex;align-items:center;justify-content:center;
     padding:0;
     z-index:6;
-    transition:transform .08s, box-shadow .08s;
+    transition:transform .12s cubic-bezier(.34,1.56,.64,1), box-shadow .08s;
+    overflow:visible;
   }
   #questBtn:active{
-    transform:translateY(1px);
-    box-shadow:0 1px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset;
+    transform:translateY(2px) scale(.92);
+    box-shadow:0 1px 0 #1a0e08, 0 2px 4px rgba(0,0,0,0.3), 0 1px 0 rgba(255,255,255,0.6) inset;
   }
   #questBtn .quest-btn-icon{
-    filter:drop-shadow(0 1px 0 rgba(0,0,0,0.4));
-    line-height:1;
+    /* Icon transborda o disc — fica visualmente maior + cobre mais do botão.
+       130% do tamanho do botão, centralizado, drop-shadow grosso pro contraste. */
+    width:170%;
+    height:170%;
+    object-fit:contain;
+    filter:drop-shadow(0 2px 2px rgba(0,0,0,0.6));
+    display:block;
+    pointer-events:none;
   }
   /* Badge SIBLING — posicionada via CSS vars do botão pra coincidir com o canto
      sup-direito do pill. Mesmo padrão do #arenaSleepDot pra evitar clipping. */
@@ -2082,6 +2088,20 @@
   @keyframes questBadgePulse{
     0%,100%{transform:scale(1);}
     50%    {transform:scale(1.18);}
+  }
+
+  /* ===== Quest popup pop-in — smooth juicy bounce =====
+     Single overshoot via elastic cubic-bezier. Subtle Y-squash at peak only
+     (90% mark) — no choppy multi-stage stretch/squash chain. */
+  @keyframes questCardPopIn{
+    0%   { transform: scale(0.7); opacity: 0; }
+    60%  { opacity: 1; }
+    100% { transform: scale(1.0); opacity: 1; }
+  }
+  #questLayer.show .forge-popup-card{
+    animation: questCardPopIn 0.34s cubic-bezier(.34,1.7,.5,1) both;
+    transform-origin: center center;
+    will-change: transform;
   }
 
   /* ===== SETTINGS button — float top-left, abaixo da sword pill =====
@@ -2173,8 +2193,9 @@
     color:#3a230b;
   }
   .iap-preview-icon{
-    font-size:48px;line-height:1;
+    width:72px;height:72px;
     flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
     filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));
   }
   .iap-preview-stats{
@@ -2847,7 +2868,7 @@
 
     <!-- arena QUEST button (LoM-style mission banner) -->
     <button id="questBtn" title="Missões">
-      <span class="quest-btn-icon">!</span>
+      <img class="quest-btn-icon" src="assets/interface/journal_icon_nobg.png" alt="Missões"/>
     </button>
     <!-- IAP — Cosmic Weapon (Mundo 5). Esconde após compra (localStorage flag).
          Preço só aparece no modal de confirmação, não no botão. -->
@@ -3265,6 +3286,33 @@
 // early-return enquanto carrega (fallback pixel-art continua até estar pronto).
 let bunny = null;                  // BunnyRenderer instance (null até load)
 let bunnyFacing = 'right';         // 'left' | 'right' — atualizado por movement + ataque
+// Forward-walk override. Quando o bunny se move pra BAIXO (dy>0) sem
+// componente lateral forte, exibe o sprite frontal em vez do side walk.
+// 'side' = default (bunny.draw com flip por bunnyFacing); 'forward' = front sheet.
+let bunnyMoveMode = 'side';
+const BUNNY_FORWARD_IMG = new Image();
+BUNNY_FORWARD_IMG.src = 'assets/bunny/bunny_walk_foward_spritesheet.png';
+// Forward sheet meta. Loaded async de bunny_walk_foward.json — usa fallback
+// inline até carregar (matches the JSON values). Format compatível com as
+// outras animações (bunny_walk.json, bunny_idle.json, etc).
+const BUNNY_FORWARD_META = {
+  frame: 320, cols: 8, rows: 5, frames: 38, fps: 30, footAnchor: 0.92,
+};
+(async () => {
+  try {
+    const r = await fetch('assets/bunny/bunny_walk_foward.json');
+    if(!r.ok) return;
+    const j = await r.json();
+    BUNNY_FORWARD_META.frame      = j.frame_width || BUNNY_FORWARD_META.frame;
+    BUNNY_FORWARD_META.cols       = j.cols       || BUNNY_FORWARD_META.cols;
+    BUNNY_FORWARD_META.rows       = j.rows       || BUNNY_FORWARD_META.rows;
+    BUNNY_FORWARD_META.frames     = j.frames     || BUNNY_FORWARD_META.frames;
+    BUNNY_FORWARD_META.fps        = j.fps        || BUNNY_FORWARD_META.fps;
+    if(Array.isArray(j.foot_anchor_norm) && j.foot_anchor_norm.length === 2){
+      BUNNY_FORWARD_META.footAnchor = j.foot_anchor_norm[1];
+    }
+  } catch(_){ /* fallback inline already populated */ }
+})();
 // Trava temporária do facing após atacar — impede movimento de virar o bunny
 // pra outro lado enquanto o ataque "lê" no sprite. Cada ataque (melee/ranged)
 // renova essa trava. Sem isso o bunny gira no eixo quando AI orbita em volta
@@ -3944,7 +3992,8 @@ const SPLASH_ASSETS = [
   'assets/env-era1-burrow-NEW.webp',
   // Bunny sprite sheets (5 estados) + weapon placeholder
   'assets/bunny/bunny_idle.png',
-  'assets/bunny/bunny_walk.png',
+  'assets/bunny/bunny_walk_side.png',
+  'assets/bunny/bunny_walk_foward_spritesheet.png',
   'assets/bunny/bunny_melee.png',
   'assets/bunny/bunny_ranged.png',
   'assets/bunny/bunny_death.png',
@@ -3963,6 +4012,32 @@ const SPLASH_ASSETS = [
   'assets/enemies/Burrow/burrow_boss_bloated_sporeking/burrow_boss_bloated_sporeking_walk.png',
   'assets/enemies/Burrow/burrow_boss_bloated_sporeking/burrow_boss_bloated_sporeking_attack.png',
   'assets/enemies/Burrow/burrow_boss_bloated_sporeking/burrow_boss_bloated_sporeking_death.png',
+  // Meadow trio (stage 2) — sprite-backed
+  'assets/enemies/Meadow/meadow_enemy_footpaw_scout/meadow_enemy_footpaw_scout_walk.png',
+  'assets/enemies/Meadow/meadow_enemy_footpaw_scout/meadow_enemy_footpaw_scout_attack.png',
+  'assets/enemies/Meadow/meadow_enemy_footpaw_scout/meadow_enemy_footpaw_scout_death.png',
+  'assets/enemies/Meadow/meadow_enemy_bramblepup/meadow_enemy_bramblepup_walk.png',
+  'assets/enemies/Meadow/meadow_enemy_bramblepup/meadow_enemy_bramblepup_attack.png',
+  'assets/enemies/Meadow/meadow_enemy_bramblepup/meadow_enemy_bramblepup_death.png',
+  'assets/enemies/Meadow/meadow_enemy_stinger_wasp/meadow_enemy_stinger_wasp_walk.png',
+  'assets/enemies/Meadow/meadow_enemy_stinger_wasp/meadow_enemy_stinger_wasp_attack.png',
+  'assets/enemies/Meadow/meadow_enemy_stinger_wasp/meadow_enemy_stinger_wasp_death.png',
+  'assets/enemies/Meadow/meadow_boss_sir_dameington/meadow_boss_sir_dameington_walk.png',
+  'assets/enemies/Meadow/meadow_boss_sir_dameington/meadow_boss_sir_dameington_attack.png',
+  'assets/enemies/Meadow/meadow_boss_sir_dameington/meadow_boss_sir_dameington_death.png',
+  // Industrial trio (stage 3) — sprite-backed
+  'assets/enemies/Industrial/industrial_enemy_cinder_imp/industrial_enemy_cinder_imp_walk.png',
+  'assets/enemies/Industrial/industrial_enemy_cinder_imp/industrial_enemy_cinder_imp_attack.png',
+  'assets/enemies/Industrial/industrial_enemy_cinder_imp/industrial_enemy_cinder_imp_death.png',
+  'assets/enemies/Industrial/industrial_enemy_sapper/industrial_enemy_sapper_walk.png',
+  'assets/enemies/Industrial/industrial_enemy_sapper/industrial_enemy_sapper_attack.png',
+  'assets/enemies/Industrial/industrial_enemy_sapper/industrial_enemy_sapper_death.png',
+  'assets/enemies/Industrial/industrial_enemy_clockwork_beetle/industrial_enemy_clockwork_beetle_walk.png',
+  'assets/enemies/Industrial/industrial_enemy_clockwork_beetle/industrial_enemy_clockwork_beetle_attack.png',
+  'assets/enemies/Industrial/industrial_enemy_clockwork_beetle/industrial_enemy_clockwork_beetle_death.png',
+  'assets/enemies/Industrial/industrial_boss_baron_gearwhisker/industrial_boss_baron_gearwhisker_walk.png',
+  'assets/enemies/Industrial/industrial_boss_baron_gearwhisker/industrial_boss_baron_gearwhisker_attack.png',
+  'assets/enemies/Industrial/industrial_boss_baron_gearwhisker/industrial_boss_baron_gearwhisker_death.png',
   // HUD pills + sprites essenciais (em uso)
   'assets/ui-pill-sword.png',
   'assets/ui-pill-carrot.png',
@@ -5074,6 +5149,7 @@ function initArena(){
   arena.hurtTimer = 0; arena.shootTimer = 0;
   arena.enemies = []; arena.swings = []; arena.effects = [];
   arena.gems = []; arena.particles = []; arena.dmgNumbers = []; arena.slashVFXs = []; arena.slashVFXsCartoon = [];
+  arena._stabVfx = (typeof StabVFX !== 'undefined') ? StabVFX.createState() : null;
   arena.autoMove = true; // começa com AUTO ligado por padrão
   arena._aiFrame = 0;
   arena._aiLastX = arena.bx; arena._aiLastY = arena.by;
@@ -5152,66 +5228,43 @@ function initArena(){
   arena.regions = 0;
 }
 
-// ===== ENEMY ARCHETYPES — base stats per role =====
-// swarmer = fast + fragile + low dmg
-// grunt   = balanced
-// tank    = slow + durable + higher dmg
-// Cada era gera 3 enemies (um por archetype) usando esses templates como base.
-// Stage scaling (1.15^(stage-1)) multiplica hp/dmg em runtime — não precisa
-// ajustar manualmente por era.
-const ENEMY_ARCHETYPES = {
-  swarmer: { r:7,  hp:5,  speed:0.85, dmg:5  },
-  grunt:   { r:9,  hp:10, speed:0.55, dmg:8  },
-  tank:    { r:11, hp:20, speed:0.40, dmg:13 },
-};
-
 const ARENA_ENEMY_DEFS = {
-  // BURROW ERA (stage 1) — sprite-backed (named kinds):
-  bandit:    { color:'#8b6b3a', r:9,  hp:8,   speed:0.55, dmg:8  },
-  sporeling: { color:'#b5a25d', r:9,  hp:12,  speed:0.42, dmg:6  },
-  sporepup:  { color:'#7fc950', r:8,  hp:5,   speed:0.78, dmg:5  },
-  sporeking: { color:'#d85a30', r:23, hp:120, speed:0.35, dmg:22 },
-  // Legacy placeholders — ainda referenciados em alguns lugares
-  bat:       { color:'#a86bff', r:8,  hp:5,   speed:0.95, dmg:6  },
-  skeleton:  { color:'#fff7e0', r:9,  hp:14,  speed:0.7,  dmg:10 },
-  knight:    { color:'#9b8fc4', r:11, hp:28,  speed:0.45, dmg:14 },
-  boss:      { color:'#ff5252', r:23, hp:120, speed:0.35, dmg:22 },
+  // ===== BURROW (stage 1) — sprite-backed =====
+  bandit:     { color:'#8b6b3a', r:9,  hp:8,   speed:0.55, dmg:8  },  // grunt
+  sporeling:  { color:'#b5a25d', r:9,  hp:12,  speed:0.42, dmg:6  },  // tank-lite
+  sporepup:   { color:'#7fc950', r:8,  hp:5,   speed:0.78, dmg:5  },  // swarmer
+  sporeking:  { color:'#d85a30', r:23, hp:120, speed:0.35, dmg:22 },  // boss
+  // ===== MEADOW (stage 2) — sprite-backed =====
+  footpaw:    { color:'#6e8a52', r:8,  hp:6,   speed:0.82, dmg:6  },  // swarmer (fast scout)
+  bramblepup: { color:'#7d5a3a', r:9,  hp:10,  speed:0.55, dmg:9  },  // grunt
+  stinger:    { color:'#e2c84a', r:9,  hp:14,  speed:0.50, dmg:11 },  // tank-lite (heavier hits)
+  dameington: { color:'#c0b89a', r:23, hp:150, speed:0.34, dmg:26 },  // boss
+  // ===== INDUSTRIAL (stage 3) — sprite-backed =====
+  cinderimp:  { color:'#ff6a30', r:8,  hp:7,   speed:0.86, dmg:7  },  // swarmer (fast burner)
+  sapper:     { color:'#a87a4a', r:9,  hp:11,  speed:0.52, dmg:10 },  // grunt
+  clockbeetle:{ color:'#7a6a52', r:11, hp:22,  speed:0.38, dmg:14 },  // tank
+  gearwhisker:{ color:'#b06030', r:23, hp:190, speed:0.33, dmg:30 },  // boss
 };
-// Auto-populate eras 2-10 (medieval..divine) com 3 archetypes × cor da era.
-// Naming: <eraKey>_<archetype>. Ex: medieval_swarmer, industrial_tank, etc.
-// Renderizam como shapes procedurais (sem sprite) até receberem arte própria.
-for(let i = 1; i < ERAS.length; i++){
-  const era = ERAS[i];
-  for(const [arch, base] of Object.entries(ENEMY_ARCHETYPES)){
-    ARENA_ENEMY_DEFS[`${era.key}_${arch}`] = { ...base, color: era.color };
-  }
-}
 
-// ===== STAGE PROGRESSION =====
-// STAGE_NEW_ENEMIES: a cada stage, define os 3 NOVOS enemies que aparecem
-// pela primeira vez. stagePool(stage) acumula 1..stage → pool cumulativa.
-// Stage 1 = 3 enemies, Stage 2 = 6 enemies, Stage 3 = 9, ... Stage 10 = 30.
-const STAGE_NEW_ENEMIES = {
-  1: ['bandit', 'sporeling', 'sporepup'],  // Burrow — sprite-backed
+// ===== ERA PROGRESSION =====
+// Roster POR ERA, não por stage. currentArenaEra() = floor((stage-1)/5).
+// Era 0 = stages 1-5 (Burrow), Era 1 = 6-10 (Meadow), Era 2 = 11-15 (Industrial).
+// Todos os 5 stages de uma era usam o mesmo trio + mesmo boss.
+// Eras 3+ reusam Industrial (último roster definido).
+const ERA_NEW_ENEMIES = {
+  0: ['bandit', 'sporeling', 'sporepup'],     // Era da Toca (Burrow)
+  1: ['footpaw', 'bramblepup', 'stinger'],    // Reino do Prado (Meadow)
+  2: ['sapper', 'clockbeetle', 'cinderimp'],  // Coelheira Industrial
 };
-// Auto-fill stages 2-10 com triade era-archetype
-for(let stage = 2; stage <= 10; stage++){
-  const era = ERAS[stage - 1];  // stage 1 = era 0, stage 2 = era 1, ...
-  if(!era) continue;
-  STAGE_NEW_ENEMIES[stage] = [
-    `${era.key}_swarmer`,
-    `${era.key}_grunt`,
-    `${era.key}_tank`,
-  ];
-}
-
-// STAGE_BOSSES: 1 boss kind por stage. Default 'boss' (placeholder vermelho).
-// Stage 1 já tem sprite (sporeking); demais usam fallback até receberem arte.
-const STAGE_BOSSES = {
-  1: 'sporeking',
+const ERA_BOSSES = {
+  0: 'sporeking',     // Era da Toca
+  1: 'dameington',    // Reino do Prado
+  2: 'gearwhisker',   // Coelheira Industrial
 };
 function stageBossKind(stage){
-  return STAGE_BOSSES[stage] || 'boss';
+  let i = currentArenaEra();
+  while(i > 0 && !ERA_BOSSES[i]) i--;
+  return ERA_BOSSES[i] || 'gearwhisker';
 }
 
 // ====== WAVE / STAGE SYSTEM ======
@@ -5233,11 +5286,95 @@ const WAVE_MODS = {
 function waveMod(wave){
   return WAVE_MODS[wave] || WAVE_MODS[5];
 }
+
+// Posição do stage DENTRO da era (1..5). Drives wave composition + boss spawn.
+function stageInEra(stage){
+  return ((stage - 1) % 5) + 1;
+}
+
+// Boss wave = wave 6 do stage 5 dentro da era. Demais waves 6 são "huge wave"
+// (swarm grande, sem boss).
+function isBossWave(stage, wave){
+  return (wave === WAVES_PER_STAGE) && (stageInEra(stage) === 5);
+}
+
+// ===== WAVE_COMPOSITION — escalada de mobs A/B/C dentro da era =====
+// Slot index na pool da era: A=0 (swarmer), B=1 (grunt), C=2 (tank).
+// Pesos relativos por (stageInEra, wave). Wave 6 = huge wave (mesma comp,
+// count escalado). Apenas stageInEra=5 wave 6 = boss real.
+// Curve design:
+//   Stage 1: introduz A puro → mix com B (intro 2nd mob)
+//   Stage 2: A+B → introduz C (intro 3rd mob)
+//   Stage 3-4: mixes A+B+C progressivamente mais elite-heavy
+//   Stage 5: pre-boss buildup + boss final na wave 6
+const WAVE_COMPOSITION = {
+  1: { // intro A → A+B
+    1: [100, 0,   0],
+    2: [100, 0,   0],
+    3: [80,  20,  0],
+    4: [65,  35,  0],
+    5: [50,  50,  0],
+    6: [50,  50,  0],
+  },
+  2: { // carry A+B → intro C
+    1: [70,  30,  0],
+    2: [55,  45,  0],
+    3: [50,  35,  15],
+    4: [40,  35,  25],
+    5: [35,  35,  30],
+    6: [40,  30,  30],
+  },
+  3: { // full mix, slight tank bias
+    1: [40,  35,  25],
+    2: [35,  35,  30],
+    3: [30,  35,  35],
+    4: [25,  35,  40],
+    5: [25,  30,  45],
+    6: [30,  30,  40],
+  },
+  4: { // tank-heavy
+    1: [30,  35,  35],
+    2: [25,  35,  40],
+    3: [20,  35,  45],
+    4: [20,  30,  50],
+    5: [15,  30,  55],
+    6: [20,  30,  50],
+  },
+  5: { // pre-boss buildup; wave 6 = boss (composição ignorada)
+    1: [25,  35,  40],
+    2: [20,  35,  45],
+    3: [20,  30,  50],
+    4: [15,  30,  55],
+    5: [15,  25,  60],
+    6: null,
+  },
+};
+function getWaveComposition(stage, wave){
+  const sInEra = stageInEra(stage);
+  const stageTable = WAVE_COMPOSITION[sInEra] || WAVE_COMPOSITION[5];
+  return stageTable[wave] || stageTable[5];
+}
+// Pick enemy kind from weighted composition [wA, wB, wC] using era pool.
+function pickEnemyFromComp(comp, pool){
+  if(!comp || !pool || pool.length === 0) return 'bandit';
+  let total = 0;
+  for(let i = 0; i < comp.length; i++) total += comp[i] || 0;
+  if(total <= 0) return pool[0];
+  let roll = Math.random() * total;
+  for(let i = 0; i < comp.length; i++){
+    roll -= comp[i] || 0;
+    if(roll <= 0) return pool[i] || pool[0];
+  }
+  return pool[0];
+}
+
 function enemiesPerWave(stage, wave){
   const baseCount = waveMod(wave || 1).count;
-  // Stages avançados spawnam +1 enemy a cada 3 stages (escalada inter-stage).
-  // Cap em 15 enemies/wave pra não saturar visualmente.
-  return Math.min(15, baseCount + Math.floor((stage-1) / 3));
+  const stageBonus = Math.floor((stage-1) / 3);
+  // Huge wave (wave 6 não-boss): conta multiplicada por 1.8×.
+  const isHuge = (wave === WAVES_PER_STAGE) && !isBossWave(stage, wave);
+  const mult = isHuge ? 1.8 : 1.0;
+  return Math.min(20, Math.round((baseCount + stageBonus) * mult));
 }
 function waveSpawnInterval(stage){
   // intervalo entre spawns dentro de uma wave; mais rápido em stages altos
@@ -5248,13 +5385,12 @@ function stageScale(stage){
   return Math.pow(1.15, stage-1);
 }
 function stagePool(stage){
-  // Pool cumulativa: agrega os "novos" enemies de todos os stages 1..N.
-  // Drives the unlock progression — stage N = stage N-1 pool + 3 novos.
-  const pool = [];
-  for(let s = 1; s <= stage; s++){
-    if(STAGE_NEW_ENEMIES[s]) pool.push(...STAGE_NEW_ENEMIES[s]);
-  }
-  return pool.length > 0 ? pool : ['bandit'];  // fallback defensive
+  // Pool POR ERA: 5 stages de uma era compartilham o trio temático.
+  // Eras 3+ reusam a última era declarada (Industrial).
+  let i = currentArenaEra();
+  while(i > 0 && !(ERA_NEW_ENEMIES[i] && ERA_NEW_ENEMIES[i].length > 0)) i--;
+  const pool = ERA_NEW_ENEMIES[i];
+  return (pool && pool.length > 0) ? pool : ['bandit'];  // fallback defensive
 }
 function stageLabel(s){
   // formato X-Y (chapter-stage), 5 stages por chapter
@@ -5265,8 +5401,8 @@ function stageLabel(s){
 
 function startNewWave(){
   arena.waveState = 'spawning';
-  if(arena.wave === WAVES_PER_STAGE){
-    // wave de boss
+  // Boss spawn só na wave 6 do stage 5 dentro da era. Demais waves 6 são huge wave.
+  if(isBossWave(arena.stage, arena.wave)){
     spawnArenaBoss();
     arena.waveEnemiesToSpawn = 0;
     arena.waveState = 'fighting';
@@ -5278,7 +5414,7 @@ function startNewWave(){
 
 function onWaveClear(){
   if(arena.wave === WAVES_PER_STAGE){
-    // boss derrotado → stage clear, avança
+    // Wave 6 limpa (boss OU huge wave) → stage clear, avança pro próximo stage.
     arena.waveState = 'stage_clear';
     arena.stageClearBannerTimer = 120;
     // bônus de stage clear: cenouras escalando com a stage (era alface, mudado
@@ -5286,17 +5422,19 @@ function onWaveClear(){
     arena.carrots += (5 + arena.stage) * 5;
     spawnArenaParticle(arena.bx, arena.by, '#ffcc3d', 36);
     arena.regions++;
-    // Telemetria — boss_defeated + stage_cleared (alias pra clareza no funil).
-    // time_in_stage_ms permite calcular dificuldade média por stage server-side.
+    // Telemetria — gate boss_defeated por isBossWave (wave 6 huge não dispara).
+    // stage_cleared dispara em qualquer wave 6 clear (boss ou huge).
+    // time_in_stage_ms permite calcular dificuldade média server-side.
     if(window.Analytics){
       var _tIn = window._SESSION ? (Date.now() - window._SESSION.stageStartAt) : 0;
-      Analytics.send('boss_defeated', { time_in_stage_ms: _tIn });
+      if(isBossWave(arena.stage, arena.wave)){
+        Analytics.send('boss_defeated', { time_in_stage_ms: _tIn });
+      }
       Analytics.send('stage_cleared', { time_in_stage_ms: _tIn });
     }
-  } else if(arena.wave === (WAVES_PER_STAGE - 1)){
-    // última wave normal limpa: avança pro boss automaticamente NA PRIMEIRA TENTATIVA.
-    // Se já tinha perdido pra esse boss, entra em loop e espera o player
-    // clicar "DESAFIAR BOSS".
+  } else if(arena.wave === (WAVES_PER_STAGE - 1) && isBossWave(arena.stage, WAVES_PER_STAGE)){
+    // Wave 5 do stage 5 da era limpa → próxima é boss real. Respeita failedBoss
+    // flag (player precisa clicar "DESAFIAR BOSS" se já falhou uma vez).
     if(arena.failedBossCurrentStage){
       arena.wave = 1;
       startNewWave();
@@ -5307,7 +5445,7 @@ function onWaveClear(){
       if(window.Analytics) Analytics.send('boss_engaged', { via: 'auto' });
     }
   } else {
-    // waves 1-3 → próxima
+    // waves 1-4 (ou 5 quando wave 6 é huge wave, não boss) → próxima
     arena.wave++;
     startNewWave();
     // Telemetria — granularidade dentro do stage. wave aqui já é a próxima
@@ -5319,6 +5457,8 @@ function onWaveClear(){
 function challengeBoss(){
   if(state !== STATE.ARENA_PLAY) return;
   if(arena.wave === WAVES_PER_STAGE) return; // já tá no boss
+  // Só faz sentido em stage 5 da era (única wave 6 que é boss real)
+  if(!isBossWave(arena.stage, WAVES_PER_STAGE)) return;
   // limpa inimigos atuais, projéteis e effects de combate
   arena.enemies = [];
   arena.swings = [];
@@ -5346,8 +5486,8 @@ function onArenaDeath(){
     });
   }
   // sem game over — volta pra wave 1 do stage atual com HP cheio
-  // se morreu lutando o boss, marca pra desbloquear o botão "DESAFIAR BOSS"
-  if(arena.wave === WAVES_PER_STAGE){
+  // se morreu lutando o boss REAL, marca pra desbloquear o botão "DESAFIAR BOSS"
+  if(isBossWave(arena.stage, arena.wave)){
     arena.failedBossCurrentStage = true;
   }
   // Music: if player died during boss fight (or any time boss music is active),
@@ -6931,7 +7071,11 @@ function _randomSpawnPoint(forceSide){
 
 function spawnArenaEnemy(){
   const pool = stagePool(arena.stage);
-  const kind = pool[(Math.random()*pool.length)|0];
+  // Composição weighted A/B/C por (stageInEra, wave). Falls back pra uniform
+  // random se a wave não tem comp definido (defensive).
+  const comp = getWaveComposition(arena.stage, arena.wave);
+  const kind = comp ? pickEnemyFromComp(comp, pool)
+                    : pool[(Math.random()*pool.length)|0];
   const def = ARENA_ENEMY_DEFS[kind];
   // Spawn restrito às 2 zonas dos cantos INFERIORES (esq + dir) — combinam
   // visualmente com as "aberturas entre arbustos" das imagens das eras.
@@ -7479,6 +7623,229 @@ function arenaMeleeSwing(target){
 // Hit zone: line forward of bunny, hits during the "extend" window.
 // DPS-neutral: per-hit damage scaled by (cooldown / 50) so cadence change
 // doesn't shift overall damage output relative to swing baseline.
+// ============== STAB VFX MODULE (inlined from vfx/stab-vfx.js) ==============
+// Cartoon stab effect for thrust attacks. Particle-based, dt-driven.
+// Spawned per thrust at impact point. Updated/rendered via arena loops.
+const StabVFX = (() => {
+  const TAU = Math.PI * 2;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const E = {
+    easeOutBack: t => { const c1=1.70158, c3=c1+1; return 1 + c3*Math.pow(t-1,3) + c1*Math.pow(t-1,2); },
+    easeOutExpo: t => t===1 ? 1 : 1 - Math.pow(2, -10*t),
+    easeOutQuad: t => 1 - (1-t)*(1-t),
+    easeOutCubic: t => 1 - Math.pow(1-t, 3),
+    easeInQuart: t => t*t*t*t,
+    smoothstep: t => t*t*(3-2*t),
+    holdThenCollapse: t => t < 0.72 ? 0 : (t-0.72)/0.28,
+  };
+  class Particle {
+    constructor(o) {
+      Object.assign(this, {
+        life:0, rot:0, rotV:0, drag:0, gx:0, gy:0, vx:0, vy:0, blend:'source-over'
+      }, o);
+    }
+    update(dt) {
+      this.life += dt;
+      if (this.drag) { this.vx -= this.vx*this.drag*dt; this.vy -= this.vy*this.drag*dt; }
+      this.vx += this.gx*dt; this.vy += this.gy*dt;
+      this.x += this.vx*dt; this.y += this.vy*dt;
+      if (this.rotV) this.rot += this.rotV*dt;
+    }
+    get dead() { return this.life >= this.lifetime; }
+    get t() { return Math.min(1, this.life / this.lifetime); }
+  }
+  function shadeHSL(h, s, l, dl) { return `hsl(${h} ${s}% ${clamp(l+dl,0,100)}%)`; }
+  function drawShape(ctx, p, size, alpha, h, s, l, stroke) {
+    ctx.globalAlpha = alpha;
+    ctx.globalCompositeOperation = p.blend;
+    ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+    const fill = `hsl(${h} ${s}% ${l}%)`;
+    switch (p.shape) {
+      case 'circle': {
+        const r = size/2;
+        ctx.beginPath(); ctx.arc(0,0,r,0,TAU);
+        const g = ctx.createRadialGradient(-r*0.3, -r*0.3, 0, 0, 0, r);
+        g.addColorStop(0, shadeHSL(h,s,l,12)); g.addColorStop(1, fill);
+        ctx.fillStyle = g; ctx.fill();
+        if (p.outline) { ctx.lineWidth = p.outline; ctx.strokeStyle = stroke; ctx.stroke(); }
+        break;
+      }
+      case 'bloom': {
+        const r = size/2;
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        g.addColorStop(0, `hsla(${h}, ${s}%, ${clamp(l+18,0,100)}%, ${alpha})`);
+        g.addColorStop(0.4, `hsla(${h}, ${s}%, ${l}%, ${alpha*0.5})`);
+        g.addColorStop(1, `hsla(${h}, ${s}%, ${l}%, 0)`);
+        ctx.fillStyle = g; ctx.globalAlpha = 1;
+        ctx.beginPath(); ctx.arc(0,0,r,0,TAU); ctx.fill();
+        break;
+      }
+      case 'spike': {
+        const len = size * (p.aspect || 3.2), w = size * (p.wFactor || 0.42);
+        ctx.beginPath();
+        ctx.moveTo(len*0.5, 0); ctx.lineTo(0, -w*0.5);
+        ctx.lineTo(-len*0.5, 0); ctx.lineTo(0, w*0.5); ctx.closePath();
+        const g = ctx.createLinearGradient(-len*0.5, -w*0.5, len*0.5, w*0.5);
+        g.addColorStop(0, shadeHSL(h,s,l,-15));
+        g.addColorStop(0.5, shadeHSL(h,s,l,10));
+        g.addColorStop(1, shadeHSL(h,s,l,-5));
+        ctx.fillStyle = g; ctx.fill();
+        if (p.outline) { ctx.lineWidth = p.outline; ctx.strokeStyle = stroke; ctx.lineJoin='round'; ctx.stroke(); }
+        ctx.beginPath();
+        ctx.moveTo(len*0.45, 0); ctx.lineTo(-len*0.05, -w*0.32);
+        ctx.lineTo(-len*0.2, -w*0.18); ctx.lineTo(len*0.35, 0);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fill();
+        break;
+      }
+      case 'star': {
+        const pts = p.points || 6, inner = size*0.5*(p.innerRatio||0.45), outer = size*0.5;
+        ctx.beginPath();
+        for (let i=0;i<pts*2;i++) {
+          const r = i%2===0 ? outer : inner;
+          const a = (i/(pts*2))*TAU - Math.PI/2;
+          const x = Math.cos(a)*r, y = Math.sin(a)*r;
+          i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+        }
+        ctx.closePath();
+        const g = ctx.createRadialGradient(0, -outer*0.25, 0, 0, 0, outer);
+        g.addColorStop(0, shadeHSL(h,s,l,18));
+        g.addColorStop(0.55, fill);
+        g.addColorStop(1, shadeHSL(h,s,l,-12));
+        ctx.fillStyle = g; ctx.fill();
+        if (p.outline) { ctx.lineWidth = p.outline; ctx.strokeStyle = stroke; ctx.lineJoin='round'; ctx.stroke(); }
+        ctx.beginPath();
+        ctx.arc(-outer*0.12, -outer*0.18, inner*0.45, 0, TAU);
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fill();
+        break;
+      }
+      case 'ring': {
+        ctx.beginPath(); ctx.arc(0,0,size/2,0,TAU);
+        ctx.lineWidth = p.lineW || 7; ctx.strokeStyle = fill; ctx.stroke();
+        if (p.outline) {
+          ctx.lineWidth = (p.lineW||7) + p.outline*2;
+          ctx.strokeStyle = stroke;
+          ctx.globalCompositeOperation='source-over'; ctx.stroke();
+          ctx.lineWidth = p.lineW || 7; ctx.strokeStyle = fill; ctx.stroke();
+        }
+        ctx.beginPath(); ctx.arc(0, 0, size/2 - (p.lineW||7)*0.25, 0, TAU);
+        ctx.lineWidth = (p.lineW||7) * 0.35; ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+        ctx.stroke();
+        break;
+      }
+      case 'crescent': {
+        const r = size * 0.5;
+        const thickness = size * (p.thinFactor || 0.18);
+        const arc = p.arcSpan || 1.2;
+        ctx.beginPath();
+        ctx.arc(0, 0, r, -arc/2, arc/2);
+        ctx.arc(0, 0, r - thickness, arc/2, -arc/2, true);
+        ctx.closePath();
+        const g = ctx.createLinearGradient(-r, 0, r, 0);
+        g.addColorStop(0, `hsla(${h}, ${s}%, ${l}%, 0)`);
+        g.addColorStop(0.5, fill);
+        g.addColorStop(1, `hsla(${h}, ${s}%, ${l}%, 0)`);
+        ctx.fillStyle = g; ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, 0, r - thickness*0.35, -arc*0.45, arc*0.45);
+        ctx.lineWidth = thickness * 0.35; ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineCap = 'round'; ctx.stroke();
+        break;
+      }
+      case 'speedline': {
+        const len = size * (p.aspect || 5), w = size * 0.22;
+        const r = w/2;
+        ctx.beginPath();
+        ctx.moveTo(-len/2, 0);
+        ctx.quadraticCurveTo(-len*0.2, -w*0.7, len/2 - r, -w*0.15);
+        ctx.arc(len/2 - r, 0, r*0.6, -Math.PI/2, Math.PI/2);
+        ctx.quadraticCurveTo(-len*0.2, w*0.7, -len/2, 0);
+        ctx.closePath();
+        const g = ctx.createLinearGradient(-len/2, 0, len/2, 0);
+        g.addColorStop(0, `hsla(${h}, ${s}%, ${l}%, 0)`);
+        g.addColorStop(0.5, fill);
+        g.addColorStop(1, shadeHSL(h, s, clamp(l+10,0,100), 0));
+        ctx.fillStyle = g; ctx.fill();
+        break;
+      }
+      case 'chargeDot': {
+        const r = size * 0.5;
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 2);
+        g.addColorStop(0, `hsla(${h}, ${s}%, 95%, ${alpha})`);
+        g.addColorStop(0.3, `hsla(${h}, ${s}%, ${l}%, ${alpha*0.6})`);
+        g.addColorStop(1, `hsla(${h}, ${s}%, ${l}%, 0)`);
+        ctx.fillStyle = g; ctx.globalAlpha = 1;
+        ctx.beginPath(); ctx.arc(0, 0, r*2, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, r*0.6, 0, TAU);
+        ctx.fillStyle = '#ffffff'; ctx.fill();
+        break;
+      }
+    }
+  }
+  function renderParticle(ctx, p) {
+    const t = p.t;
+    const tSize  = (p.easeSize  || (x=>x))(t);
+    const tAlpha = (p.easeAlpha || (x=>x))(t);
+    const tColor = (p.easeColor || (x=>x))(t);
+    const size  = p.size0 + (p.size1 - p.size0) * tSize;
+    const alpha = p.alpha0 + (p.alpha1 - p.alpha0) * tAlpha;
+    const h = (p.h0 ?? 0)  + ((p.h1 ?? p.h0 ?? 0) - (p.h0 ?? 0)) * tColor;
+    const s = (p.s0 ?? 0)  + ((p.s1 ?? p.s0 ?? 0) - (p.s0 ?? 0)) * tColor;
+    const l = (p.l0 ?? 50) + ((p.l1 ?? p.l0 ?? 50) - (p.l0 ?? 50)) * tColor;
+    const stroke = p.strokeColor || '#1a0a26';
+    ctx.save();
+    drawShape(ctx, p, size, Math.max(0, alpha), h, s, l, stroke);
+    ctx.restore();
+  }
+  function render(ctx, particles) {
+    for (let i = 0; i < particles.length; i++) renderParticle(ctx, particles[i]);
+  }
+  function update(state, dt) {
+    const particles = state.particles;
+    for (let i = particles.length - 1; i >= 0; i--) {
+      particles[i].update(dt);
+      if (particles[i].dead) particles.splice(i, 1);
+    }
+  }
+  // Master scale knob — multiplies all particle sizes. Tune for arena resolution.
+  // 0.20 = 80% reduction from original cartoon source values.
+  const SZ = 0.20;
+  function spawnStab(state, ox, oy, tx, ty) {
+    const particles = state.particles;
+    const dx = tx - ox, dy = ty - oy;
+    const angle = Math.atan2(dy, dx);
+    const dist = Math.min(120, Math.hypot(dx, dy));
+    const fwd = { x: Math.cos(angle), y: Math.sin(angle) };
+    const mx = ox + fwd.x * dist * 0.6;
+    const my = oy + fwd.y * dist * 0.6;
+    const ix = ox + fwd.x * dist;
+    const iy = oy + fwd.y * dist;
+    // ALL-WHITE PALETTE: h=0, s=0, l=100. Only thin speedlines remain.
+    const WH = { h0: 0, s0: 0, l0: 100, h1: 0, s1: 0, l1: 100 };
+    // Speedlines
+    for (let i = 0; i < 5; i++) {
+      const offN = rand(-0.7, 0.7);
+      const nx = -fwd.y, ny = fwd.x;
+      const along = rand(0.15, 0.75);
+      const slx = ox + fwd.x * dist * along + nx * offN * 14;
+      const sly = oy + fwd.y * dist * along + ny * offN * 14;
+      particles.push(new Particle({
+        x: slx, y: sly, lifetime: rand(0.26, 0.38), rot: angle,
+        vx: fwd.x * rand(80, 140), vy: fwd.y * rand(80, 140),
+        size0: 16*SZ, size1: 32*SZ, aspect: 9,
+        alpha0: 1, alpha1: 0,
+        ...WH, shape: 'speedline',
+        easeSize: E.easeOutQuad, easeAlpha: E.easeOutCubic,
+      }));
+    }
+  }
+  function createState() {
+    return { particles: [] };
+  }
+  return { createState, spawnStab, update, render };
+})();
+
 function arenaMeleeThrust(target){
   const angle = Math.atan2(target.y - arena.by, target.x - arena.bx);
   if(bunny){
@@ -7488,15 +7855,24 @@ function arenaMeleeThrust(target){
   }
   const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
   const THRUST_DMG_MULT = 33 / 50; // matches getAttackCooldownFrames thrust value (0.66)
+  const thrustRange = 48 + bladeStat * 6;
   arena.swings.push({
     kind: 'thrust',
     centerAngle: angle,
-    range: 48 + bladeStat * 6,
+    range: thrustRange,
     frame: 0, lifeFrames: 14, // longer window so the weapon reads on-screen
     dmg: arenaTotalStat('dmg') * THRUST_DMG_MULT,
     crit: arenaTotalStat('crit'),
     hit: new Set(),
   });
+  // Cartoon stab VFX — particle-based hit FX at thrust impact point.
+  // Impact = bunny pos + thrust direction × range. Layered: charge → ribbon
+  // → spike → impact star + bloom + ring + speedlines + embers.
+  if(arena._stabVfx){
+    const tx = arena.bx + Math.cos(angle) * thrustRange;
+    const ty = arena.by + Math.sin(angle) * thrustRange;
+    StabVFX.spawnStab(arena._stabVfx, arena.bx, arena.by, tx, ty);
+  }
   // Forward streak VFX — chain of small particles racing along thrust axis.
   // Cream-yellow core fading to gold for "speed line" feel.
   const cosA = Math.cos(angle), sinA = Math.sin(angle);
@@ -7839,15 +8215,23 @@ function updateArena(){
   if(bunny){
     if(mag > 0.05){
       bunny.setState('walk');
+      // Forward mode: bunny anda pra BAIXO (dy>0.5) sem componente lateral
+      // forte (|dx|<0.4) → usa front sheet em vez do side walk.
+      // Ataque trava bunnyFacingLockedUntil; nesse caso volta pro side mode
+      // pra mostrar o swing/shot lateral.
+      const now = performance.now();
+      const inAtkLock = (now < bunnyFacingLockedUntil);
+      bunnyMoveMode = (!inAtkLock && dy > 0.5 && Math.abs(dx) < 0.4) ? 'forward' : 'side';
       // Facing por movimento só atualiza se NÃO tem ataque recente travando.
       // Threshold bumped de 0.1 → 0.6 pra evitar flips em "weave" da AI
       // (movimento orbital em volta de inimigo flutua dx perto de zero).
-      if(performance.now() >= bunnyFacingLockedUntil){
+      if(now >= bunnyFacingLockedUntil){
         if(dx > 0.6) bunnyFacing = 'right';
         else if(dx < -0.6) bunnyFacing = 'left';
       }
     } else {
       bunny.setState('idle');
+      bunnyMoveMode = 'side';
     }
   }
 
@@ -7893,6 +8277,8 @@ function updateArena(){
 
   // update efeitos especiais
   updateArenaEffects();
+  // Stab VFX particles (cartoon thrust FX) — dt fixo 1/60 (game tick rate)
+  if(arena._stabVfx) StabVFX.update(arena._stabVfx, 1/60);
 
   // wave/stage tick — substitui spawn por tempo
   tickArenaWave();
@@ -8422,23 +8808,82 @@ function drawArenaBunny(){
     const dw = 256 * scale;
     const dh = 256 * scale;
     // Drop shadow no foot — conecta o bunny ao chão visualmente.
-    // Elipse achatada (~22% horizontal × 3.5% vertical do display),
-    // posicionada exatamente nos pés (foot anchor + 5px pro chão).
     ctx.save();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.30)';
     ctx.beginPath();
     ctx.ellipse(x, y + 5, dw * 0.22, dh * 0.035, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
-    // Liga imageSmoothing pro sprite ficar suave (canvas default é nearest-neighbor)
     const prevSmooth = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    bunny.draw(ctx, x, y, scale, flipX);
-    // Hurt flash via tint vermelho do renderer (respeita alpha do sprite)
-    if(arena.hurtTimer > 0){
-      const intensity = Math.min(0.55, arena.hurtTimer / 40);
-      bunny.drawHurtTint(ctx, x, y, scale, intensity);
+    // Forward mode: bunny anda pra baixo de frente pra câmera. Usa front sheet
+    // (320² frames) em vez do BunnyRenderer. Só ativa quando state atual é walk
+    // — ataques (melee/ranged) + idle + death continuam no side renderer.
+    const wantForward = (bunnyMoveMode === 'forward'
+                      && bunny.currentState === 'walk'
+                      && BUNNY_FORWARD_IMG.complete
+                      && BUNNY_FORWARD_IMG.naturalWidth > 0);
+    if(wantForward){
+      const m = BUNNY_FORWARD_META;
+      const elapsed = performance.now() / 1000;
+      const idx = Math.floor(elapsed * m.fps) % m.frames;
+      // Sheet é ROW-MAJOR (left→right por linha). Frame N: col = N % cols, row = N / cols.
+      const col = idx % m.cols;
+      const row = Math.floor(idx / m.cols);
+      const sx = col * m.frame;
+      const sy = row * m.frame;
+      // Match display height to side sprite: side draws at 256*scale = dh.
+      // Forward frame é 320 — escala por (256/320) pra manter visual size.
+      const fScale = scale * (256 / m.frame);
+      const fdw = m.frame * fScale;
+      const fdh = m.frame * fScale;
+      const fdx = x - fdw * 0.5;
+      // groundOffset igual ao side path (BUNNY_STATE_TUNE branch) — alinha
+      // os pés do bunny com o nível visual do chão (~10px abaixo de game.y).
+      const fdy = y + 10 - fdh * (m.footAnchor || 0.85);
+      ctx.drawImage(BUNNY_FORWARD_IMG, sx, sy, m.frame, m.frame, fdx, fdy, fdw, fdh);
+      // Hurt flash tint (overlay vermelho sobre o front sprite)
+      if(arena.hurtTimer > 0){
+        const intensity = Math.min(0.55, arena.hurtTimer / 40);
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-atop';
+        ctx.globalAlpha = intensity;
+        ctx.fillStyle = '#ff3030';
+        ctx.fillRect(fdx, fdy, fdw, fdh);
+        ctx.restore();
+      }
+    } else {
+      // Per-state tune: scale multiplier + actual foot pixel position no source
+      // frame. Walk uses 320px sheet (vs 256 dos outros) → normalizado pra
+      // display 256-equivalente. Idle/melee/ranged/death reduzidos 15% (proporções
+      // chibi maiores que walk slim+cape).
+      //
+      // Renderer hardcoda foot anchor 0.85 internamente (line 168 do
+      // bunny_renderer.js). Cada sprite tem foot pixel em fração diferente do
+      // frame source — passamos y ajustado pra que TODOS os states aterrissem
+      // com pé exatamente em game.y.
+      const TUNE = {
+        idle:   { scaleMult: 0.85, srcFoot: 0.90, frame: 256 },
+        walk:   { scaleMult: 1.00, srcFoot: 0.91, frame: 320 },
+        melee:  { scaleMult: 0.72, srcFoot: 0.90, frame: 256 },
+        ranged: { scaleMult: 0.72, srcFoot: 0.90, frame: 256 },
+        death:  { scaleMult: 0.85, srcFoot: 0.90, frame: 256 },
+      };
+      const t = TUNE[bunny.currentState] || { scaleMult: 1, srcFoot: 0.85, frame: 256 };
+      const fwComp = 256 / t.frame;
+      const stateScale = scale * fwComp * t.scaleMult;
+      const dhState = t.frame * stateScale;
+      // 1) yShift: aligns foot pixel ao game.y (cross-state consistency)
+      // 2) groundOffset: empirical — game.y é ~10px acima do nível visual do chão
+      //    onde enemies aterrissam (enemy renderer usa e.y + ds*0.28 ≈ +12px).
+      const yShift = -(t.srcFoot - 0.85) * dhState;
+      const groundOffset = 10;
+      bunny.draw(ctx, x, y + yShift + groundOffset, stateScale, flipX);
+      if(arena.hurtTimer > 0){
+        const intensity = Math.min(0.55, arena.hurtTimer / 40);
+        bunny.drawHurtTint(ctx, x, y + yShift + groundOffset, stateScale, intensity);
+      }
     }
     ctx.imageSmoothingEnabled = prevSmooth;
   } else {
@@ -8499,57 +8944,7 @@ function drawArenaEnemy(e){
     ctx.fillRect(e.x-e.r, e.y-e.r, e.r*2, e.r*2);
     // (cai pro hp bar genérico embaixo)
   }
-  const flash = e.hurtTimer>0;
-  ctx.fillStyle = flash ? '#fff' : e.color;
-  if(e.kind === 'bat'){
-    // asas
-    ctx.fillRect(e.x-e.r-2, e.y-2, 4, 5);
-    ctx.fillRect(e.x+e.r-2, e.y-2, 4, 5);
-    ctx.fillRect(e.x-5, e.y-3, 10, 6);
-    if(!flash){
-      ctx.fillStyle = '#ff5252'; ctx.fillRect(e.x-2, e.y-1, 1, 1); ctx.fillRect(e.x+1, e.y-1, 1, 1);
-    }
-  } else if(e.kind === 'skeleton'){
-    ctx.fillRect(e.x-5, e.y-7, 10, 8);
-    ctx.fillRect(e.x-3, e.y+1, 6, 6);
-    if(!flash){
-      ctx.fillStyle = '#000'; ctx.fillRect(e.x-3, e.y-4, 2, 2); ctx.fillRect(e.x+1, e.y-4, 2, 2);
-    }
-  } else if(e.kind === 'knight'){
-    ctx.fillRect(e.x-e.r, e.y-e.r, e.r*2, e.r*2);
-    if(!flash){
-      ctx.fillStyle = '#5a4499'; ctx.fillRect(e.x-7, e.y-6, 14, 4); // capacete
-      ctx.fillStyle = '#ffcc3d'; ctx.fillRect(e.x-2, e.y-4, 4, 2);
-    }
-  } else if(e.kind === 'boss'){
-    ctx.fillRect(e.x-e.r, e.y-e.r, e.r*2, e.r*2);
-    if(!flash){
-      ctx.fillStyle = '#fff'; ctx.fillRect(e.x-7, e.y-4, 3, 4); ctx.fillRect(e.x+4, e.y-4, 3, 4);
-      ctx.fillStyle = '#000'; ctx.fillRect(e.x-6, e.y-3, 2, 2); ctx.fillRect(e.x+5, e.y-3, 2, 2);
-      ctx.fillStyle = '#ffcc3d'; ctx.fillRect(e.x-8, e.y-e.r-4, 16, 4); // coroa
-    }
-  } else if(e.kind.indexOf('_') > 0){
-    // Era × archetype kinds (medieval_swarmer, industrial_tank, etc) — fallback
-    // procedural. Shape varia por archetype: swarmer=círculo, grunt=quadrado,
-    // tank=retângulo vertical maior. Cor vem do def (era color).
-    const archetype = e.kind.split('_')[1] || 'grunt';
-    if(archetype === 'swarmer'){
-      ctx.beginPath();
-      ctx.arc(e.x, e.y, e.r, 0, Math.PI*2);
-      ctx.fill();
-    } else if(archetype === 'tank'){
-      ctx.fillRect(e.x-e.r, e.y-e.r*1.2, e.r*2, e.r*2.4);
-    } else {  // grunt
-      ctx.fillRect(e.x-e.r, e.y-e.r, e.r*2, e.r*2);
-    }
-    // Olhos pequenos pra dar personalidade
-    if(!flash){
-      ctx.fillStyle = '#000';
-      ctx.fillRect(e.x-e.r*0.45, e.y-e.r*0.2, 2, 2);
-      ctx.fillRect(e.x+e.r*0.25, e.y-e.r*0.2, 2, 2);
-    }
-  }
-  // hp bar
+  // hp bar (sprite path retorna cedo; só chega aqui se sprite ainda não carregou)
   if(e.hp < e.maxHp){
     ctx.fillStyle = '#000';
     ctx.fillRect(e.x-e.r, e.y-e.r-5, e.r*2, 3);
@@ -9241,6 +9636,7 @@ const ENEMY_SPRITE_ANIMS = {
 // e direção default que o sprite source aponta (right = como o beaver original
 // foi desenhado; left = como os sprites do Burrow foram desenhados).
 const ENEMY_SPRITE_DEFS = {
+  // ===== BURROW (stage 1) =====
   bandit: {
     src: 'assets/enemies/Burrow/burrow_enemy_bandit', base: 'burrow_enemy_bandit',
     display: 44, defaultFacing: 'left',
@@ -9260,6 +9656,50 @@ const ENEMY_SPRITE_DEFS = {
     base: 'burrow_boss_bloated_sporeking',
     display: 100, defaultFacing: 'left',  // +25% vs original (80)
     shadowY: 14,  // boss tem espaço extra no bottom do sprite — desce a sombra +14px do default
+  },
+  // ===== MEADOW (era 1) — sprites desenhados facing LEFT =====
+  footpaw:    {
+    src: 'assets/enemies/Meadow/meadow_enemy_footpaw_scout',
+    base: 'meadow_enemy_footpaw_scout',
+    display: 42, defaultFacing: 'left',
+  },
+  bramblepup: {
+    src: 'assets/enemies/Meadow/meadow_enemy_bramblepup',
+    base: 'meadow_enemy_bramblepup',
+    display: 32, defaultFacing: 'left',
+  },
+  stinger:    {
+    src: 'assets/enemies/Meadow/meadow_enemy_stinger_wasp',
+    base: 'meadow_enemy_stinger_wasp',
+    display: 40, defaultFacing: 'left',
+  },
+  dameington: {
+    src: 'assets/enemies/Meadow/meadow_boss_sir_dameington',
+    base: 'meadow_boss_sir_dameington',
+    display: 100, defaultFacing: 'left',
+    shadowY: 14,
+  },
+  // ===== INDUSTRIAL (era 2) =====
+  cinderimp:  {
+    src: 'assets/enemies/Industrial/industrial_enemy_cinder_imp',
+    base: 'industrial_enemy_cinder_imp',
+    display: 40, defaultFacing: 'left',  // front-facing, default left por consistência
+  },
+  clockbeetle:{
+    src: 'assets/enemies/Industrial/industrial_enemy_clockwork_beetle',
+    base: 'industrial_enemy_clockwork_beetle',
+    display: 46, defaultFacing: 'left',
+  },
+  sapper:     {
+    src: 'assets/enemies/Industrial/industrial_enemy_sapper',
+    base: 'industrial_enemy_sapper',
+    display: 44, defaultFacing: 'right',
+  },
+  gearwhisker:{
+    src: 'assets/enemies/Industrial/industrial_boss_baron_gearwhisker',
+    base: 'industrial_boss_baron_gearwhisker',
+    display: 100, defaultFacing: 'left',
+    shadowY: 14,
   },
 };
 // ENEMY_SPRITE_IMG[kind][state] = Image
@@ -9965,6 +10405,10 @@ function renderArena(){
   }
   ctx.globalAlpha = 1;
 
+  // Cartoon stab VFX — thrust attack particles. Rendered after default
+  // particles so the bright impact star sits on top.
+  if(arena._stabVfx) StabVFX.render(ctx, arena._stabVfx.particles);
+
   // floating damage numbers — crit maior + rosa, normal laranja, branco stroke pra leitura
   if(arena.dmgNumbers){
     ctx.save();
@@ -10309,7 +10753,9 @@ const FTUE = (function(){
   // Sprite da paw tem o "dedo" (pad cluster) deslocado pra esquerda do centro
   // do PNG. Compensa shiftando o sprite pra direita pra que o pad fique
   // alinhado com o centro X do target.
-  const HAND_X_OFFSET = 12;
+  // Negative = shifts paw LEFT pra centralizar tip do dedo no target visual.
+  // Empírico — paw asset tem cluster do pad off-center à esquerda da bounding box.
+  const HAND_X_OFFSET = -28;
   function _el(id){ return document.getElementById(id); }
   function point(opts){
     const tgt = (typeof opts.target === 'string') ? document.querySelector(opts.target) : opts.target;
@@ -10530,7 +10976,9 @@ const Tutorial = (function(){
         FTUE.hide();
       }
     } else {
-      FTUE.point({ target:'#questBtn', text:'Agora resgate suas conquistas!', position:'below' });
+      // Target the IMG (icon overflows 170% the button) so the paw tracks
+      // the visible journal icon, not the smaller invisible button bounds.
+      FTUE.point({ target:'#questBtn .quest-btn-icon', text:'Agora resgate suas conquistas!', position:'below' });
     }
   }
   function _initClaimStep(){

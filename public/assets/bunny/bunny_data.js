@@ -41,12 +41,12 @@ window.BUNNY_JSON_DATA['assets/bunny/bunny.json'] =
       "state": "walk",
       "frames": 30,
       "fps": 30,
-      "frame_width": 256,
-      "frame_height": 256,
-      "cols": 6,
+      "frame_width": 320,
+      "frame_height": 320,
+      "cols": 8,
       "rows": 5,
-      "sheet_width": 1536,
-      "sheet_height": 1280,
+      "sheet_width": 2560,
+      "sheet_height": 1600,
       "loop": true,
       "method": "procedural-v1-bunny+weapon",
       "weapon_baked_in": false,
@@ -56,8 +56,8 @@ window.BUNNY_JSON_DATA['assets/bunny/bunny.json'] =
         0.62
       ],
       "files": {
-        "spritesheet": "bunny_walk.png",
-        "webp": "bunny_walk.webp"
+        "spritesheet": "bunny_walk_side.png",
+        "webp": "bunny_walk_side.webp"
       }
     },
     "melee": {
@@ -776,12 +776,12 @@ window.BUNNY_JSON_DATA['assets/bunny/bunny_walk.json'] =
   "state": "walk",
   "frames": 30,
   "fps": 30,
-  "frame_width": 256,
-  "frame_height": 256,
-  "cols": 6,
+  "frame_width": 320,
+  "frame_height": 320,
+  "cols": 8,
   "rows": 5,
-  "sheet_width": 1536,
-  "sheet_height": 1280,
+  "sheet_width": 2560,
+  "sheet_height": 1600,
   "loop": true,
   "method": "procedural-v1-bunny+weapon",
   "weapon_baked_in": false,
@@ -1543,8 +1543,8 @@ window.BUNNY_JSON_DATA['assets/bunny/bunny_walk.json'] =
     }
   ],
   "files": {
-    "spritesheet": "bunny_walk.png",
-    "webp": "bunny_walk.webp"
+    "spritesheet": "bunny_walk_side.png",
+    "webp": "bunny_walk_side.webp"
   }
 };
 
