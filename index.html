@@ -1902,10 +1902,10 @@
   }
 
   /* Tabs bloqueadas — apaga visual + esconde label + 🔒 grande no meio.
-     Aplica em PVP / HERÓI / EXPLORAR / LOJA (tudo que tem [disabled]). */
-  .arenaTab-btn[disabled]{
+     SEM pointer-events:none — handler global em #arenaTabBar intercepta click
+     e mostra toast "EM BREVE". Aplica em PVP / HERÓI / EXPLORAR / LOJA. */
+  .arenaTab-btn.locked{
     cursor:not-allowed;
-    pointer-events:none;
     opacity:0.55;
     filter:grayscale(0.6) brightness(0.8);
     position:relative;
@@ -1913,7 +1913,7 @@
     color:transparent;
     text-shadow:none;
   }
-  .arenaTab-btn[disabled]::after{
+  .arenaTab-btn.locked::after{
     content:'🔒';
     position:absolute;
     inset:0;
@@ -1930,6 +1930,30 @@
       -1.5px  0    0 #1a0e08, 1.5px  0    0 #1a0e08,
        0    -1.5px 0 #1a0e08, 0     1.5px 0 #1a0e08;
     pointer-events:none;
+  }
+  /* Toast "EM BREVE" — aparece momentaneamente acima do tab tocado.
+     Posição calculada em JS via offsetTop/Left do button. */
+  #emBreveToast{
+    position:fixed;
+    transform:translateX(-50%) translateY(0);
+    background:#f5ecd2;
+    color:#3a2a18;
+    border:1.5px solid #d6cfc1;
+    border-radius:10px;
+    padding:6px 14px;
+    font-family:Fredoka, system-ui, sans-serif;
+    font-weight:bold;
+    font-size:13px;
+    letter-spacing:0.5px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.4);
+    pointer-events:none;
+    z-index:5000;
+    opacity:0;
+    transition:opacity .18s, transform .22s cubic-bezier(.34, 1.56, .64, 1);
+  }
+  #emBreveToast.show{
+    opacity:1;
+    transform:translateX(-50%) translateY(-6px);
   }
   /* Active state: botão "acende" com glow amarelado interno + boost de brilho.
      Sem drop shadow externo (só o glow inset). */
@@ -2917,13 +2941,15 @@
            contra getElementById retornar null. -->
     </div>
 
-    <!-- arena bottom tab bar (só COMBAT está ativo; outros bloqueados) -->
+    <!-- arena bottom tab bar (só COMBAT está ativo; outros bloqueados via .locked).
+         .locked usa o mesmo visual do [disabled] antigo mas SEM pointer-events:none,
+         pra que o click handler global possa interceptar e mostrar toast "EM BREVE". -->
     <div id="arenaTabBar">
-      <button class="arenaTab-btn" data-tab="pvp"     disabled>PVP</button>
-      <button class="arenaTab-btn" data-tab="hero"    disabled>HERÓI</button>
+      <button class="arenaTab-btn locked" data-tab="pvp">PVP</button>
+      <button class="arenaTab-btn locked" data-tab="hero">HERÓI</button>
       <button class="arenaTab-btn combat active" data-tab="combat">COMBAT</button>
-      <button class="arenaTab-btn" data-tab="explore" disabled>EXPLORAR</button>
-      <button class="arenaTab-btn" data-tab="shop"    disabled>LOJA</button>
+      <button class="arenaTab-btn locked" data-tab="explore">EXPLORAR</button>
+      <button class="arenaTab-btn locked" data-tab="shop">LOJA</button>
     </div>
 
     <!-- popup de detalhes do item (aparece ao clicar num slot do items strip) -->
@@ -12939,6 +12965,46 @@ function hideItemPopup(){
   } else {
     apply();
   }
+})();
+
+// "EM BREVE" toast — feedback ao clicar em tabs bloqueados do bottom tab bar
+// (PVP / HERÓI / EXPLORAR / LOJA). Antes usavam [disabled] que matava o click;
+// agora usam .locked + delegation aqui pra interceptar e mostrar feedback.
+(function setupEmBreveToast(){
+  const tabBar = document.getElementById('arenaTabBar');
+  if(!tabBar) return;
+  function ensureToast(){
+    let el = document.getElementById('emBreveToast');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'emBreveToast';
+      el.textContent = '🔒 EM BREVE';
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+  function showToast(targetBtn){
+    const el = ensureToast();
+    const r = targetBtn.getBoundingClientRect();
+    // Posiciona toast LOGO ACIMA do tab tocado (24px de gap → spring up via .show transform)
+    el.style.left = (r.left + r.width/2) + 'px';
+    el.style.top  = (r.top - 30) + 'px';
+    el.classList.remove('show');
+    // force reflow pra restart da transition se tocar duas vezes rápido
+    void el.offsetHeight;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 1100);
+  }
+  tabBar.addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest && e.target.closest('.arenaTab-btn.locked');
+    if(!btn) return;
+    showToast(btn);
+    if(typeof vibrate === 'function') vibrate(8);
+    if(window.Analytics){
+      Analytics.send('locked_tab_clicked', { tab: btn.dataset.tab || 'unknown' });
+    }
+  });
 })();
 
 // Click handler no frame: detecta clique no items strip (canvas) e abre popup.
