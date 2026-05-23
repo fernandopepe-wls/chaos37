@@ -1992,7 +1992,7 @@
     /* Posição + tamanho editáveis via UI Tool (bossBtn*). Fallbacks ficam 10%
        menores que o tamanho original (115/11px → 103/10px). Padding deriva
        da font-size (~0.64x vertical, 0.82x horizontal) pra manter proporção. */
-    top: var(--bossbtn-top, 17%);
+    top: calc(var(--bossbtn-top, 17%) + var(--safe-top, 0px));
     width: min(30%, var(--bossbtn-w, 103px));
     padding: var(--bossbtn-pad-y, 6.3px) var(--bossbtn-pad-x, 8.1px);
     cursor:pointer;
@@ -2033,7 +2033,7 @@
   #questBtn{
     position:absolute;
     right: var(--quest-btn-right, 10px);
-    top:   var(--quest-btn-top, 115px);
+    top:   calc(var(--quest-btn-top, 115px) + var(--safe-top, 0px));
     width:  var(--quest-btn-size, 48px);
     height: var(--quest-btn-size, 48px);
     /* Cream-parchment disc — contrasta o journal icon contra qualquer bg de era.
@@ -2067,9 +2067,10 @@
      sup-direito do pill. Mesmo padrão do #arenaSleepDot pra evitar clipping. */
   #questBadge{
     position:absolute;
-    /* Canto sup-direito do botão (top + right do botão) com overlap de ~8px */
-    top:   calc(var(--quest-btn-top, 115px)   - 8px);
-    right: calc(var(--quest-btn-right, 10px)  - 8px);
+    /* Canto sup-direito do botão (top + right do botão) com overlap de ~8px,
+       e soma --safe-top pra acompanhar o questBtn que desceu pelo notch. */
+    top:   calc(var(--quest-btn-top, 115px) - 8px + var(--safe-top, 0px));
+    right: calc(var(--quest-btn-right, 10px) - 8px);
     min-width:20px;height:20px;
     padding:0 6px;
     border-radius:10px;
@@ -2109,7 +2110,7 @@
   #settingsBtn{
     position:absolute;
     left: var(--settings-btn-left, 10px);
-    top:  var(--settings-btn-top, 72px);
+    top:  calc(var(--settings-btn-top, 72px) + var(--safe-top, 0px));
     width:  var(--settings-btn-size, 48px);
     height: var(--settings-btn-size, 48px);
     /* Sem fundo / border / shadow — só a engrenagem aparece. Botão fica como
@@ -2140,7 +2141,7 @@
        drop-shadow glow pulses to draw the eye. */
     position:absolute;
     right: var(--iap-cosmic-right, 15px);
-    top:   var(--iap-cosmic-top, 178px);
+    top:   calc(var(--iap-cosmic-top, 178px) + var(--safe-top, 0px));
     width:  var(--iap-cosmic-size, 56px);
     height: var(--iap-cosmic-size, 56px);
     border: 0;
