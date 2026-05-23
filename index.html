@@ -3632,7 +3632,7 @@ const AUDIO_CATALOG_DEFAULTS = [
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_ui_back',   category: 'ui', label: 'SFX — UI back (close/cancel/X)',
     files: ['assets/audio/sfx_ui_back.wav'],
-    volume: 0.84, pitchRandom: 0.04,
+    volume: 0.70, pitchRandom: 0.04,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_ui_hover',  category: 'ui', label: 'SFX — UI hover',
     files: ['assets/audio/sfx/ui_hover.mp3'],
@@ -3671,7 +3671,7 @@ const AUDIO_CATALOG_DEFAULTS = [
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_ui_equip_items',     category: 'ui', label: 'SFX — Equip new item',
     files: ['assets/audio/sfx_ui_equip_items.wav'],
-    volume: 0.60, pitchRandom: 0.02,
+    volume: 0.31, pitchRandom: 0.02,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_menu_open', category: 'ui', label: 'SFX — Menu open',
     files: ['assets/audio/sfx/menu_open.mp3'],
@@ -4323,7 +4323,9 @@ const SPLASH_ASSETS = [
   'assets/bunny/bunny_walk_side.png',
   'assets/bunny/bunny_walk_foward_spritesheet.png',
   'assets/bunny/bunny_attack_spritesheet.png',
-  'assets/bunny/bunny_ranged.png',
+  // ranged state agora usa bunny_attack_spritesheet.png (mesmo sheet do melee
+  // — visual novo). bunny_ranged.png foi deprecated; mantido em disco pra não
+  // quebrar OTA bundles antigos, mas não é mais carregado/usado.
   'assets/bunny/bunny_death.png',
   'assets/bunny/weapons/sword_placeholder.png',
   // Bandit Beaver sprite sheets

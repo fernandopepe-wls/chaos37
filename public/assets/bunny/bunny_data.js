@@ -85,25 +85,24 @@ window.BUNNY_JSON_DATA['assets/bunny/bunny.json'] =
     "ranged": {
       "character": "bunny",
       "state": "ranged",
-      "frames": 18,
+      "frames": 8,
       "fps": 30,
       "frame_width": 256,
       "frame_height": 256,
-      "cols": 6,
-      "rows": 3,
-      "sheet_width": 1536,
-      "sheet_height": 768,
+      "cols": 8,
+      "rows": 1,
+      "sheet_width": 2048,
+      "sheet_height": 256,
       "loop": false,
-      "method": "procedural-v1-bunny+weapon",
-      "weapon_baked_in": false,
+      "method": "sprite-sheet-v2",
+      "weapon_baked_in": true,
       "weapon": null,
       "hand_anchor_norm_in_bunny_bbox": [
         0.85,
         0.62
       ],
       "files": {
-        "spritesheet": "bunny_ranged.png",
-        "webp": "bunny_ranged.webp"
+        "spritesheet": "bunny_attack_spritesheet.png"
       }
     },
     "death": {
@@ -1376,22 +1375,23 @@ window.BUNNY_JSON_DATA['assets/bunny/bunny_ranged.json'] =
 {
   "character": "bunny",
   "state": "ranged",
-  "frames": 18,
+  "frames": 8,
   "fps": 30,
   "frame_width": 256,
   "frame_height": 256,
-  "cols": 6,
-  "rows": 3,
-  "sheet_width": 1536,
-  "sheet_height": 768,
+  "cols": 8,
+  "rows": 1,
+  "sheet_width": 2048,
+  "sheet_height": 256,
   "loop": false,
-  "method": "procedural-v1-bunny+weapon",
-  "weapon_baked_in": false,
+  "method": "sprite-sheet-v2",
+  "weapon_baked_in": true,
   "weapon": null,
   "hand_anchor_norm_in_bunny_bbox": [
     0.85,
     0.62
   ],
+  "_legacy_track_unused": true,
   "track": [
     {
       "frame": 0,
@@ -1845,8 +1845,7 @@ window.BUNNY_JSON_DATA['assets/bunny/bunny_ranged.json'] =
     }
   ],
   "files": {
-    "spritesheet": "bunny_ranged.png",
-    "webp": "bunny_ranged.webp"
+    "spritesheet": "bunny_attack_spritesheet.png"
   }
 };
 
