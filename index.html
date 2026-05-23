@@ -3638,6 +3638,27 @@ const AUDIO_CATALOG_DEFAULTS = [
     files: ['assets/audio/sfx/ui_hover.mp3'],
     volume: 0.50, pitchRandom: 0.04,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  // --- Wave 2 UI SFX (wired via delegate global em _uiSfxDelegate) ---
+  { id: 'sfx_ui_main_play',       category: 'ui', label: 'SFX — Main play (forge/roll)',
+    files: ['assets/audio/sfx/sfx_ui_main_play.wav'],
+    volume: 0.80, pitchRandom: 0.03,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_ui_main_toggle',     category: 'ui', label: 'SFX — Main toggle (auto / settings / sell-worse)',
+    files: ['assets/audio/sfx/sfx_ui_main_toggle.wav'],
+    volume: 0.70, pitchRandom: 0.03,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_ui_main_tap',        category: 'ui', label: 'SFX — Main tap (generic clicks)',
+    files: ['assets/audio/sfx/sfx_ui_main_tap.wav'],
+    volume: 0.65, pitchRandom: 0.04,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_ui_die',             category: 'ui', label: 'SFX — Bunny death sting',
+    files: ['assets/audio/sfx/sfx_ui_die.wav'],
+    volume: 0.85, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_ui_reward_receive',  category: 'ui', label: 'SFX — Reward receive (quest / offline collect)',
+    files: ['assets/audio/sfx/sfx_ui_reward_receive.wav'],
+    volume: 0.80, pitchRandom: 0.02,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_menu_open', category: 'ui', label: 'SFX — Menu open',
     files: ['assets/audio/sfx/menu_open.mp3'],
     volume: 0.75, pitchRandom: 0.00,
@@ -5811,6 +5832,7 @@ function onArenaDeath(){
     playSfx('sfx_bunny_death');
     playSfx('sfx_defeat_banner');
     playSfx('mx_defeat_sting');
+    playSfx('sfx_ui_die'); // UI death sting (request adicionado nessa rodada)
   }
   // Telemetria — player_died é o evento-chave pro funil de churn. Reportar
   // ANTES de mutar `arena.wave` pra capturar onde a morte aconteceu.
@@ -14243,6 +14265,50 @@ function hideItemPopup(){
     if(typeof vibrate === 'function') vibrate(8);
     if(window.Analytics){
       Analytics.send('locked_tab_clicked', { tab: btn.dataset.tab || 'unknown' });
+    }
+  });
+})();
+
+// ============== UI SFX delegate ==============
+// Em vez de wirear playSfx() em 30+ handlers de botão espalhados, esse
+// delegate global classifica o click pela ID/classe do alvo e toca o SFX
+// apropriado. Fluxo:
+//   1. ROLAR (forja)             → sfx_ui_main_play
+//   2. AUTO movement              → sfx_ui_main_toggle
+//   3. AUTO forge (popup btn)     → sfx_ui_main_toggle
+//   4. Settings checkboxes        → sfx_ui_main_toggle  (via 'change')
+//   5. Sell-worse toggle no popup → sfx_ui_main_toggle  (via 'change')
+//   6. Quest claim btn            → sfx_ui_reward_receive
+//   7. Offline collect btn        → sfx_ui_reward_receive
+//   8. Qualquer outro <button>    → sfx_ui_main_tap (catch-all)
+// Eventos de morte (sfx_ui_die) ficam wired em onArenaDeath (não é click).
+(function uiSfxDelegate(){
+  function classify(target){
+    if(!target || !target.closest) return null;
+    const el = target.closest('button, [role="button"], .clickable');
+    if(!el) return null;
+    if(el.disabled) return null; // botão desabilitado não toca
+    const id = el.id || '';
+    // Específicos primeiro
+    if(id === 'arenaForgeRollBtn')   return 'sfx_ui_main_play';
+    if(id === 'arenaAutoBtn')        return 'sfx_ui_main_toggle';
+    if(id === 'arenaForgeAutoBtn')   return 'sfx_ui_main_toggle';
+    if(id === 'offlineCollectBtn')   return 'sfx_ui_reward_receive';
+    if(el.classList.contains('quest-claim-btn')) return 'sfx_ui_reward_receive';
+    // .arenaTab-btn.locked → main_tap (não main_toggle) — o toast EM BREVE já é o feedback
+    // Catch-all pra qualquer outro botão clicável
+    return 'sfx_ui_main_tap';
+  }
+  document.addEventListener('click', (e) => {
+    const sfxId = classify(e.target);
+    if(sfxId && typeof playSfx === 'function') playSfx(sfxId);
+  }, { capture: false });
+  // Toggles de Settings + sell-worse usam <input type=checkbox> → 'change' event
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if(!t) return;
+    if(t.type === 'checkbox' && (t.closest('#settingsLayer') || t.closest('#autoForgeLayer') || t.id === 'autoForgeSellWorse')){
+      if(typeof playSfx === 'function') playSfx('sfx_ui_main_toggle');
     }
   });
 })();
