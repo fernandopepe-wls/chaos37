@@ -68,14 +68,20 @@ workflow:
       variables:
         <<: *default_vars
         CAPACITOR_WEB_BUILD_SCRIPT: "build:dev"
+        # OTA path on S3 + manifest URL baked into the build (vite.config.js
+        # reads OTA_BASE_URL + OTA_S3_PREFIX). The SRE ota-publish job uploads
+        # bundle.zip + manifest.json to s3://capacitor-games-ota/<this path>/.
+        OTA_S3_PREFIX: "bunny-chaos-37/development"
         RELEASE_NOTES: "Development - ${CI_COMMIT_REF_NAME}"
     - if: $CI_ENVIRONMENT == "staging"
       variables:
         <<: *default_vars
         CAPACITOR_WEB_BUILD_SCRIPT: "build:staging"
+        OTA_S3_PREFIX: "bunny-chaos-37/staging"
         RELEASE_NOTES: "Staging - ${CI_COMMIT_REF_NAME}"
     - if: $CI_ENVIRONMENT == "production"
       variables:
         <<: *default_vars
         CAPACITOR_WEB_BUILD_SCRIPT: "build:production"
+        OTA_S3_PREFIX: "bunny-chaos-37/production"
         RELEASE_NOTES: "Production - ${CI_COMMIT_REF_NAME}"
