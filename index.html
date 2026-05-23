@@ -13534,6 +13534,16 @@ enterArena();
               session_duration_ms: Date.now() - window._SESSION.sessionStartAt,
               session_deaths: window._SESSION.sessionDeaths,
             });
+            // Força flush do buffer ANTES do iOS suspender o processo — sem
+            // isso, eventos no buffer interno do SDK podem ser perdidos se o
+            // player force-quit (swipe na app switcher). fire-and-forget pra
+            // não bloquear o lifecycle handler do Capacitor.
+            try {
+              var _wp = window._WildlifePlatform;
+              if(_wp && _wp.isInitialized && _wp.analyticsTriggerAllEventsUpload){
+                _wp.analyticsTriggerAllEventsUpload().catch(function(){});
+              }
+            } catch(_){}
           } else {
             var bgMs = window._SESSION.bgEnteredAt > 0
               ? (Date.now() - window._SESSION.bgEnteredAt) : 0;
