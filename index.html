@@ -3665,6 +3665,10 @@ const AUDIO_CATALOG_DEFAULTS = [
     files: ['assets/audio/sfx_ui_quests.wav'],
     volume: 0.75, pitchRandom: 0.02,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_ui_click_error',     category: 'ui', label: 'SFX — Click on locked/unavailable feature',
+    files: ['assets/audio/sfx_ui_click_error.wav'],
+    volume: 0.70, pitchRandom: 0.02,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_menu_open', category: 'ui', label: 'SFX — Menu open',
     files: ['assets/audio/sfx/menu_open.mp3'],
     volume: 0.75, pitchRandom: 0.00,
@@ -14295,6 +14299,18 @@ function hideItemPopup(){
     if(!el) return null;
     if(el.disabled) return null; // botão desabilitado não toca
     const id = el.id || '';
+    // === LOCKED / ERROR — features bloqueadas ===
+    // Tabs PVP/HERÓI/EXPLORAR/LOJA têm .locked + dispatch EM BREVE toast.
+    if(el.classList.contains('arenaTab-btn') && el.classList.contains('locked')){
+      return 'sfx_ui_click_error';
+    }
+    // AUTO forge antes do unlock (Lv 3) — abre o popup que mostra a ladder bloqueada.
+    if(id === 'arenaForgeAutoBtn'
+       && typeof arena !== 'undefined'
+       && typeof AUTO_UNLOCK_LEVEL !== 'undefined'
+       && arena.forgeLevel < AUTO_UNLOCK_LEVEL){
+      return 'sfx_ui_click_error';
+    }
     // Específicos primeiro
     if(id === 'arenaForgeRollBtn')   return 'sfx_ui_main_play';
     if(id === 'arenaAutoBtn')        return 'sfx_ui_main_toggle';
