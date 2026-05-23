@@ -10127,6 +10127,22 @@ const Quests = (function(){
   function _renderList(){
     const list = document.getElementById('questList');
     if(!list) return;
+    // ===== Fingerprint short-circuit =====
+    // _renderList faz innerHTML='' + rebuild completo das rows. Toda vez que
+    // o player abre o panel OU _refreshUI dispara (bump/set/claim) e o panel
+    // está aberto, isso DESTRÓI as DOM rows e recria. Isso causa:
+    //   - flicker visual sutil
+    //   - reset de animações CSS / transitions em andamento
+    //   - perda de focus/touch state em quem tava interagindo
+    // O fingerprint cobre o que o render LÊ por quest: progress + claimed.
+    // Quest defs (label, target, reward) são estáticos.
+    let fp = '';
+    for(const d of QUEST_DEFS){
+      const e = _entry(d.id);
+      fp += d.id + ':' + (e ? e.progress : 0) + ':' + (e && e.claimed ? '1' : '0') + ';';
+    }
+    if(_renderList._lastFp === fp) return;
+    _renderList._lastFp = fp;
     list.innerHTML = '';
     for(const d of QUEST_DEFS){
       const e = _entry(d.id);
@@ -11906,6 +11922,25 @@ function _renderDicePips(el, face){
 }
 
 function renderForgeDice(){
+  // ===== Dirty-key short-circuit =====
+  // Roda 60×/s pelo main loop. A função lê SOMENTE:
+  //   forgeRoll.{phase, dice[], held[]}, arena.{lettuce, forgeLevel, autoForge}
+  // O único write side-effect é arena.autoForge=false (rollback quando
+  // forgeLevel cai abaixo de AUTO_UNLOCK_LEVEL) — coberto pelo forgeLevel
+  // estar na key (mudou level → key muda → função roda → rollback aplica).
+  // forgeRoll.currentCombo só é lido por consumidores quando dice/phase ≡,
+  // logo é OK manter o último valor entre frames idênticos.
+  // Skip economiza: 5× querySelector (_forgeDie), 5× classList.toggle,
+  // 1-2× innerHTML compare, vários getElementById e cálculos auxiliares.
+  const _rfd_key = forgeRoll.phase
+    + '|' + forgeRoll.dice.join('')
+    + '|' + forgeRoll.held.join('')
+    + '|' + arena.lettuce
+    + '|' + arena.forgeLevel
+    + '|' + (arena.autoForge ? 1 : 0);
+  if(renderForgeDice._lastKey === _rfd_key) return;
+  renderForgeDice._lastKey = _rfd_key;
+
   // pré-computa combo + indices participantes pra aplicar glow nos dados certos
   let activeCombo = null;
   let highlightSet = null;
