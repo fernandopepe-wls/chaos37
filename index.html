@@ -8773,9 +8773,13 @@ function updateArena(){
     //  - inimigo morrendo (death anim)
     //  - bunny ainda em iframes (arena.hurtTimer > 0)
     //  - inimigo em hurt stun (e.hurtTimer > 0) — recém-acertado pelo bunny,
-    //    não dá dano de retorno até o stun acabar. Sem isso, um inimigo
-    //    encostado podia atacar EM PARALELO ao bunny atacando ele.
-    if(!e.dying && d < e.r + ARENA.BUNNY_R && arena.hurtTimer<=0 && e.hurtTimer<=0){
+    //    não dá dano de retorno até o stun acabar.
+    //
+    // O range de dano usa +4 pra MATCH o `attackRange` da lógica de movimento
+    // (linha ~8737). Sem o +4, sprite-based enemies paravam a 4 logical px
+    // antes da zona de dano e ficavam encostados sem nunca causar dano —
+    // looking "parado/stuck" sem hit registrado.
+    if(!e.dying && d < e.r + ARENA.BUNNY_R + 4 && arena.hurtTimer<=0 && e.hurtTimer<=0){
       const dodge = arenaTotalStat('dodge');
       if(Math.random() < dodge){
         // esquivou
