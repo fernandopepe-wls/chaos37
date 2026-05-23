@@ -3781,6 +3781,52 @@ const Music = (function(){
   document.addEventListener('keydown',     unlock, { capture: true });
   document.addEventListener('touchstart',  unlock, { capture: true, passive: true });
 
+  // ============ iOS AUDIO SESSION PRIMER ============
+  // Race condition resolvida: se o canplay do splashAudio chega DEPOIS do
+  // primeiro tap do player, o `unlock()` acima dispara com pending=null
+  // (porque _doPlay ainda nem rodou — só vai rodar quando canplay chegar).
+  // Quando canplay finalmente chega, a play() falha por estar fora do
+  // gesture window → fica tudo mudo pra sempre nessa sessão (música E SFX).
+  //
+  // Fix: no PRIMEIRO gesture (qualquer um), tocar um buffer silencioso de 1
+  // sample pra forçar a ativação do AVAudioSession do iOS, e fazer um
+  // warm-up de play+pause @ volume 0 em todas as audio elements de música.
+  // Depois disso, qualquer play() subsequente (música OU SFX) funciona,
+  // independente de quando o canplay chegar.
+  let _audioSessionPrimed = false;
+  function _primeAudioSession(){
+    if(_audioSessionPrimed) return;
+    _audioSessionPrimed = true;
+    // 1) Silent buffer (44.1kHz 16-bit, 1 sample) — ativa AVAudioSession
+    try {
+      const silentB64 = 'UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+      const primer = new Audio('data:audio/wav;base64,' + silentB64);
+      primer.volume = 0;
+      primer.play().catch(() => {});
+    } catch(_){}
+    // 2) Warm-up de todas as faixas de música: play() @ vol 0, depois pause.
+    //    Marca cada elemento como "tocou pelo menos uma vez dentro de gesture",
+    //    o que destrava o iOS pra plays subsequentes (programáticas).
+    for(const a of [splashAudio, ...gpAudio, bossAudio]){
+      if(!a.paused) continue;
+      try {
+        const oldVol = a.volume;
+        a.volume = 0;
+        const p = a.play();
+        if(p && p.then){
+          p.then(() => {
+            try { a.pause(); a.volume = oldVol; } catch(_){}
+          }).catch(() => {
+            a.volume = oldVol;
+          });
+        }
+      } catch(_){}
+    }
+  }
+  document.addEventListener('pointerdown', _primeAudioSession, { capture: true, once: true });
+  document.addEventListener('touchstart',  _primeAudioSession, { capture: true, once: true, passive: true });
+  document.addEventListener('keydown',     _primeAudioSession, { capture: true, once: true });
+
   function playSplash(){
     if(gameplayStarted) return;
     request(splashAudio, 600, () => { splashCurrentlyPlaying = true; });
