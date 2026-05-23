@@ -10264,8 +10264,27 @@ const FTUE = (function(){
   window.addEventListener('orientationchange', _reposition);
   // RAF loop pra acompanhar targets que mexem de posição (ex: botão que aparece
   // com display:none → block, mudando o layout). Roda só quando há target ativo.
+  //
+  // AUTO-HIDE quando o target some (display:none, detached, parent collapsed):
+  // sem isso, getBoundingClientRect() retorna {0,0,0,0} e a mãozinha vai pro
+  // canto da tela. Aqui escondemos overlay+balão mas NÃO limpamos _target,
+  // pra reaparecer sozinho se o target voltar (ex: popup reabre, navegou
+  // pra outra tab e voltou).
   function _loop(){
-    if(_target) _reposition();
+    if(_target){
+      const r = _target.getBoundingClientRect();
+      const visible = r.width > 0 && r.height > 0;
+      const ov = _el('ftueOverlay');
+      const bb = _el('ftueBubble');
+      if(!visible){
+        if(ov && ov.classList.contains('show')) ov.classList.remove('show');
+        if(bb && bb.classList.contains('show')) bb.classList.remove('show');
+      } else {
+        if(ov && !ov.classList.contains('show')) ov.classList.add('show');
+        if(bb && !bb.classList.contains('show')) bb.classList.add('show');
+        _reposition();
+      }
+    }
     requestAnimationFrame(_loop);
   }
   requestAnimationFrame(_loop);
@@ -10331,7 +10350,10 @@ const Tutorial = (function(){
     if(_step === 'roll'){
       FTUE.point({ target:'#arenaForgeRollBtn', text:'Jogue os dados pra apostar na sorte!', position:'below' });
     } else if(_step === 'forge'){
-      FTUE.point({ target:'#arenaForgeConfirmBtn', text:'Forje seu item!', position:'below' });
+      // No-op visual: o botão FORJAR foi removido do fluxo (popup #forgeCompare
+      // abre direto após o roll). Mantemos o estado pra preservar a transição
+      // pelo onForgeOpened(), mas escondemos paw+balão até 'equip' assumir.
+      FTUE.hide();
     } else if(_step === 'equip'){
       // Aguarda popup #forgeCompare aparecer → aponta pro EQUIPAR
       FTUE.hide();
@@ -10339,12 +10361,47 @@ const Tutorial = (function(){
         FTUE.point({ target:'#forgeEquipBtn', text:'Toque pra equipar o item!', position:'below' });
       });
     } else if(_step === 'claim'){
-      FTUE.point({ target:'#questBtn', text:'Agora resgate suas conquistas!', position:'below' });
+      _initClaimStep();
     } else if(_step === 'boss'){
       _tryShowBossStep();
     } else { // done
       FTUE.hide();
     }
+  }
+  // Sub-fase do 'claim':
+  //   A. Panel fechado → aponta pro #questBtn ("Agora resgate suas conquistas!")
+  //   B. Panel aberto  → aponta pro primeiro .quest-claim-btn claimable
+  //                      ("Toque pra resgatar!")
+  // Reage a: open/close do #questLayer (.show toggle) E re-render do #questList
+  // (childList changes — _renderList faz innerHTML='' + rebuild a cada open/claim).
+  function _updateClaimTarget(){
+    const ql = document.getElementById('questLayer');
+    const isOpen = ql && ql.classList.contains('show');
+    if(isOpen){
+      const btn = document.querySelector('#questLayer .quest-claim-btn:not([disabled])');
+      if(btn){
+        FTUE.point({ target: btn, text:'Toque pra resgatar!', position:'below' });
+      } else {
+        // Panel aberto mas nada claimable ainda — deixa FTUE escondido até
+        // alguma quest virar claimable (re-render dispara o observer).
+        FTUE.hide();
+      }
+    } else {
+      FTUE.point({ target:'#questBtn', text:'Agora resgate suas conquistas!', position:'below' });
+    }
+  }
+  function _initClaimStep(){
+    _killObs();
+    _updateClaimTarget();
+    const ql    = document.getElementById('questLayer');
+    const qlist = document.getElementById('questList');
+    if(!ql) return;
+    _stepObs = new MutationObserver(() => {
+      if(_step === 'claim') _updateClaimTarget();
+    });
+    // Watch class changes (open/close) E child changes (re-render dos botões)
+    _stepObs.observe(ql, { attributes:true, attributeFilter:['class'] });
+    if(qlist) _stepObs.observe(qlist, { childList:true, subtree:true });
   }
   function _tryShowBossStep(){
     const btn = document.getElementById('arenaBossBtn');
