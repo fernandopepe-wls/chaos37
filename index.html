@@ -3669,6 +3669,10 @@ const AUDIO_CATALOG_DEFAULTS = [
     files: ['assets/audio/sfx_ui_click_error.wav'],
     volume: 0.70, pitchRandom: 0.02,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_ui_equip_items',     category: 'ui', label: 'SFX — Equip new item',
+    files: ['assets/audio/sfx_ui_equip_items.wav'],
+    volume: 0.60, pitchRandom: 0.02,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_menu_open', category: 'ui', label: 'SFX — Menu open',
     files: ['assets/audio/sfx/menu_open.mp3'],
     volume: 0.75, pitchRandom: 0.00,
@@ -7748,6 +7752,7 @@ function arenaEquipItem(item){
       replaced: false, source: 'auto',
     });
     if(item.slot === 'weapon' && typeof bunnyApplyEquippedWeapon === 'function') bunnyApplyEquippedWeapon();
+    if(typeof playSfx === 'function') playSfx('sfx_ui_equip_items');
     return true;
   }
   const curRank = Object.keys(RARITY).indexOf(cur.rarity);
@@ -7764,6 +7769,7 @@ function arenaEquipItem(item){
       replaced: true, replaced_era_idx: cur.eraIdx, source: 'auto',
     });
     if(item.slot === 'weapon' && typeof bunnyApplyEquippedWeapon === 'function') bunnyApplyEquippedWeapon();
+    if(typeof playSfx === 'function') playSfx('sfx_ui_equip_items');
     return true;
   }
   return false;
@@ -12962,6 +12968,7 @@ function autoForgeCeremonyChain(rolls, combo){
         if(eraIdx > summary.bestEra) summary.bestEra = eraIdx;
         if(typeof Quests   !== 'undefined') Quests.onEquipped();
         if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
+        if(typeof playSfx !== 'undefined' && typeof playSfx === 'function') playSfx('sfx_ui_equip_items');
       } else {
         // Item NOVO não vai equipar. Vende SE:
         //  • sellReason === 'sellMax' (player setou pra vender essa era) — sempre vende
@@ -14011,6 +14018,7 @@ document.getElementById('forgeEquipBtn').addEventListener('click', ()=>{
     invalidateArenaStats();
     if(typeof Quests   !== 'undefined') Quests.onEquipped();
     if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
+    if(typeof playSfx === 'function') playSfx('sfx_ui_equip_items');
     if(window.Analytics) Analytics.send('item_equipped', {
       slot: arena.pendingForgeItem.slot,
       era_idx: arena.pendingForgeItem.eraIdx,
