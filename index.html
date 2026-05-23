@@ -3632,7 +3632,7 @@ const AUDIO_CATALOG_DEFAULTS = [
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_ui_back',   category: 'ui', label: 'SFX — UI back (close/cancel/X)',
     files: ['assets/audio/sfx_ui_back.wav'],
-    volume: 0.70, pitchRandom: 0.04,
+    volume: 0.84, pitchRandom: 0.04,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_ui_hover',  category: 'ui', label: 'SFX — UI hover',
     files: ['assets/audio/sfx/ui_hover.mp3'],
@@ -14348,10 +14348,16 @@ function hideItemPopup(){
     // Catch-all pra qualquer outro botão clicável
     return 'sfx_ui_main_tap';
   }
+  // capture:true CRÍTICO — `.layer` popups (Settings, Quest, AutoForge, IAP,
+  // Offline, ForgeLevel, ForgeCompare) têm preventLayerClickThrough que faz
+  // stopPropagation() em BUBBLE. Sem capture, clicks DENTRO de popups nunca
+  // chegavam no document → nenhum SFX disparava em botões dentro de popup
+  // (Settings → Voltar era o sintoma mais óbvio). Capture roda antes do
+  // stopPropagation.
   document.addEventListener('click', (e) => {
     const sfxId = classify(e.target);
     if(sfxId && typeof playSfx === 'function') playSfx(sfxId);
-  }, { capture: false });
+  }, { capture: true });
   // Toggles de Settings + sell-worse usam <input type=checkbox> → 'change' event
   document.addEventListener('change', (e) => {
     const t = e.target;
