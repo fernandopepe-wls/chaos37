@@ -8775,12 +8775,15 @@ function updateArena(){
         arena.hp -= e.dmg;
         arena.hurtTimer = 40;
         spawnArenaParticle(arena.bx, arena.by, '#ff5252', 10);
-        // Cartoon manga impact VFX (3 marks + star + sparks) em VERMELHO no
-        // próprio bunny — replica o feedback de "acertei inimigo" mas pra
-        // "fui acertado". centerAngle aponta do bunny PRA o inimigo, range=0
-        // ancora o impacto no corpo do bunny (não na ponta de uma arma).
+        // Cartoon manga impact VFX (estrela + sparks) em VERMELHO no próprio
+        // bunny — replica o feedback de "acertei inimigo" pra "fui acertado".
+        // cy offset (-18) ancora no centro do corpo (não no pé — arena.by é a
+        // posição da pata). hurtAngle aponta do bunny PRA o inimigo, sparks
+        // voam nessa direção como cue visual de "veio dali".
         const hurtAngle = Math.atan2(e.y - arena.by, e.x - arena.bx);
-        spawnSlashVFXCartoon(hurtAngle, Math.PI*0.6, 0, false, { palette:'red' });
+        spawnSlashVFXCartoon(hurtAngle, Math.PI*0.6, 0, false, {
+          cx: arena.bx, cy: arena.by - 18, palette:'red',
+        });
         if(typeof vibrate === 'function') vibrate(30); // hit feedback
         if(typeof playSfx === 'function') playSfx('sfx_bunny_hurt');
       }
@@ -9192,13 +9195,18 @@ function drawSlashVFXs(){
   ctx.restore();
 }
 
-function drawSlashVFXsCartoon(){
+// onlyRed=true  → desenha SÓ entries com palette==='red' (hurt do bunny — chamado APÓS drawArenaBunny pra ficar por cima do sprite)
+// onlyRed=false → desenha SÓ entries SEM palette red (slash de arma — chamado ANTES de drawArenaBunny pra a arma cobrir parcialmente)
+function drawSlashVFXsCartoon(onlyRed){
   if(!arena.slashVFXsCartoon||!arena.slashVFXsCartoon.length) return;
   ctx.save();
   ctx.lineCap='round';
   ctx.lineJoin='round';
 
   for(const vfx of arena.slashVFXsCartoon){
+    const isRed = vfx.palette === 'red';
+    if(onlyRed && !isRed) continue;
+    if(!onlyRed && isRed) continue;
     const t = vfx.frame / vfx.lifeFrames; // 0..1
 
     // CARTOON dissipation: hold 0-28%, then scale-to-zero via easeInQuart.
@@ -9223,14 +9231,14 @@ function drawSlashVFXsCartoon(){
     ctx.scale(scl, scl);
 
     // Palette: default (cream/gold) ou 'red' (dano no bunny)
-    const isRed = vfx.palette === 'red';
-    const starFill   = isRed ? '#ffe5e5' : '#fffdf0';
-    const starStroke = isRed ? '#5a0a0a' : '#3a1a07';
-    const sparkEarly = isRed ? 'hsl(0,90%,60%)'  : 'hsl(44,95%,66%)';
-    const sparkLate  = isRed ? '#fff5f5'         : '#fffbe6';
+    const starFill   = isRed ? '#ff4242' : '#fffdf0';
+    const starStroke = isRed ? '#3a0606' : '#3a1a07';
+    const sparkEarly = isRed ? 'hsl(0,90%,55%)'  : 'hsl(44,95%,66%)';
+    const sparkLate  = isRed ? '#ffb0b0'         : '#fffbe6';
 
-    // === 4-point star at impact center ===
-    const starR = vfx.isCrit ? 13 : 8;
+    // === 4-point star at impact center === — red palette gets 2x size pra ficar visível por cima do sprite do bunny
+    const baseStarR = vfx.isCrit ? 13 : 8;
+    const starR = isRed ? baseStarR * 2.0 : baseStarR;
     ctx.beginPath();
     for(let i = 0; i < 8; i++){
       const a   = (i / 8) * Math.PI * 2 - Math.PI / 8;
@@ -10954,6 +10962,10 @@ function renderArena(){
 
   // bunny
   drawArenaBunny();
+  // Hurt VFX vermelho (palette:'red') — desenhado DEPOIS do bunny pra ficar
+  // POR CIMA do sprite. Sem isso, o sprite cobria a estrela e o player não
+  // via feedback de dano. drawSlashVFXsCartoon(true) filtra só os red entries.
+  drawSlashVFXsCartoon(true);
 
   // Weapon draw — branches by sw.kind for each attack type. Drawn AFTER
   // bunny so the weapon sits in front.
