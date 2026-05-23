@@ -1,0 +1,18 @@
+{
+  "frames": 8,
+  "fps": 30,
+  "frame_width": 258,
+  "frame_height": 512,
+  "cols": 8,
+  "rows": 1,
+  "sheet_width": 2064,
+  "sheet_height": 512,
+  "loop": false,
+  "method": "sprite-sheet-v2",
+  "files": {
+    "spritesheet": "burrow_enemy_orange_slime_death.png"
+  },
+  "ends_at_full_transparency": true,
+  "character": "burrow_enemy_orange_slime",
+  "state": "death"
+}

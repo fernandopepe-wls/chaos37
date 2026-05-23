@@ -4116,6 +4116,9 @@ const SPLASH_ASSETS = [
   'assets/enemies/Burrow/burrow_enemy_sporepup_slime/burrow_enemy_sporepup_slime_walk.png',
   'assets/enemies/Burrow/burrow_enemy_sporepup_slime/burrow_enemy_sporepup_slime_attack.png',
   'assets/enemies/Burrow/burrow_enemy_sporepup_slime/burrow_enemy_sporepup_slime_death.png',
+  'assets/enemies/Burrow/burrow_enemy_orange_slime/burrow_enemy_orange_slime_walk.png',
+  'assets/enemies/Burrow/burrow_enemy_orange_slime/burrow_enemy_orange_slime_attack.png',
+  'assets/enemies/Burrow/burrow_enemy_orange_slime/burrow_enemy_orange_slime_death.png',
   'assets/enemies/Burrow/burrow_boss_bloated_sporeking/burrow_boss_bloated_sporeking_walk.png',
   'assets/enemies/Burrow/burrow_boss_bloated_sporeking/burrow_boss_bloated_sporeking_attack.png',
   'assets/enemies/Burrow/burrow_boss_bloated_sporeking/burrow_boss_bloated_sporeking_death.png',
@@ -5340,6 +5343,7 @@ const ARENA_ENEMY_DEFS = {
   bandit:     { color:'#8b6b3a', r:9,  hp:8,   speed:0.55, dmg:8  },  // grunt
   sporeling:  { color:'#b5a25d', r:9,  hp:12,  speed:0.42, dmg:6  },  // tank-lite
   sporepup:   { color:'#7fc950', r:8,  hp:5,   speed:0.78, dmg:5  },  // swarmer
+  orangeslime:{ color:'#d97a30', r:9,  hp:7,   speed:0.70, dmg:6  },  // mid-swarmer (intro stage 1-2+)
   sporeking:  { color:'#d85a30', r:23, hp:120, speed:0.35, dmg:22 },  // boss
   // ===== MEADOW (stage 2) — sprite-backed =====
   footpaw:    { color:'#6e8a52', r:8,  hp:6,   speed:0.82, dmg:6  },  // swarmer (fast scout)
@@ -7181,8 +7185,14 @@ function spawnArenaEnemy(){
   // Composição weighted A/B/C por (stageInEra, wave). Falls back pra uniform
   // random se a wave não tem comp definido (defensive).
   const comp = getWaveComposition(arena.stage, arena.wave);
-  const kind = comp ? pickEnemyFromComp(comp, pool)
-                    : pool[(Math.random()*pool.length)|0];
+  let kind = comp ? pickEnemyFromComp(comp, pool)
+                  : pool[(Math.random()*pool.length)|0];
+  // Orange slime intro: from era 0 stage 1-2 onwards, share the swarmer slot
+  // with sporepup (50/50 split when picked). Keeps green + orange both in the
+  // roster without bloating composition arrays. Stage 1-1 stays pure original.
+  if(kind === 'sporepup' && currentArenaEra() === 0 && stageInEra(arena.stage) >= 2){
+    if(Math.random() < 0.5) kind = 'orangeslime';
+  }
   const def = ARENA_ENEMY_DEFS[kind];
   // Spawn restrito às 2 zonas dos cantos INFERIORES (esq + dir) — combinam
   // visualmente com as "aberturas entre arbustos" das imagens das eras.
@@ -9746,10 +9756,13 @@ function drawArenaHUD(){
 }
 
 // ============== ENEMY SPRITES — generic sprite sheet system ==============
-// 3 sheets por kind (walk loop 30f, attack 20f one-shot, death 15f one-shot + fade).
+// Default: 3 sheets por kind (walk loop 30f, attack 20f one-shot, death 15f one-shot + fade).
 // Cada frame source = 256×256 dentro do sheet (cols=6 fixo).
 // Game runs @ 60fps; anim @ 30fps → advance 1 anim frame a cada 2 game ticks.
 // Adicionar novos enemies: append em ENEMY_SPRITE_DEFS + ARENA_ENEMY_DEFS.
+// Per-kind override: ENEMY_SPRITE_DEFS[kind].anims[state] supplies custom
+// {frames,cols,frameW,frameH,loop,fadeOut} when the sheet doesn't match
+// the default 256² × 30/20/15 grid (e.g., orange slime: 256w × 508h, 8f rows).
 const ENEMY_SPRITE_FRAME = 256;
 const ENEMY_SPRITE_FRAME_TICKS = 2;
 const ENEMY_SPRITE_ANIMS = {
@@ -9757,6 +9770,23 @@ const ENEMY_SPRITE_ANIMS = {
   attack: { frames:20, cols:6, loop:false, fadeOut:false },
   death:  { frames:15, cols:6, loop:false, fadeOut:true  },
 };
+// Resolve effective anim spec for (kind, state). Per-kind override merges
+// over the global default — missing keys fall back to default values.
+function _enemyAnimSpec(kind, state){
+  const def = ENEMY_SPRITE_ANIMS[state] || ENEMY_SPRITE_ANIMS.walk;
+  const kindDef = ENEMY_SPRITE_DEFS[kind];
+  const over = kindDef && kindDef.anims && kindDef.anims[state];
+  if(!over) return def;
+  return {
+    frames:     over.frames     != null ? over.frames     : def.frames,
+    cols:       over.cols       != null ? over.cols       : def.cols,
+    frameW:     over.frameW     != null ? over.frameW     : ENEMY_SPRITE_FRAME,
+    frameH:     over.frameH     != null ? over.frameH     : ENEMY_SPRITE_FRAME,
+    loop:       over.loop       != null ? over.loop       : def.loop,
+    fadeOut:    over.fadeOut    != null ? over.fadeOut    : def.fadeOut,
+    frameTicks: over.frameTicks != null ? over.frameTicks : null,  // null → global default
+  };
+}
 // Per-kind: pasta src, nome base do arquivo, tamanho de display em logical px,
 // e direção default que o sprite source aponta (right = como o beaver original
 // foi desenhado; left = como os sprites do Burrow foram desenhados).
@@ -9775,6 +9805,23 @@ const ENEMY_SPRITE_DEFS = {
     src: 'assets/enemies/Burrow/burrow_enemy_sporepup_slime',
     base: 'burrow_enemy_sporepup_slime',
     display: 38, defaultFacing: 'left',
+  },
+  orangeslime: {
+    src: 'assets/enemies/Burrow/burrow_enemy_orange_slime',
+    base: 'burrow_enemy_orange_slime',
+    display: 44, defaultFacing: 'left',
+    // Sheet has 8 frames in 1 row, frames are tall-rectangular (256w × 508h
+    // for walk/attack; 258w × 512h for death). Art occupies y=[216..343] of
+    // 508-tall frame — body center at frac 0.55, matches the "game.y = body
+    // center" convention the other enemies use (default footFrac=0.5).
+    anims: {
+      // walk frameTicks=5 → 12fps anim (vs default 30fps). Slime moves slow
+      // so the fast bouncy walk cycle looked jittery — halve speed for readability.
+      walk:   { frames:8, cols:8, frameW:256, frameH:508, loop:true,  fadeOut:false, frameTicks:5 },
+      attack: { frames:8, cols:8, frameW:256, frameH:508, loop:false, fadeOut:false },
+      death:  { frames:8, cols:8, frameW:258, frameH:512, loop:false, fadeOut:true  },
+    },
+    footFrac: 0.42,
   },
   sporeking: {
     src: 'assets/enemies/Burrow/burrow_boss_bloated_sporeking',
@@ -9850,10 +9897,12 @@ function _setBanditAnim(e, state){
 
 // Avança o frame da animação 1 unidade a cada N game-ticks
 function _tickBanditAnim(e){
-  const def = ENEMY_SPRITE_ANIMS[e.animState];
+  const def = _enemyAnimSpec(e.kind, e.animState);
   if(!def) return;
   e._animTickCounter = (e._animTickCounter || 0) + 1;
-  if(e._animTickCounter < ENEMY_SPRITE_FRAME_TICKS) return;
+  // Per-state frameTicks override (e.g., slow slime walk). Default = 2 ticks/frame.
+  const ticks = (def.frameTicks != null) ? def.frameTicks : ENEMY_SPRITE_FRAME_TICKS;
+  if(e._animTickCounter < ticks) return;
   e._animTickCounter = 0;
   e.animFrame = (e.animFrame || 0) + 1;
   if(e.animFrame >= def.frames){
@@ -9872,16 +9921,22 @@ function _tickBanditAnim(e){
 function _drawBanditSprite(e, x, y){
   const spriteDef = ENEMY_SPRITE_DEFS[e.kind];
   if(!spriteDef) return false;
-  const animDef = ENEMY_SPRITE_ANIMS[e.animState] || ENEMY_SPRITE_ANIMS.walk;
+  const animDef = _enemyAnimSpec(e.kind, e.animState);
   const kindImgs = ENEMY_SPRITE_IMG[e.kind] || {};
   const img = kindImgs[e.animState] || kindImgs.walk;
   if(!img || !img.complete || !img.naturalWidth) return false;
-  const fs = ENEMY_SPRITE_FRAME;
+  // Source frame dims: per-kind override (rectangular) or square default.
+  const fW = animDef.frameW != null ? animDef.frameW : ENEMY_SPRITE_FRAME;
+  const fH = animDef.frameH != null ? animDef.frameH : ENEMY_SPRITE_FRAME;
   const ds = spriteDef.display;
+  // Display dest preserves source aspect ratio. ds always controls WIDTH;
+  // height scales accordingly. Square frames (default) → dest is square.
+  const dsW = ds;
+  const dsH = ds * (fH / fW);
   const col = e.animFrame % animDef.cols;
   const row = Math.floor(e.animFrame / animDef.cols);
-  const sx = col * fs;
-  const sy = row * fs;
+  const sx = col * fW;
+  const sy = row * fH;
   // fade out na death anim — alpha desce a partir do meio da animação
   let alpha = 1;
   if(animDef.fadeOut){
@@ -9905,15 +9960,19 @@ function _drawBanditSprite(e, x, y){
   if(e.hurtTimer > 0 && !e.dying){
     ctx.filter = 'brightness(2.2) saturate(0)';
   }
+  // Foot anchor in dest rect (fraction from top). Default 0.5 (center) keeps
+  // existing square-frame enemies grounded as before. Tall-frame enemies
+  // (slime: ~0.68) shift down so feet sit at game.y, not the frame center.
+  const footFrac = (spriteDef.footFrac != null) ? spriteDef.footFrac : 0.5;
   // Flip horizontal quando facing atual != direção default do sprite source.
   const flip = (spriteDef.defaultFacing !== e.facing);
-  const dx = flip ? -ds/2 : (x - ds/2);
-  const dy = y - ds/2;
+  const dx = flip ? -dsW/2 : (x - dsW/2);
+  const dy = y - dsH * footFrac;
   if(flip){
     ctx.translate(x, 0);
     ctx.scale(-1, 1);
   }
-  ctx.drawImage(img, sx, sy, fs, fs, dx, dy, ds, ds);
+  ctx.drawImage(img, sx, sy, fW, fH, dx, dy, dsW, dsH);
   ctx.restore();
   return true;
 }

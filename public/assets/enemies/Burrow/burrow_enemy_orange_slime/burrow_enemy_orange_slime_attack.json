@@ -1,0 +1,17 @@
+{
+  "frames": 8,
+  "fps": 30,
+  "frame_width": 256,
+  "frame_height": 508,
+  "cols": 8,
+  "rows": 1,
+  "sheet_width": 2048,
+  "sheet_height": 508,
+  "loop": false,
+  "method": "sprite-sheet-v2",
+  "files": {
+    "spritesheet": "burrow_enemy_orange_slime_attack.png"
+  },
+  "character": "burrow_enemy_orange_slime",
+  "state": "attack"
+}
