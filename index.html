@@ -2086,6 +2086,85 @@
     display:block;
   }
 
+  /* ===== IAP Cosmic Weapon button — float top-right, abaixo do questBtn ===== */
+  #iapCosmicBtn{
+    position:absolute;
+    right: var(--iap-cosmic-right, 15px);
+    top:   var(--iap-cosmic-top, 178px);
+    width:  var(--iap-cosmic-size, 56px);
+    height: var(--iap-cosmic-size, 56px);
+    border-radius:12px;
+    border:2px solid #1a0e08;
+    background:linear-gradient(180deg, #a86ed8 0%, #5a3da0 100%);
+    color:#fff7e0;
+    cursor:pointer;
+    box-shadow:0 3px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset, 0 0 12px rgba(168,110,216,0.6);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:2px;
+    z-index:6;
+    transition:transform .08s, box-shadow .08s;
+    animation:iapCosmicPulse 2.2s ease-in-out infinite;
+  }
+  #iapCosmicBtn.hidden{display:none;}
+  #iapCosmicBtn:active{
+    transform:translateY(1px);
+    box-shadow:0 1px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset, 0 0 8px rgba(168,110,216,0.4);
+  }
+  #iapCosmicBtn .iap-icon{
+    font-size:22px;line-height:1;
+    filter:drop-shadow(0 1px 0 rgba(0,0,0,0.5));
+  }
+  #iapCosmicBtn .iap-price{
+    font-size:9.5px;font-weight:900;
+    margin-top:2px;letter-spacing:0.3px;
+    text-shadow:
+      -1px -1px 0 #1a0e08, 1px -1px 0 #1a0e08,
+      -1px  1px 0 #1a0e08, 1px  1px 0 #1a0e08;
+  }
+  @keyframes iapCosmicPulse{
+    0%,100%{box-shadow:0 3px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset, 0 0 10px rgba(168,110,216,0.5);}
+    50%    {box-shadow:0 3px 0 #1a0e08, 0 1px 0 rgba(255,255,255,0.4) inset, 0 0 22px rgba(168,110,216,0.95);}
+  }
+  .iap-card{max-width:320px;margin:0 auto;}
+  /* Preview do item dentro do modal IAP — icon esquerda + stats direita */
+  .iap-preview-row{
+    display:flex;align-items:center;gap:14px;
+    padding:12px;
+    background:#fff7e0;
+    border:2px solid #b07a3a;
+    border-radius:10px;
+    margin:10px 0;
+    color:#3a230b;
+  }
+  .iap-preview-icon{
+    font-size:48px;line-height:1;
+    flex-shrink:0;
+    filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  }
+  .iap-preview-stats{
+    flex:1;
+    text-align:left;
+    line-height:1.35;
+  }
+  .iap-preview-stats .iap-stat-name{
+    font-weight:bold;font-size:14px;
+    color:#5a4499;
+    margin-bottom:2px;
+  }
+  .iap-preview-stats .iap-stat-era{
+    font-size:11px;color:#7a6650;
+    font-style:italic;
+  }
+  .iap-preview-stats .iap-stat-primary{
+    font-weight:bold;font-size:13px;
+    color:#3a230b;
+    margin-top:5px;
+  }
+  .iap-preview-stats .iap-stat-level{
+    font-size:11px;color:#7a6650;
+    margin-top:2px;
+  }
+
   /* Consent modal — LGPD/GDPR */
   .consent-card{max-width:340px;margin:0 auto;}
   .consent-body{
@@ -2319,6 +2398,8 @@
     animation: carrotPopAnim 1.2s ease-out forwards;
     will-change: transform, opacity;
   }
+  /* Variante lettuce (drop de boss) — verde em vez de laranja */
+  .carrotPop.lettucePop{ color:#aff067; }
   @keyframes carrotPopAnim{
     0%   { transform: translate(-50%, -50%)                  scale(0.7); opacity: 0; }
     15%  { transform: translate(-50%, -50%)                  scale(1.18); opacity: 1; }
@@ -2777,6 +2858,11 @@
     <button id="questBtn" title="Missões">
       <span class="quest-btn-icon">📜</span>
     </button>
+    <!-- IAP — Cosmic Weapon (Mundo 5). Esconde após compra (localStorage flag).
+         Preço só aparece no modal de confirmação, não no botão. -->
+    <button id="iapCosmicBtn" title="Arma Cósmica — Mundo 5">
+      <span class="iap-icon">🌌</span>
+    </button>
     <!-- Red-dot notification badge — SIBLING do pill (não filho) pra evitar
          clipping/stacking context. Mesmo padrão do #arenaSleepDot.
          Posicionado via CSS no canto sup-direito do pill (overlap). -->
@@ -2984,6 +3070,36 @@
     <div class="layer" id="arenaTab">
       <h2 id="arenaTabTitle">Tab</h2>
       <div id="arenaTabContent"></div>
+    </div>
+
+    <!-- IAP confirmação — Cosmic Weapon (Mundo 5) -->
+    <div class="layer" id="iapCosmicLayer">
+      <div class="forge-popup-card iap-card">
+        <div class="forge-popup-tag" style="background:#7F77DD">🌌 Mundo 5</div>
+        <h2 class="forge-level-title">Arma Cósmica</h2>
+        <p class="consent-body">
+          Desbloqueia uma <b>Arma Cósmica</b> de raridade alta, equipada na hora.
+          Stats superiores ao loot dos primeiros mundos.
+        </p>
+        <!-- Preview do item: icon na esquerda + stats na direita -->
+        <div class="iap-preview-row">
+          <div class="iap-preview-icon">🌌</div>
+          <div class="iap-preview-stats">
+            <div class="iap-stat-name"     id="iapPreviewName">Cosmic Blaster</div>
+            <div class="iap-stat-era"      id="iapPreviewEra">—</div>
+            <div class="iap-stat-primary"  id="iapPreviewPrimary">—</div>
+            <div class="iap-stat-level"    id="iapPreviewLevel">—</div>
+          </div>
+        </div>
+        <p class="consent-body consent-sub" style="text-align:center">
+          Preço: <b style="color:#5a4499;font-size:16px">R$ 4,99</b><br>
+          Compra única — entitlement permanente.
+        </p>
+        <div class="forge-popup-actions">
+          <button class="forge-popup-btn red"  id="iapCosmicCancelBtn">Cancelar</button>
+          <button class="forge-popup-btn green" id="iapCosmicConfirmBtn">Comprar</button>
+        </div>
+      </div>
     </div>
 
     <!-- Consent modal (LGPD/GDPR) — aparece no primeiro launch, bloqueia
@@ -5148,6 +5264,10 @@ const LAYOUT_DEFAULTS = {
   questBtnTop: 124,        // logical px from top
   questBtnRight: 15,       // logical px from right edge
   questBtnSize: 44,        // logical px (square)
+  // IAP Cosmic Weapon button (abaixo do questBtn)
+  iapCosmicTop: 178,
+  iapCosmicRight: 15,
+  iapCosmicSize: 56,
   // Settings button (config — float top-left, abaixo da sword pill)
   settingsBtnTop: 75,
   settingsBtnLeft: 10,
@@ -5307,6 +5427,11 @@ function _applyLayoutCSSVars(){
   root.style.setProperty('--quest-btn-top',   px(LAYOUT.questBtnTop));
   root.style.setProperty('--quest-btn-right', px(LAYOUT.questBtnRight));
   root.style.setProperty('--quest-btn-size',  px(LAYOUT.questBtnSize));
+
+  // IAP Cosmic Weapon button — abaixo do quest btn
+  root.style.setProperty('--iap-cosmic-top',   px(LAYOUT.iapCosmicTop));
+  root.style.setProperty('--iap-cosmic-right', px(LAYOUT.iapCosmicRight));
+  root.style.setProperty('--iap-cosmic-size',  px(LAYOUT.iapCosmicSize));
 
   // Settings button — mirror do quest btn no lado esquerdo
   root.style.setProperty('--settings-btn-top',  px(LAYOUT.settingsBtnTop));
@@ -5883,6 +6008,10 @@ const LAYOUT_SCHEMA = [
   { key:'questBtnTop',     label:'Y from top',     min:0,    max:300,  step:1 },
   { key:'questBtnRight',   label:'X from right',   min:0,    max:200,  step:1 },
   { key:'questBtnSize',    label:'Button size (◻)',min:24,   max:96,   step:1 },
+  { section:'IAP Cosmic Weapon button (Mundo 5)' },
+  { key:'iapCosmicTop',    label:'Y from top',     min:0,    max:400,  step:1 },
+  { key:'iapCosmicRight',  label:'X from right',   min:0,    max:200,  step:1 },
+  { key:'iapCosmicSize',   label:'Button size (◻)',min:32,   max:120,  step:1 },
   { section:'Settings button (⚙ — float top-left)' },
   { key:'settingsBtnTop',  label:'Y from top',     min:0,    max:300,  step:1 },
   { key:'settingsBtnLeft', label:'X from left',    min:0,    max:200,  step:1 },
@@ -6616,6 +6745,21 @@ function spawnCarrotPop(viewportX, viewportY, amount){
   setTimeout(() => { if(el.parentNode) el.remove(); }, 1300);
 }
 
+// Variante de pop pra alfaces (drop de boss) — verde em vez de laranja.
+function spawnLettucePop(viewportX, viewportY, amount){
+  if(amount <= 0) return;
+  const layer = document.getElementById('carrotPopLayer');
+  if(!layer) return;
+  const lr = layer.getBoundingClientRect();
+  const el = document.createElement('span');
+  el.className = 'carrotPop lettucePop';
+  el.textContent = '+' + Math.max(1, Math.round(amount)) + ' 🥬';
+  el.style.left = ((viewportX - lr.left) + (Math.random()-0.5) * 14) + 'px';
+  el.style.top  = (viewportY - lr.top) + 'px';
+  layer.appendChild(el);
+  setTimeout(() => { if(el.parentNode) el.remove(); }, 1300);
+}
+
 // Converte coords de um DOM element pro espaço LOGICAL do canvas (W=360, H dinâmico).
 // Útil pra spawnar partículas/textos próximos a elementos da UI (ex: ROLAR btn).
 function _domToCanvasLogical(el){
@@ -6758,10 +6902,22 @@ function killArenaEnemy(idx, e){
   if(e.isBoss){
     arena.regions++;
     spawnArenaParticle(e.x, e.y, '#ff5252', 30);
+    // Boss drop: +5 alfaces (alface = currency da forja, escasso). Spawn de
+    // particles verdes no local + floating "+5 🥬" perto do botão ROLAR.
+    const LETTUCE_PER_BOSS = 5;
+    arena.lettuce = (arena.lettuce || 0) + LETTUCE_PER_BOSS;
+    spawnArenaParticle(e.x, e.y, '#aff067', 18);
+    if(typeof spawnLettucePop === 'function'){
+      const r = document.getElementById('arenaForgeRollBtn');
+      if(r){
+        const rr = r.getBoundingClientRect();
+        spawnLettucePop(rr.left + rr.width/2, rr.top - 4, LETTUCE_PER_BOSS);
+      }
+    }
     if(typeof vibrate  === 'function') vibrate([80, 40, 120]); // boss kill = padrão duplo
     if(typeof Quests   !== 'undefined') Quests.onBossDefeated();
     if(typeof Tutorial !== 'undefined') Tutorial.onBossDefeated();
-    if(window.Analytics) Analytics.send('boss_defeated', { kind: e.kind || 'unknown' });
+    if(window.Analytics) Analytics.send('boss_defeated', { kind: e.kind || 'unknown', lettuce_drop: LETTUCE_PER_BOSS });
     // Crossfade de volta pra música de gameplay
     if(typeof Music !== 'undefined' && Music.crossfadeFromBoss){
       Music.crossfadeFromBoss();
@@ -9884,6 +10040,201 @@ if(document.readyState === 'loading'){
   Consent.init();
 }
 
+// ============== IAP — Cosmic Weapon (Mundo 5) ==============
+// Single-product IAP: arma cósmica era 4, R$ 4,99. Não-consumable
+// (entitlement permanente, persistido em localStorage). UI: float button
+// que esconde após compra. Em produção usa Platform().purchasesBuyProduct;
+// em dev/browser (sem SDK) cai pra fluxo confirm() que concede a arma grátis.
+const IAP_COSMIC_WEAPON_ID = 'bunny.cosmic_weapon_001';
+const IAP_OWNED_KEY        = 'bunnyChaos.iap.cosmicWeapon';
+
+const CosmicIAP = (function(){
+  function isOwned(){
+    try { return localStorage.getItem(IAP_OWNED_KEY) === 'owned'; }
+    catch(_){ return false; }
+  }
+  function markOwned(){
+    try { localStorage.setItem(IAP_OWNED_KEY, 'owned'); } catch(_){}
+    _refreshButton();
+  }
+  function _refreshButton(){
+    const btn = document.getElementById('iapCosmicBtn');
+    if(!btn) return;
+    btn.classList.toggle('hidden', isOwned());
+  }
+  function _grantWeapon(){
+    // Cria item era 4 (Cosmic Carrot Age) — arma ranged scatter com 5 projéteis
+    // a level 5 (decentemente forte mid-game, mas não overpowered late).
+    const eraIdx = 4;
+    const era = ERAS[eraIdx];
+    const initialLevel = 5;
+    const item = {
+      slot: 'weapon',
+      name: 'Cosmic Blaster',
+      icon: '🌌',
+      sprite: 'assets/items/era1/weapon-acorn-scattershot.png', // placeholder até ter sprite era4
+      handSprite: undefined,
+      archetype: 'ranged_triple', // 3+ projéteis (matches scattershot template)
+      weaponType: 'ranged',
+      stat: 'projectiles',
+      value: typeof baseStat === 'function' ? baseStat('weapon', eraIdx, initialLevel) : 5,
+      rarity: era.key,
+      era: era.name,
+      eraKey: era.key,
+      eraIdx,
+      eraColor: era.color,
+      originalEraIdx: eraIdx,
+      tiersUp: 0,
+      currentLevel: initialLevel,
+      initialLevel,
+      maxLevel: typeof MAX_ITEM_LEVEL !== 'undefined' ? MAX_ITEM_LEVEL : 100,
+      level: initialLevel,
+      substats: [],
+      combo: 'IAP',
+      comboId: 'IAP',
+      multiplier: 1,
+      forgeLevel: arena.forgeLevel,
+      iapOrigin: true,
+    };
+    // Recompensa arma anterior em carrots (consistente com manual equip)
+    const oldWeapon = arena.items.weapon;
+    if(oldWeapon && typeof _grantDiscardCarrots === 'function') _grantDiscardCarrots(oldWeapon);
+    arena.items.weapon = item;
+    if(typeof bunnyApplyEquippedWeapon === 'function') bunnyApplyEquippedWeapon();
+    // Spawn particles cósmicas
+    if(typeof spawnArenaParticle === 'function'){
+      spawnArenaParticle(arena.bx, arena.by, era.color, 24);
+    }
+    // Carrot pop celebratório (estilo descarte mas roxo cósmico)
+    if(typeof spawnCarrotPop === 'function'){
+      const r = document.getElementById('arenaForgeRollBtn');
+      if(r){
+        const rr = r.getBoundingClientRect();
+        spawnCarrotPop(rr.left + rr.width/2, rr.top - 4, 0);
+      }
+    }
+    if(window.Analytics) Analytics.send('iap_grant_applied', { product_id: IAP_COSMIC_WEAPON_ID, era: eraIdx });
+  }
+  function _open(){
+    // Popula preview do item antes de abrir o modal (era + level + stat primário).
+    // Usa _itemPrimaryHTML pra formatar o stat igual ao popup de forge.
+    try {
+      const eraIdx = 4;
+      const era = ERAS[eraIdx];
+      const initialLevel = 5;
+      const previewItem = {
+        slot: 'weapon',
+        name: 'Cosmic Blaster',
+        stat: 'projectiles',
+        value: typeof baseStat === 'function' ? baseStat('weapon', eraIdx, initialLevel) : 5,
+        eraIdx,
+        currentLevel: initialLevel,
+      };
+      const nameEl = document.getElementById('iapPreviewName');
+      const eraEl  = document.getElementById('iapPreviewEra');
+      const primEl = document.getElementById('iapPreviewPrimary');
+      const lvlEl  = document.getElementById('iapPreviewLevel');
+      if(nameEl) nameEl.textContent = previewItem.name;
+      if(eraEl){
+        eraEl.textContent = era.name;
+        eraEl.style.color = era.color;
+      }
+      if(primEl) primEl.innerHTML = (typeof _itemPrimaryHTML === 'function')
+        ? _itemPrimaryHTML(previewItem)
+        : `${previewItem.value} projéteis`;
+      if(lvlEl) lvlEl.textContent = `Nv. ${initialLevel} / ${typeof MAX_ITEM_LEVEL !== 'undefined' ? MAX_ITEM_LEVEL : 100}`;
+    } catch(e){ /* preview falhou — modal abre mesmo assim */ }
+    const layer = document.getElementById('iapCosmicLayer');
+    if(layer) layer.classList.add('show');
+  }
+  function _close(){
+    const layer = document.getElementById('iapCosmicLayer');
+    if(layer) layer.classList.remove('show');
+  }
+  async function _attemptPurchase(){
+    if(isOwned()){
+      console.log('[iap] Cosmic weapon already owned — ignoring');
+      _close();
+      return;
+    }
+    if(window.Analytics) Analytics.send('iap_purchase_started', { product_id: IAP_COSMIC_WEAPON_ID });
+    // Tenta via SDK (produção / sandbox)
+    const p = window._WildlifePlatform;
+    if(p && p.isInitialized){
+      try {
+        await p.purchasesBuyProduct(IAP_COSMIC_WEAPON_ID, 'cosmic_weapon_btn');
+        // Resultado vem assíncrono via purchaseEvents listener (registrado abaixo).
+        // Não fecha o modal aqui — espera o evento de complete/error.
+        return;
+      } catch(e){
+        console.warn('[iap] purchasesBuyProduct rejeitou:', e && e.message);
+        if(window.Analytics) Analytics.send('iap_purchase_failed', { product_id: IAP_COSMIC_WEAPON_ID, error: String(e && e.message || e) });
+        // Cai pro dev fallback
+      }
+    }
+    // Dev mode (browser / sem SDK): concede grátis após confirm
+    if(confirm('DEV MODE: Conceder Arma Cósmica grátis pra testar?')){
+      _grantWeapon();
+      markOwned();
+      if(window.Analytics) Analytics.send('iap_purchase_completed', { product_id: IAP_COSMIC_WEAPON_ID, dev_mode: true });
+    } else {
+      if(window.Analytics) Analytics.send('iap_purchase_cancelled', { product_id: IAP_COSMIC_WEAPON_ID });
+    }
+    _close();
+  }
+  function _wirePurchaseEvents(){
+    // Listener pro evento async do SDK — produção / sandbox real
+    try {
+      // import dinâmico via window.Capacitor.Plugins (já carregado pelo Wildlife pkg)
+      const cap = window.Capacitor;
+      if(!cap || !cap.Plugins || !cap.Plugins.WildlifePlatform) return;
+      cap.Plugins.WildlifePlatform.addListener('purchaseEvents', (ev) => {
+        if(!ev || ev.productId !== IAP_COSMIC_WEAPON_ID) return;
+        if(ev.event === 'purchases_onPurchaseComplete'){
+          _grantWeapon();
+          markOwned();
+          // Ack a transação (importante pro Google Play)
+          if(ev.transactionId){
+            const p = window._WildlifePlatform;
+            if(p && p.purchasesFinishTransaction){
+              p.purchasesFinishTransaction(ev.productId, ev.transactionId).catch(()=>{});
+            }
+          }
+          if(window.Analytics) Analytics.send('iap_purchase_completed', { product_id: IAP_COSMIC_WEAPON_ID });
+          _close();
+        } else if(ev.event === 'purchases_onPurchaseError'){
+          if(window.Analytics) Analytics.send('iap_purchase_failed', {
+            product_id: IAP_COSMIC_WEAPON_ID,
+            error: ev.error || 'unknown',
+          });
+          _close();
+        }
+      });
+    } catch(_){ /* não disponível em browser dev */ }
+  }
+  function init(){
+    _refreshButton();
+    const btn = document.getElementById('iapCosmicBtn');
+    if(btn) btn.addEventListener('click', _open);
+    const cancel = document.getElementById('iapCosmicCancelBtn');
+    if(cancel) cancel.addEventListener('click', () => {
+      if(window.Analytics) Analytics.send('iap_modal_cancelled', { product_id: IAP_COSMIC_WEAPON_ID });
+      _close();
+    });
+    const confirmBtn = document.getElementById('iapCosmicConfirmBtn');
+    if(confirmBtn) confirmBtn.addEventListener('click', _attemptPurchase);
+    _wirePurchaseEvents();
+  }
+  // Exposição pra debug via DevTools (DEV-ONLY conveniência)
+  window.CosmicIAP = { isOwned, _grantWeapon, markOwned, _open, _close };
+  return { init };
+})();
+if(document.readyState === 'loading'){
+  window.addEventListener('DOMContentLoaded', CosmicIAP.init);
+} else {
+  CosmicIAP.init();
+}
+
 function forgeIntervalAtLevel(lvl){
   // Ciclo fixo de 1s (60 frames @ 60fps) — não escala com forge level.
   // O reward de subir Forge Level vira BATCH SIZE (e raridades melhores),
@@ -11896,6 +12247,28 @@ function hideItemPopup(){
   document.getElementById('itemPopup').classList.remove('show');
   document.getElementById('itemPopupBackdrop').classList.remove('show');
 }
+
+// Universal click-through fix: clicks DENTRO de qualquer .layer popup
+// (Cancelar, Comprar, Voltar, etc.) NÃO devem bubble-up pro handler dos items
+// strip no #frame — senão o player tapa Cancelar em cima de um item slot
+// e abre o popup do item depois de fechar o anterior.
+(function preventLayerClickThrough(){
+  const wire = (el) => {
+    if(!el || el._clickThroughGuard) return;
+    el._clickThroughGuard = true;
+    el.addEventListener('click', (e) => { e.stopPropagation(); });
+    // Também stopa pointerdown/touchstart pelos mesmos motivos
+    el.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
+  };
+  const apply = () => {
+    document.querySelectorAll('.layer, #itemPopupBackdrop').forEach(wire);
+  };
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', apply);
+  } else {
+    apply();
+  }
+})();
 
 // Click handler no frame: detecta clique no items strip (canvas) e abre popup.
 // Como os items são desenhados no canvas, convertemos coord CSS → coord lógica
