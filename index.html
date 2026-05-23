@@ -14541,9 +14541,14 @@ function switchArenaTab(key){
   state = STATE.ARENA_TAB;
 }
 
-// hook nos botões da tab bar
+// hook nos botões da tab bar — tabs lockadas (PVP/HERÓI/EXPLORAR/LOJA)
+// pulam o switchArenaTab. O feedback delas vem só do toast "EM BREVE" +
+// sfx_ui_click_error (handlers separados em setupEmBreveToast + delegate).
+// Antes, clicar em locked abria o painel arenaTab com conteúdo "em breve"
+// genérico — confuso pro player.
 for(const btn of document.querySelectorAll('.arenaTab-btn')){
   btn.addEventListener('click', ()=>{
+    if(btn.classList.contains('locked')) return;
     switchArenaTab(btn.dataset.tab);
   });
 }
