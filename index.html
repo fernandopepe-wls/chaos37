@@ -90,11 +90,15 @@
     background:#0a0716;
     overflow:hidden;
     /* Safe areas expostas como custom props pros filhos posicionados
-       (tab bar / float buttons) compensarem internamente. */
-    --safe-top:    env(safe-area-inset-top, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --safe-left:   env(safe-area-inset-left, 0px);
-    --safe-right:  env(safe-area-inset-right, 0px);
+       (tab bar / float buttons) compensarem internamente.
+       FORÇADOS A 0 pra UI iOS estender atrás do home indicator (34px) e
+       casar com o look do Android, que não tem essa zona reservada.
+       Pra reativar respeito ao safe-area, trocar pelos env(safe-area-inset-*).
+       Splash screen mantém seu próprio padding via env() (linha ~2761). */
+    --safe-top:    0px;
+    --safe-bottom: 0px;
+    --safe-left:   0px;
+    --safe-right:  0px;
   }
   /* desktop: cap como "moldura" de celular moderno (9:20) com letterbox */
   @media (min-width: 768px) and (min-height: 600px){
@@ -3102,27 +3106,13 @@
       </div>
     </div>
 
-    <!-- Consent modal (LGPD/GDPR) — aparece no primeiro launch, bloqueia
-         interação até player escolher. Choice persistida em localStorage
-         (bunnyChaos.analyticsConsent). Revogável via Settings → Privacidade. -->
-    <div class="layer" id="consentLayer">
-      <div class="forge-popup-card consent-card">
-        <div class="forge-popup-tag">🔒 Privacidade</div>
-        <h2 class="forge-level-title">Coleta de dados</h2>
-        <p class="consent-body">
-          Coletamos eventos de jogo (forjas, vitórias, configurações)
-          e identificadores anônimos do dispositivo pra melhorar a experiência
-          e medir desempenho. Nenhum dado pessoal identificável é compartilhado.
-        </p>
-        <p class="consent-body consent-sub">
-          Você pode alterar essa escolha a qualquer momento em <b>Configurações → Privacidade</b>.
-        </p>
-        <div class="forge-popup-actions">
-          <button class="forge-popup-btn red"   id="consentDeclineBtn">Recusar</button>
-          <button class="forge-popup-btn green" id="consentAcceptBtn">Aceitar</button>
-        </div>
-      </div>
-    </div>
+    <!-- Consent modal (LGPD/GDPR) REMOVIDO no boot: o ATT nativo do iOS
+         já dispara via Wildlife SDK (Singular config), cobrindo o consent
+         de tracking. Analytics agora é 'granted' por padrão; revogação
+         continua disponível em Configurações → Privacidade. -->
+    <!-- CSS classes .consent-body / .consent-sub permanecem (reutilizadas
+         pelo popup IAP Cosmic Weapon acima). -->
+
 
     <!-- settings popup (audio + idioma + vibração) -->
     <div class="layer" id="settingsLayer">
@@ -9910,9 +9900,11 @@ const SETTINGS_DEFAULTS = {
   audioEnabled: { master:true, music:true, sfx:true },
   language: 'pt',                  // 'pt' | 'en' (apenas persistido, i18n pendente)
   vibrateEnabled: true,
-  // Consent LGPD/GDPR — 'granted' | 'denied' | null (= primeira execução, mostrar modal)
-  // Gateia window.Analytics.send: se denied/null, eventos não são enviados pro SDK.
-  analyticsConsent: null,
+  // Consent LGPD/GDPR — 'granted' | 'denied'. Default 'granted' porque o
+  // tracking consent é coberto pelo prompt ATT nativo do iOS (disparado pelo
+  // Wildlife SDK / Singular no boot). Modal interno foi removido. Player ainda
+  // pode revogar via Configurações → Privacidade (vira 'denied').
+  analyticsConsent: 'granted',
 };
 const SETTINGS = JSON.parse(JSON.stringify(SETTINGS_DEFAULTS));
 (function _loadSettings(){
@@ -10072,86 +10064,28 @@ if(document.readyState === 'loading'){
 }
 
 // ============== CONSENT (LGPD/GDPR) + iOS ATT ==============
-// Mostra modal de consentimento no primeiro launch (quando analyticsConsent==null).
-// Gateia Analytics.send até player decidir. Choice persistida em SETTINGS.
-// Em iOS, "Aceitar" também triggera o ATT prompt do sistema (Singular IDFA).
+// Modal interno de consent REMOVIDO: o prompt ATT nativo do iOS já é disparado
+// automaticamente pelo Wildlife SDK / Singular durante Platform().initialize(),
+// cobrindo o tracking consent. Analytics default = 'granted'; player ainda pode
+// revogar a qualquer momento via Configurações → Privacidade.
 const Consent = (function(){
-  function _isFirstLaunch(){
-    return SETTINGS.analyticsConsent !== 'granted' && SETTINGS.analyticsConsent !== 'denied';
-  }
-  function _showModal(){
-    const layer = document.getElementById('consentLayer');
-    if(layer) layer.classList.add('show');
-  }
-  function _hideModal(){
-    const layer = document.getElementById('consentLayer');
-    if(layer) layer.classList.remove('show');
-  }
-  async function _triggerIOSATT(){
-    // Apple exige user interaction antes de ATT — chamamos no callback do "Aceitar".
-    // trackingTransparencyGetAdvertisementId() do plugin Wildlife dispara o prompt
-    // do sistema na primeira chamada. Sem isso, Singular timeout em 60s → no-IDFA.
-    try {
-      const p = window._WildlifePlatform;
-      if(!p) return;
-      // Só faz sentido em iOS (Android não tem ATT)
-      const cap = window.Capacitor;
-      if(cap && cap.getPlatform && cap.getPlatform() !== 'ios') return;
-      await p.trackingTransparencyGetAdvertisementId();
-    } catch(_){ /* swallow */ }
-  }
-  function accept(){
-    SETTINGS.analyticsConsent = 'granted';
-    _saveSettings();
-    _hideModal();
-    // Triggera ATT prompt no iOS após user interaction
-    _triggerIOSATT();
-    // Smoke test pra confirmar pipeline (visível no Topaz/dashboard)
-    if(window.Analytics) Analytics.send('consent_granted');
-  }
-  function decline(){
-    SETTINGS.analyticsConsent = 'denied';
-    _saveSettings();
-    _hideModal();
-  }
-  // Settings toggle — chamado quando player muda no popup Settings
+  // Settings toggle — chamado quando player muda no popup Settings → Privacidade.
   function setFromSettings(enabled){
-    if(enabled){
-      const wasFirstChoice = SETTINGS.analyticsConsent !== 'granted';
-      SETTINGS.analyticsConsent = 'granted';
-      _saveSettings();
-      if(wasFirstChoice) _triggerIOSATT();
-      if(window.Analytics) Analytics.send('consent_granted', { from: 'settings' });
-    } else {
-      SETTINGS.analyticsConsent = 'denied';
-      _saveSettings();
+    SETTINGS.analyticsConsent = enabled ? 'granted' : 'denied';
+    _saveSettings();
+    if(enabled && window.Analytics){
+      Analytics.send('consent_granted', { from: 'settings' });
     }
   }
   function init(){
-    // Wire botões do modal de consent
-    const accBtn = document.getElementById('consentAcceptBtn');
-    const decBtn = document.getElementById('consentDeclineBtn');
-    if(accBtn) accBtn.addEventListener('click', accept);
-    if(decBtn) decBtn.addEventListener('click', decline);
-    // Wire toggle do Settings → Privacidade
+    // Wire toggle do Settings → Privacidade (único entry point agora).
     const cb = document.getElementById('settingsConsentToggle');
     if(cb){
-      // Reflete estado atual no checkbox
       cb.checked = (SETTINGS.analyticsConsent === 'granted');
       cb.addEventListener('change', () => setFromSettings(cb.checked));
     }
-    // Espera splash sair antes de mostrar modal — evita stack visual feio
-    if(_isFirstLaunch()){
-      const splash = document.getElementById('splashScreen');
-      const doShow = () => setTimeout(_showModal, 500);
-      if(!splash || splash.classList.contains('gone')){ doShow(); return; }
-      const obs = new MutationObserver(() => {
-        if(splash.classList.contains('gone')){ obs.disconnect(); doShow(); }
-      });
-      obs.observe(splash, { attributes:true, attributeFilter:['class'] });
-    }
   }
-  return { init, accept, decline, setFromSettings };
+  return { init, setFromSettings };
 })();
 if(document.readyState === 'loading'){
   window.addEventListener('DOMContentLoaded', Consent.init);
