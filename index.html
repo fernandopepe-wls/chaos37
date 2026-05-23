@@ -2766,7 +2766,7 @@
     position:absolute;
     inset:0;
     z-index:9999;
-    background:#5fb0e0 url('assets/ui-splash-screen.png') center/cover no-repeat;
+    background:#5fb0e0 url('assets/ui-splash-screen.jpg') center/cover no-repeat;
     display:flex;
     flex-direction:column;
     align-items:center;
@@ -3389,17 +3389,8 @@ function bunnyApplyEquippedWeapon(){
 // quando o asset é triggerado. Permite variar SFX repetitivo sem código.
 const AUDIO_CATALOG_DEFAULTS = [
   {
-    id: 'music_splash', category: 'music', label: 'Music — Splash Screen',
-    files: ['assets/audio/mx_splash_screen.wav'],
-    volume: 1.00, pitchRandom: 0.00,
-    fadeIn:  { enabled:true,  ms: 600  },
-    fadeOut: { enabled:true,  ms: 1000 },
-    crossfadeIn:  { enabled:true,  ms: 2000 },
-    crossfadeOut: { enabled:true,  ms: 2000 },
-  },
-  {
     id: 'music_gp01', category: 'music', label: 'Music — Gameplay 01',
-    files: ['assets/audio/mx_gp_01.wav'],
+    files: ['assets/audio/mx_gp.mp3'],
     volume: 1.00, pitchRandom: 0.00,
     fadeIn:  { enabled:true,  ms: 1000 },
     fadeOut: { enabled:true,  ms: 2000 },
@@ -3408,7 +3399,7 @@ const AUDIO_CATALOG_DEFAULTS = [
   },
   {
     id: 'music_gp02', category: 'music', label: 'Music — Gameplay 02',
-    files: ['assets/audio/mx_gp_02.wav'],
+    files: ['assets/audio/mx_gp_02.mp3'],
     volume: 1.00, pitchRandom: 0.00,
     fadeIn:  { enabled:true,  ms: 1000 },
     fadeOut: { enabled:true,  ms: 2000 },
@@ -3417,7 +3408,7 @@ const AUDIO_CATALOG_DEFAULTS = [
   },
   {
     id: 'music_boss', category: 'music', label: 'Music — Boss Loop',
-    files: ['assets/audio/mx_boss_loop.wav'],
+    files: ['assets/audio/mx_boss.mp3'],
     volume: 1.00, pitchRandom: 0.00,
     fadeIn:  { enabled:true,  ms: 1000 },
     fadeOut: { enabled:true,  ms: 1000 },
@@ -3500,7 +3491,225 @@ const AUDIO_CATALOG_DEFAULTS = [
     volume: 1.00, pitchRandom: 0.00,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0},
   },
+  // === GAMEPLAY SFX PLACEHOLDERS ===
+  // Filepaths under assets/audio/sfx/. Files do not exist yet — playSfx() will
+  // silent-fail (promise rejection swallowed). Drop real WAV/MP3 at each path
+  // and the trigger sites already wired below pick them up automatically.
+  // All entries are category:'sfx' (or 'ui') so the Settings → 🔔 Efeitos toggle
+  // mutes them. See _patchAudioVol — 'ui' is also gated under sfx toggle.
+
+  // --- Player (bunny) ---
+  { id: 'sfx_bunny_melee_swing',     category: 'sfx', label: 'SFX — Bunny melee SWING',
+    files: ['assets/audio/sfx/bunny_melee_swing.mp3'],
+    volume: 0.80, pitchRandom: 0.08,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_bunny_melee_thrust',    category: 'sfx', label: 'SFX — Bunny melee THRUST',
+    files: ['assets/audio/sfx/bunny_melee_thrust.mp3'],
+    volume: 0.80, pitchRandom: 0.08,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_bunny_melee_slam',      category: 'sfx', label: 'SFX — Bunny melee SLAM',
+    files: ['assets/audio/sfx/bunny_melee_slam.mp3'],
+    volume: 0.85, pitchRandom: 0.06,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_bunny_melee_hit_flesh', category: 'sfx', label: 'SFX — Bunny melee HIT (flesh)',
+    files: ['assets/audio/sfx/bunny_melee_hit_flesh.mp3'],
+    volume: 0.70, pitchRandom: 0.12,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_bunny_ranged_shoot',    category: 'sfx', label: 'SFX — Bunny ranged SHOOT',
+    files: ['assets/audio/sfx/bunny_ranged_shoot.mp3'],
+    volume: 0.75, pitchRandom: 0.08,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_bunny_ranged_hit',      category: 'sfx', label: 'SFX — Bunny ranged HIT',
+    files: ['assets/audio/sfx/bunny_ranged_hit.mp3'],
+    volume: 0.70, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_bunny_hurt',            category: 'sfx', label: 'SFX — Bunny HURT',
+    files: ['assets/audio/sfx/bunny_hurt.mp3'],
+    volume: 0.85, pitchRandom: 0.06,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_bunny_death',           category: 'sfx', label: 'SFX — Bunny DEATH',
+    files: ['assets/audio/sfx/bunny_death.mp3'],
+    volume: 0.95, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+
+  // --- Enemies — Burrow ---
+  { id: 'sfx_enemy_bandit_attack',       category: 'sfx', label: 'SFX — Bandit attack (blade swipe)',
+    files: ['assets/audio/sfx/enemy_bandit_attack.mp3'],
+    volume: 0.65, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_bandit_death',        category: 'sfx', label: 'SFX — Bandit death',
+    files: ['assets/audio/sfx/enemy_bandit_death.mp3'],
+    volume: 0.70, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_sporeling_attack',    category: 'sfx', label: 'SFX — Sporeling mushroom puff attack',
+    files: ['assets/audio/sfx/enemy_sporeling_attack.mp3'],
+    volume: 0.65, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_sporeling_death',     category: 'sfx', label: 'SFX — Sporeling mushroom death',
+    files: ['assets/audio/sfx/enemy_sporeling_death.mp3'],
+    volume: 0.70, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_sporepup_attack',     category: 'sfx', label: 'SFX — Sporepup slime attack',
+    files: ['assets/audio/sfx/enemy_sporepup_attack.mp3'],
+    volume: 0.65, pitchRandom: 0.12,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_sporepup_death',      category: 'sfx', label: 'SFX — Sporepup slime death',
+    files: ['assets/audio/sfx/enemy_sporepup_death.mp3'],
+    volume: 0.70, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+
+  // --- Enemies — Meadow ---
+  { id: 'sfx_enemy_footpaw_attack',      category: 'sfx', label: 'SFX — Footpaw scout dagger jab',
+    files: ['assets/audio/sfx/enemy_footpaw_attack.mp3'],
+    volume: 0.65, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_footpaw_death',       category: 'sfx', label: 'SFX — Footpaw scout death',
+    files: ['assets/audio/sfx/enemy_footpaw_death.mp3'],
+    volume: 0.70, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_bramblepup_attack',   category: 'sfx', label: 'SFX — Bramblepup thorn attack',
+    files: ['assets/audio/sfx/enemy_bramblepup_attack.mp3'],
+    volume: 0.65, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_bramblepup_death',    category: 'sfx', label: 'SFX — Bramblepup death',
+    files: ['assets/audio/sfx/enemy_bramblepup_death.mp3'],
+    volume: 0.70, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_stinger_attack',      category: 'sfx', label: 'SFX — Stinger wasp dive sting',
+    files: ['assets/audio/sfx/enemy_stinger_attack.mp3'],
+    volume: 0.65, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_stinger_death',       category: 'sfx', label: 'SFX — Stinger wasp death',
+    files: ['assets/audio/sfx/enemy_stinger_death.mp3'],
+    volume: 0.70, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+
+  // --- Enemies — Industrial ---
+  { id: 'sfx_enemy_cinderimp_attack',    category: 'sfx', label: 'SFX — Cinder imp gear attack',
+    files: ['assets/audio/sfx/enemy_cinderimp_attack.mp3'],
+    volume: 0.65, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_cinderimp_death',     category: 'sfx', label: 'SFX — Cinder imp gear-spring death',
+    files: ['assets/audio/sfx/enemy_cinderimp_death.mp3'],
+    volume: 0.70, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_sapper_attack',       category: 'sfx', label: 'SFX — Sapper explosion attack',
+    files: ['assets/audio/sfx/enemy_sapper_attack.mp3'],
+    volume: 0.80, pitchRandom: 0.08,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_sapper_death',        category: 'sfx', label: 'SFX — Sapper death',
+    files: ['assets/audio/sfx/enemy_sapper_death.mp3'],
+    volume: 0.70, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_clockbeetle_attack',  category: 'sfx', label: 'SFX — Clockwork beetle gear toss',
+    files: ['assets/audio/sfx/enemy_clockbeetle_attack.mp3'],
+    volume: 0.65, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_enemy_clockbeetle_death',   category: 'sfx', label: 'SFX — Clockwork beetle gear death',
+    files: ['assets/audio/sfx/enemy_clockbeetle_death.mp3'],
+    volume: 0.70, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+
+  // --- Pickups ---
+  { id: 'sfx_pickup_carrot', category: 'sfx', label: 'SFX — Pickup carrot',
+    files: ['assets/audio/sfx/pickup_carrot.mp3'],
+    volume: 0.65, pitchRandom: 0.10,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_pickup_pill',   category: 'sfx', label: 'SFX — Pickup stat pill',
+    files: ['assets/audio/sfx/pickup_pill.mp3'],
+    volume: 0.75, pitchRandom: 0.06,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+
+  // --- UI / flow (category 'ui' — gated under SFX toggle by _patchAudioVol) ---
+  { id: 'sfx_ui_click',  category: 'ui', label: 'SFX — UI click',
+    files: ['assets/audio/sfx/ui_click.mp3'],
+    volume: 0.70, pitchRandom: 0.04,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_ui_back',   category: 'ui', label: 'SFX — UI back',
+    files: ['assets/audio/sfx/ui_back.mp3'],
+    volume: 0.70, pitchRandom: 0.04,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_ui_hover',  category: 'ui', label: 'SFX — UI hover',
+    files: ['assets/audio/sfx/ui_hover.mp3'],
+    volume: 0.50, pitchRandom: 0.04,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_menu_open', category: 'ui', label: 'SFX — Menu open',
+    files: ['assets/audio/sfx/menu_open.mp3'],
+    volume: 0.75, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_menu_close',category: 'ui', label: 'SFX — Menu close',
+    files: ['assets/audio/sfx/menu_close.mp3'],
+    volume: 0.70, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_journal_open', category: 'ui', label: 'SFX — Journal open',
+    files: ['assets/audio/sfx/journal_open.mp3'],
+    volume: 0.80, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_wave_start', category: 'sfx', label: 'SFX — Wave start',
+    files: ['assets/audio/sfx/wave_start.mp3'],
+    volume: 0.80, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_wave_clear', category: 'sfx', label: 'SFX — Wave clear',
+    files: ['assets/audio/sfx/wave_clear.mp3'],
+    volume: 0.85, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_stage_clear_banner', category: 'sfx', label: 'SFX — Stage clear banner',
+    files: ['assets/audio/sfx/stage_clear_banner.mp3'],
+    volume: 0.95, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_defeat_banner', category: 'sfx', label: 'SFX — Defeat banner',
+    files: ['assets/audio/sfx/defeat_banner.mp3'],
+    volume: 0.90, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_boss_challenge_button', category: 'ui', label: 'SFX — DESAFIAR BOSS press',
+    files: ['assets/audio/sfx/boss_challenge_button.mp3'],
+    volume: 0.85, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_boss_warning', category: 'sfx', label: 'SFX — Boss warning sting',
+    files: ['assets/audio/sfx/boss_warning.mp3'],
+    volume: 1.00, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+
+  // --- Ambient / music stings ---
+  { id: 'amb_era_burrow', category: 'music', label: 'Ambient — Era Burrow',
+    files: ['assets/audio/music/amb_era_burrow.wav'],
+    volume: 0.60, pitchRandom: 0.00,
+    fadeIn:{enabled:true,ms:1000}, fadeOut:{enabled:true,ms:1500},
+    crossfadeIn:{enabled:true,ms:2000}, crossfadeOut:{enabled:true,ms:2000} },
+  { id: 'amb_era_meadow', category: 'music', label: 'Ambient — Era Meadow',
+    files: ['assets/audio/music/amb_era_meadow.wav'],
+    volume: 0.60, pitchRandom: 0.00,
+    fadeIn:{enabled:true,ms:1000}, fadeOut:{enabled:true,ms:1500},
+    crossfadeIn:{enabled:true,ms:2000}, crossfadeOut:{enabled:true,ms:2000} },
+  { id: 'amb_era_hutch', category: 'music', label: 'Ambient — Era Hutch',
+    files: ['assets/audio/music/amb_era_hutch.wav'],
+    volume: 0.60, pitchRandom: 0.00,
+    fadeIn:{enabled:true,ms:1000}, fadeOut:{enabled:true,ms:1500},
+    crossfadeIn:{enabled:true,ms:2000}, crossfadeOut:{enabled:true,ms:2000} },
+  { id: 'mx_victory_sting', category: 'music', label: 'Music — Victory sting',
+    files: ['assets/audio/music/mx_victory_sting.wav'],
+    volume: 0.90, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:true,ms:600} },
+  { id: 'mx_defeat_sting', category: 'music', label: 'Music — Defeat sting',
+    files: ['assets/audio/music/mx_defeat_sting.wav'],
+    volume: 0.90, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:true,ms:600} },
 ];
+
+// === ENEMY → SFX MAP ===
+// Resolves per-enemy-kind sound IDs for attack/death state transitions.
+// Hook lives in _setBanditAnim. Kinds without an entry stay silent.
+const ENEMY_SFX = {
+  bandit:      { attack: 'sfx_enemy_bandit_attack',      death: 'sfx_enemy_bandit_death' },
+  sporeling:   { attack: 'sfx_enemy_sporeling_attack',   death: 'sfx_enemy_sporeling_death' },
+  sporepup:    { attack: 'sfx_enemy_sporepup_attack',    death: 'sfx_enemy_sporepup_death' },
+  footpaw:     { attack: 'sfx_enemy_footpaw_attack',     death: 'sfx_enemy_footpaw_death' },
+  bramblepup:  { attack: 'sfx_enemy_bramblepup_attack',  death: 'sfx_enemy_bramblepup_death' },
+  stinger:     { attack: 'sfx_enemy_stinger_attack',     death: 'sfx_enemy_stinger_death' },
+  cinderimp:   { attack: 'sfx_enemy_cinderimp_attack',   death: 'sfx_enemy_cinderimp_death' },
+  sapper:      { attack: 'sfx_enemy_sapper_attack',      death: 'sfx_enemy_sapper_death' },
+  clockbeetle: { attack: 'sfx_enemy_clockbeetle_attack', death: 'sfx_enemy_clockbeetle_death' },
+};
 
 // Mixer global — master + per-category gain (0..1).
 const AUDIO_MIXER_DEFAULTS = {
@@ -3603,19 +3812,16 @@ window.playSfx = playSfx;
 // Antes do unlock, audio chamado fica em pendingTrack. Após unlock, todas
 // chamadas tocam direto. Volume target ~0.55, fades RAF-based.
 const Music = (function(){
-  const splashAudio = new Audio('assets/audio/mx_splash_screen.wav');
-  splashAudio.loop = true;
-  splashAudio.volume = 0;
-  splashAudio.preload = 'auto';
-  splashAudio._audioId = 'music_splash'; // pra lookup no AUDIO_CATALOG
+  // Splash music removed — gameplay tracks start directly when the player
+  // enters arena. All audio iteration arrays now skip the splash slot.
   const gpAudio = [
-    new Audio('assets/audio/mx_gp_01.wav'),
-    new Audio('assets/audio/mx_gp_02.wav'),
+    new Audio('assets/audio/mx_gp.mp3'),
+    new Audio('assets/audio/mx_gp_02.mp3'),
   ];
   gpAudio[0]._audioId = 'music_gp01';
   gpAudio[1]._audioId = 'music_gp02';
   for(const a of gpAudio){ a.loop = false; a.volume = 0; a.preload = 'auto'; }
-  const bossAudio = new Audio('assets/audio/mx_boss_loop.wav');
+  const bossAudio = new Audio('assets/audio/mx_boss.mp3');
   bossAudio.loop = true;
   bossAudio.volume = 0;
   bossAudio.preload = 'auto';
@@ -3646,7 +3852,6 @@ const Music = (function(){
   // e podem demorar; sem isso, play() era chamado antes do buffer estar pronto
   // e o resultado era intermitente — às vezes tocava, às vezes silêncio total).
   try {
-    splashAudio.load();
     gpAudio[0].load();
     gpAudio[1].load();
     bossAudio.load();
@@ -3658,7 +3863,7 @@ const Music = (function(){
   let pending = null;
   let currentGp = null;
   let gameplayStarted = false;
-  let splashCurrentlyPlaying = false;
+  // splashCurrentlyPlaying removed — splash music gone.
   // Single source of truth — only ONE track may be logically "active" at a time.
   // Set by _doPlay on success; cleared on explicit stop. Visibility resume only
   // restarts _activeMusic — prevents the "blur mid-crossfade → 2 tracks on focus"
@@ -3670,7 +3875,7 @@ const Music = (function(){
   // need a strict "only one track is playing" guarantee (visibility transitions,
   // explicit track switches that must not overlap).
   function _hardSilenceAllExcept(keep){
-    for(const a of [splashAudio, ...gpAudio, bossAudio]){
+    for(const a of [...gpAudio, bossAudio]){
       if(a === keep) continue;
       if(a._fadeRAF){ cancelAnimationFrame(a._fadeRAF); a._fadeRAF = null; }
       a.volume = 0;
@@ -3712,7 +3917,7 @@ const Music = (function(){
     // Mark them _deactivating so visibility handlers skip them entirely
     // (otherwise a blur mid-fade would flag them as _visWasPlaying and resume
     // them on focus return, causing the "2 tracks playing" bug).
-    for(const other of [splashAudio, ...gpAudio, bossAudio]){
+    for(const other of [...gpAudio, bossAudio]){
       if(other === audio) continue;
       other._deactivating = true;
       other._visWasPlaying = false;
@@ -3807,7 +4012,7 @@ const Music = (function(){
     // 2) Warm-up de todas as faixas de música: play() @ vol 0, depois pause.
     //    Marca cada elemento como "tocou pelo menos uma vez dentro de gesture",
     //    o que destrava o iOS pra plays subsequentes (programáticas).
-    for(const a of [splashAudio, ...gpAudio, bossAudio]){
+    for(const a of [...gpAudio, bossAudio]){
       if(!a.paused) continue;
       try {
         const oldVol = a.volume;
@@ -3827,39 +4032,15 @@ const Music = (function(){
   document.addEventListener('touchstart',  _primeAudioSession, { capture: true, once: true, passive: true });
   document.addEventListener('keydown',     _primeAudioSession, { capture: true, once: true });
 
-  function playSplash(){
-    if(gameplayStarted) return;
-    request(splashAudio, 600, () => { splashCurrentlyPlaying = true; });
-  }
+  // playSplash kept as no-op for callers (e.g., Music.playSplash() at boot).
+  // Splash music removed — nothing to play before gameplay starts.
+  function playSplash(){ /* no-op */ }
 
   function crossfadeToGameplay(durationMs){
     if(gameplayStarted) return;
     gameplayStarted = true;
     const ms = durationMs || 1000;
-    // Se splash ainda tava na fila (autoplay bloqueado, sem interação),
-    // SOBRESCREVE com gameplay (linhas abaixo) — não vai mais querer splash.
-    if(pending && pending.audio === splashAudio) pending = null;
-    // CRÍTICO: iOS Safari IGNORA audio.volume — só hardware controla. Então
-    // fadeTo(splashAudio, 0, 1000) NÃO silencia. O setTimeout(pause, 1080ms)
-    // do código antigo deixava 1+s de encavalando com gameplay no celular.
-    // Fix: muted=true (respeitado em iOS) + pause IMEDIATO. Crossfade visual
-    // (CSS fade do splash) continua suave; só o áudio corta direto pra evitar
-    // 2 tracks tocando em paralelo.
-    if(splashCurrentlyPlaying){
-      try {
-        splashAudio.muted = true;       // iOS-safe silence
-        splashAudio.pause();
-        splashAudio.currentTime = 0;
-      } catch(_){}
-      // Cancela qualquer fade pendente (raf-based) que ainda tava ajustando volume
-      if(splashAudio._fadeRAF){
-        cancelAnimationFrame(splashAudio._fadeRAF);
-        splashAudio._fadeRAF = null;
-      }
-      splashAudio.volume = 0;
-      splashCurrentlyPlaying = false;
-    }
-    // Inicia gameplay (random entre as 2 tracks)
+    // No splash track to fade out — go straight to a random gameplay track.
     const next = gpAudio[Math.floor(Math.random() * gpAudio.length)];
     currentGp = next;
     request(next, ms, () => scheduleEnd(next));
@@ -3922,7 +4103,7 @@ const Music = (function(){
   // por volume (que deve auto-retomar) de pause por boss/visibilidade
   // (que segue a sua própria lógica e NÃO deve ser tocada aqui).
   function refreshLive(){
-    for(const a of [splashAudio, ...gpAudio, bossAudio]){
+    for(const a of [...gpAudio, bossAudio]){
       if(a._fadeRAF){ cancelAnimationFrame(a._fadeRAF); a._fadeRAF = null; }
       const target = _liveTarget(a);
       a.volume = target; // path Android/desktop — iOS ignora silenciosamente
@@ -3953,7 +4134,7 @@ const Music = (function(){
     _gamePaused = true;
     // Hard-silence everything. Only mark _activeMusic for resume — same single-
     // track guarantee as visibility pause. Prevents 2-track resume after pause.
-    for(const a of [splashAudio, ...gpAudio, bossAudio]){
+    for(const a of [...gpAudio, bossAudio]){
       if(a._fadeRAF){ cancelAnimationFrame(a._fadeRAF); a._fadeRAF = null; }
       if(!a.paused){ try { a.pause(); } catch(_){} }
       a._wasPlaying = false;
@@ -3989,7 +4170,7 @@ const Music = (function(){
       // HARD pause everything. Only the _activeMusic ref is allowed to resume
       // on focus — every other track is force-silenced and stays that way.
       // Prevents the "blur mid-crossfade → 2 tracks resume on focus" bug.
-      for(const a of [splashAudio, ...gpAudio, bossAudio]){
+      for(const a of [...gpAudio, bossAudio]){
         if(a._fadeRAF){ cancelAnimationFrame(a._fadeRAF); a._fadeRAF = null; }
         if(!a.paused){ try { a.pause(); } catch(_){} }
         a._visWasPlaying = false;
@@ -5520,14 +5701,21 @@ function startNewWave(){
   } else {
     arena.waveEnemiesToSpawn = enemiesPerWave(arena.stage, arena.wave);
     arena.waveSpawnTimer = 20;
+    // SFX: wave-start sting (skip on boss wave — boss_warning fires in spawnArenaBoss)
+    if(typeof playSfx === 'function') playSfx('sfx_wave_start');
   }
 }
 
 function onWaveClear(){
+  if(typeof playSfx === 'function') playSfx('sfx_wave_clear');
   if(arena.wave === WAVES_PER_STAGE){
     // Wave 6 limpa (boss OU huge wave) → stage clear, avança pro próximo stage.
     arena.waveState = 'stage_clear';
     arena.stageClearBannerTimer = 120;
+    if(typeof playSfx === 'function'){
+      playSfx('sfx_stage_clear_banner');
+      playSfx('mx_victory_sting');
+    }
     // bônus de stage clear: cenouras escalando com a stage (era alface, mudado
     // pra cenoura — boss/inimigos não dropam mais alface, ela só vem do ZZZ)
     arena.carrots += (5 + arena.stage) * 5;
@@ -5570,6 +5758,7 @@ function challengeBoss(){
   if(arena.wave === WAVES_PER_STAGE) return; // já tá no boss
   // Só faz sentido em stage 5 da era (única wave 6 que é boss real)
   if(!isBossWave(arena.stage, WAVES_PER_STAGE)) return;
+  if(typeof playSfx === 'function') playSfx('sfx_boss_challenge_button');
   // limpa inimigos atuais, projéteis e effects de combate
   arena.enemies = [];
   arena.swings = [];
@@ -5584,6 +5773,13 @@ function challengeBoss(){
 }
 
 function onArenaDeath(){
+  // SFX: death cry + defeat banner sting. Defeat sting (music category) fires
+  // on top of the gameplay music — fade-out wired in the catalog entry.
+  if(typeof playSfx === 'function'){
+    playSfx('sfx_bunny_death');
+    playSfx('sfx_defeat_banner');
+    playSfx('mx_defeat_sting');
+  }
   // Telemetria — player_died é o evento-chave pro funil de churn. Reportar
   // ANTES de mutar `arena.wave` pra capturar onde a morte aconteceu.
   // was_boss=true ajuda a identificar walls do boss vs morte em wave normal.
@@ -5734,7 +5930,9 @@ const LAYOUT_DEFAULTS = {
   questBtnRight: 15,       // logical px from right edge
   questBtnSize: 33,        // logical px (square)
   // IAP Cosmic Weapon button (abaixo do questBtn — mesmo tamanho)
-  iapCosmicTop: 225,
+  // Top = questBtnTop (104) + questBtnSize (33) + 10px gap = 147.
+  // Right matches questBtn so the two buttons stack flush on the right edge.
+  iapCosmicTop: 147,
   iapCosmicRight: 15,
   iapCosmicSize: 44,
   // Settings button (config — float top-left, abaixo da sword pill)
@@ -7245,6 +7443,8 @@ function spawnArenaBoss(){
     facing, dying: false,
   });
   spawnArenaParticle(bossX, bossY, '#ff5252', 24);
+  // SFX: boss-warning sting fires alongside the music crossfade.
+  if(typeof playSfx === 'function') playSfx('sfx_boss_warning');
   // Crossfade pra música de boss (duração do catalog — default 2s)
   if(typeof Music !== 'undefined' && Music.crossfadeToBoss){
     Music.crossfadeToBoss();
@@ -7301,6 +7501,56 @@ function spawnCarrotPop(viewportX, viewportY, amount){
   el.style.top  = (viewportY - lr.top) + 'px';
   layer.appendChild(el);
   setTimeout(() => { if(el.parentNode) el.remove(); }, 1300);
+}
+
+// Coalesce rapid pickups into ONE rising "+N" pop at the bunny. Mass kills
+// would otherwise spam 10+ DOM nodes per second — bad for perf + reads as
+// visual noise. Window: 220ms. If a new pickup lands inside the window, the
+// existing element's text updates in-place. After window expires (no pickup),
+// a fresh element is spawned next time.
+let _carrotPickupCoalesce = null;  // { el, total, timer, lastT }
+// Cached DOM refs + canvas rect for the coalesce helper. Cache lives across
+// the whole session; invalidated on resize/orientation change. Avoids
+// getElementById + getBoundingClientRect on every pickup (~50+/sec at peak
+// would otherwise force layout each call).
+let _cccGameCanv = null, _cccLayer = null, _cccCanvRect = null, _cccLayerRect = null;
+function _cccInvalidate(){ _cccCanvRect = null; _cccLayerRect = null; }
+window.addEventListener('resize', _cccInvalidate);
+window.addEventListener('orientationchange', _cccInvalidate);
+function _coalesceCarrotPickupPop(gameX, gameY, amount){
+  if(amount <= 0) return;
+  // Cache lookups + rects. Rects invalidate on resize via listener above.
+  if(!_cccGameCanv) _cccGameCanv = document.getElementById('game');
+  if(!_cccLayer)    _cccLayer    = document.getElementById('carrotPopLayer');
+  if(!_cccGameCanv || !_cccLayer) return;
+  if(!_cccCanvRect)  _cccCanvRect  = _cccGameCanv.getBoundingClientRect();
+  if(!_cccLayerRect) _cccLayerRect = _cccLayer.getBoundingClientRect();
+  const cr = _cccCanvRect, lr = _cccLayerRect;
+  const scaleX = cr.width  / _cccGameCanv.width;
+  const scaleY = cr.height / _cccGameCanv.height;
+  const vx = cr.left + gameX * scaleX;
+  const vy = cr.top  + (gameY - 18) * scaleY;  // float above bunny head
+  const now = performance.now();
+  const c = _carrotPickupCoalesce;
+  if(c && c.el && c.el.parentNode && (now - c.lastT) < 220){
+    c.total += amount;
+    c.el.textContent = '+' + c.total + ' 🥕';
+    c.lastT = now;
+    clearTimeout(c.timer);
+    c.timer = setTimeout(() => { _carrotPickupCoalesce = null; }, 1300);
+    return;
+  }
+  const el = document.createElement('span');
+  el.className = 'carrotPop';
+  el.textContent = '+' + amount + ' 🥕';
+  el.style.left = ((vx - lr.left) + (Math.random()-0.5) * 8) + 'px';
+  el.style.top  = (vy - lr.top) + 'px';
+  _cccLayer.appendChild(el);
+  const timer = setTimeout(() => {
+    if(el.parentNode) el.remove();
+    if(_carrotPickupCoalesce && _carrotPickupCoalesce.el === el) _carrotPickupCoalesce = null;
+  }, 1300);
+  _carrotPickupCoalesce = { el, total: amount, timer, lastT: now };
 }
 
 // Variante de pop pra alfaces (drop de boss) — verde em vez de laranja.
@@ -7457,7 +7707,26 @@ function killArenaEnemy(idx, e){
   // Drops: só cenoura (currency pra upgrade de item). Bosses dão muito mais.
   // Alface vem só do offline reward via ZZZ. Items só via forge dice.
   const carrotAmt = e.isBoss ? 20 : 1;
-  arena.gems.push({ x:e.x+6, y:e.y-4, vx:0, vy:0, carrot:carrotAmt, isCarrot:true, age:0 });
+  // Pop arc — carrot launches out of corpse with random horizontal drift +
+  // upward velocity, lands ~15 frames later with bounce + squash. Fake-Z (g.z)
+  // is visual offset only; pickup distance still uses g.x/g.y on the ground
+  // plane, so hitbox doesn't change. Boss drop = golden carrot variant.
+  arena.gems.push({
+    x: e.x + 6, y: e.y - 4,
+    vx: (Math.random() - 0.5) * 2.4,
+    vy: (Math.random() - 0.5) * 1.2,
+    z: 4 + Math.random() * 2,
+    vz: 2.8 + Math.random() * 1.2,
+    grounded: false,
+    landFrame: -1,
+    carrot: carrotAmt,
+    isCarrot: true,
+    isGold: !!e.isBoss,
+    age: 0,
+  });
+  // Death burst — yellow embers + orange sparks (~25 frames, cheap)
+  spawnArenaParticle(e.x, e.y - 4, '#ffcc3d', 6);
+  spawnArenaParticle(e.x, e.y - 4, '#ff9b3a', 4);
   arena.killCount++;
   if(e.isBoss){
     arena.regions++;
@@ -7560,6 +7829,7 @@ function updateArenaEffects(){
           ef.hit.add(e);
           spawnArenaParticle(e.x, e.y, ef.cosmic ? '#d75fff' : (isCrit ? '#ff5fa2' : '#ff7a1a'), 6);
           spawnArenaDamage(e.x, e.y, dmg, isCrit);
+          if(typeof playSfx === 'function') playSfx('sfx_bunny_ranged_hit');
           if(!ef.cosmic){
             ef.frame = ef.lifeFrames; // non-cosmic consumed on first hit
             if(e.hp <= 0) killArenaEnemy(j, e);
@@ -7706,6 +7976,7 @@ function arenaMeleeSwing(target){
     bunnyAttackAngle = targetAngle;
     bunny.trigger('melee');
   }
+  if(typeof playSfx === 'function') playSfx('sfx_bunny_melee_swing');
   const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
   arena.swings.push({
     kind: 'swing',
@@ -7972,6 +8243,7 @@ function arenaMeleeThrust(target){
     bunnyAttackAngle = angle;
     bunny.trigger('melee');
   }
+  if(typeof playSfx === 'function') playSfx('sfx_bunny_melee_thrust');
   const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
   const THRUST_DMG_MULT = 33 / 50; // matches getAttackCooldownFrames thrust value (0.66)
   const thrustRange = 48 + bladeStat * 6;
@@ -8022,6 +8294,7 @@ function arenaMeleeSlam(target){
     bunnyAttackAngle = angle;
     bunny.trigger('melee');
   }
+  if(typeof playSfx === 'function') playSfx('sfx_bunny_melee_slam');
   const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
   const range = 42 + bladeStat * 4;
   const SLAM_DMG_MULT = 70 / 50; // matches getAttackCooldownFrames slam value (1.40)
@@ -8047,6 +8320,7 @@ function arenaRangedShot(target){
     bunnyFacingLockedUntil = performance.now() + 800;
     bunny.trigger('ranged');
   }
+  if(typeof playSfx === 'function') playSfx('sfx_bunny_ranged_shoot');
   const projCount = Math.max(1, Math.round(arenaTotalStat('projectiles')));
   const dmg = arenaTotalStat('dmg');
   const crit = arenaTotalStat('crit');
@@ -8470,6 +8744,7 @@ function updateArena(){
         arena.hurtTimer = 40;
         spawnArenaParticle(arena.bx, arena.by, '#ff5252', 10);
         if(typeof vibrate === 'function') vibrate(30); // hit feedback
+        if(typeof playSfx === 'function') playSfx('sfx_bunny_hurt');
       }
     }
   }
@@ -8573,6 +8848,11 @@ function updateArena(){
     }
 
     // Apply damage to all enemies hit this tick.
+    // SFX: play melee-hit-flesh ONCE per swing tick even if multiple enemies
+    // hit (so a sweep cutting 3 enemies = 1 thud, not 3 overlapping).
+    if(hitsThisTick.length > 0 && typeof playSfx === 'function'){
+      playSfx('sfx_bunny_melee_hit_flesh');
+    }
     for(const hit of hitsThisTick){
       const { e, j, dx, dy, dist } = hit;
       const isCrit = Math.random() < sw.crit;
@@ -8614,6 +8894,25 @@ function updateArena(){
         g.vy += (dyg/dg) * 0.6;
         g.vx *= 0.88; g.vy *= 0.88;
       }
+    } else if(g.isCarrot && !g.grounded){
+      // POP ARC: gravity on fake-Z + horizontal friction. One bounce on land,
+      // then settle to grounded state where normal magnet/bob takes over.
+      g.vz = (g.vz || 0) - 0.35;
+      g.z  = (g.z  || 0) + g.vz;
+      if(g.z <= 0){
+        if(g.vz < -1.2){
+          // Bounce — flip + dampen vz, lose most horizontal speed
+          g.z = 0;
+          g.vz = -g.vz * 0.32;
+          g.vx *= 0.55; g.vy *= 0.55;
+        } else {
+          // Settle — land and freeze horizontal
+          g.z = 0; g.vz = 0; g.vx = 0; g.vy = 0;
+          g.grounded = true;
+          g.landFrame = g.age;
+        }
+      }
+      g.vx *= 0.94; g.vy *= 0.94;
     } else if(g.age >= MAGNETIC_DELAY){
       // Magnetic: voa direto pro player, acelerando com o tempo (cap em 8)
       const speed = Math.min(8, 2 + (g.age - MAGNETIC_DELAY) * 0.15);
@@ -8638,7 +8937,11 @@ function updateArena(){
         spawnArenaParticle(arena.bx, arena.by, '#4cf08e', 5);
       } else if(g.isCarrot){
         arena.carrots += g.carrot || 1;
-        spawnArenaParticle(arena.bx, arena.by, '#ff7a1a', 5);
+        spawnArenaParticle(arena.bx, arena.by, g.isGold ? '#ffd83a' : '#ff7a1a', 5);
+        if(typeof playSfx === 'function') playSfx('sfx_pickup_carrot');
+        // Coalesced "+N" float at bunny — multiple pickups within 220ms merge
+        // into one rising counter instead of spamming DOM nodes per carrot.
+        _coalesceCarrotPickupPop(arena.bx, arena.by, g.carrot || 1);
       }
       arena.gems.splice(i,1);
     }
@@ -9088,6 +9391,37 @@ function drawArenaEnemy(e){
   }
 }
 
+// Hoisted once-per-frame timer (set in render path before gems loop). Used
+// by carrot draw to avoid per-gem performance.now() call.
+let _now200 = 0;
+// Pre-baked rgba() strings for carrot shadow + magnet halo. Avoids template-
+// literal allocation per gem per frame (would be ~1800 allocs/sec at 30 gems
+// × 60fps). 8-step alpha buckets give smooth gradient; eye can't tell.
+const _CARROT_SHADOW_RGBA = (() => {
+  const out = [];
+  for(let i = 0; i < 8; i++){
+    const a = 0.30 * (1 - (i/7) * 0.7);
+    out.push(`rgba(0,0,0,${a.toFixed(3)})`);
+  }
+  return out;
+})();
+const _CARROT_HALO_ORANGE = (() => {
+  const out = [];
+  for(let i = 0; i < 8; i++){
+    const a = 0.06 + (i/7) * 0.24;  // 0.06..0.30
+    out.push(`rgba(255,154,58,${a.toFixed(3)})`);
+  }
+  return out;
+})();
+const _CARROT_HALO_GOLD = (() => {
+  const out = [];
+  for(let i = 0; i < 8; i++){
+    const a = 0.06 + (i/7) * 0.24;
+    out.push(`rgba(255,216,58,${a.toFixed(3)})`);
+  }
+  return out;
+})();
+
 function drawArenaGem(g){
   if(g.isLettuce){
     // alface — fuel da forja (era a antiga "cenoura"), totalmente verde
@@ -9107,18 +9441,58 @@ function drawArenaGem(g){
     return;
   }
   if(g.isCarrot){
-    // cenoura — currency pra upgrade de item (era a antiga "essence")
-    const t = performance.now()/200;
-    const bob = Math.sin(t + g.age*0.05)*1.5;
-    // corpo da cenoura (laranja)
-    ctx.fillStyle = '#ff7a1a';
-    ctx.fillRect(g.x-3, g.y-3+bob, 6, 7);
-    ctx.fillStyle = '#ff9b3a';
-    ctx.fillRect(g.x-2, g.y-2+bob, 4, 5);
-    // folhas verdes
+    // cenoura — currency pra upgrade de item. Sells juicy drop feel via:
+    //  - pop arc (fake-Z height offset, set in pop physics in updateArena)
+    //  - drop shadow (alpha shrinks while airborne, full when grounded)
+    //  - landing squash (14-frame sx>1/sy<1 → settle)
+    //  - magnet glow halo when age >= 60f — tells player "incoming"
+    //  - gold variant for boss drops (isGold flag set at drop site)
+    //
+    // Perf notes (hot path — runs per-gem per-frame, ~30 gems × 60fps = 1800/s):
+    //  - shadow uses fillRect not ctx.ellipse (no path/fill cost, visually same
+    //    at 3.5×1.2px draw size)
+    //  - all rgba() strings pre-baked into _CARROT_SHADOW_RGBA / _CARROT_HALO_*
+    //    lookup tables (no template-literal GC pressure every frame)
+    //  - cached `_now200` hoisted by drawArenaGem caller (skip n.now() per gem)
+    const grounded = !!g.grounded;
+    const z = g.z || 0;
+    const baseY = g.y - z;
+    const bob = grounded ? Math.sin(_now200 + g.age*0.05)*1.5 : 0;
+    // Landing squash — pulse over 14 frames after first ground touch
+    let sx = 1, sy = 1;
+    if(grounded && g.landFrame >= 0){
+      const since = g.age - g.landFrame;
+      if(since < 14){
+        const k = 1 - since/14;
+        sy = 1 - k * 0.40;
+        sx = 1 + k * 0.30;
+      }
+    }
+    // Drop shadow on ground plane (g.y, not baseY). Shrinks + fades with z.
+    // Use fillRect (4 verts) instead of ctx.ellipse (path+arc+fill).
+    const zNormI = Math.min(7, z * (7/18)) | 0;       // 0..7 bucket
+    const shScale = 1 - (zNormI / 7) * 0.5;
+    ctx.fillStyle = _CARROT_SHADOW_RGBA[zNormI];
+    const shW = 7 * shScale, shH = 2.4 * shScale;
+    ctx.fillRect(g.x - shW/2, g.y + 4 - shH/2, shW, shH);
+    // Magnet glow halo — only after delay elapsed (incoming visual cue).
+    // Pulse bucketed into 8 alpha steps to reuse pre-baked rgba strings.
+    if(g.age >= 60){
+      const pIdx = (3.5 + 3.5 * Math.sin(g.age * 0.35)) | 0;  // 0..7
+      ctx.fillStyle = g.isGold ? _CARROT_HALO_GOLD[pIdx] : _CARROT_HALO_ORANGE[pIdx];
+      ctx.fillRect(g.x - 7, baseY - 7 + bob, 14, 14);
+    }
+    // Carrot body — gold variant for boss drops
+    const w  = 6 * sx, h  = 7 * sy;
+    const w2 = 4 * sx, h2 = 5 * sy;
+    ctx.fillStyle = g.isGold ? '#ffd83a' : '#ff7a1a';
+    ctx.fillRect(g.x - w/2,  baseY - h/2  + bob, w,  h);
+    ctx.fillStyle = g.isGold ? '#fff488' : '#ff9b3a';
+    ctx.fillRect(g.x - w2/2, baseY - h2/2 + bob, w2, h2);
+    // Leaves (slight squash too — keeps the silhouette readable)
     ctx.fillStyle = '#4cf08e';
-    ctx.fillRect(g.x-2, g.y-6+bob, 4, 2);
-    ctx.fillRect(g.x-1, g.y-7+bob, 2, 1);
+    ctx.fillRect(g.x - 2*sx, baseY - h/2 - 1 + bob, 4*sx, 2);
+    ctx.fillRect(g.x - 1*sx, baseY - h/2 - 2 + bob, 2*sx, 1);
     return;
   }
   if(g.isItem){
@@ -9893,6 +10267,16 @@ function _setBanditAnim(e, state){
   e.animFrame = 0;
   e._animTickCounter = 0;
   e._animDone = false;
+  // SFX: per-kind attack/death sounds, fired at state-transition (once per
+  // attack cycle, once per death). Walk transitions stay silent — would loop.
+  // ENEMY_SFX lookup maps the kind to its sound ids; missing kinds skip.
+  if(typeof playSfx === 'function' && typeof ENEMY_SFX !== 'undefined'){
+    const map = ENEMY_SFX[e.kind];
+    if(map){
+      if(state === 'attack' && map.attack) playSfx(map.attack);
+      else if(state === 'death' && map.death) playSfx(map.death);
+    }
+  }
 }
 
 // Avança o frame da animação 1 unidade a cada N game-ticks
@@ -10424,7 +10808,9 @@ function renderArena(){
   // (removida) arena border roxa que separava do items strip — agora a cápsula
   // arredondada do bottom HUD já dá a separação visual.
 
-  // gems
+  // gems — hoist time once per frame (carrot bob/halo reuse it; avoids per-gem
+  // performance.now() call when there are many drops on-screen)
+  _now200 = performance.now() / 200;
   for(const g of arena.gems) drawArenaGem(g);
 
   // enemies
@@ -10888,10 +11274,12 @@ const Quests = (function(){
     if(!layer) return;
     _renderList();
     layer.classList.add('show');
+    if(typeof playSfx === 'function') playSfx('sfx_journal_open');
   }
   function close(){
     const layer = document.getElementById('questLayer');
     if(layer) layer.classList.remove('show');
+    if(typeof playSfx === 'function') playSfx('sfx_menu_close');
   }
   function toggle(){
     const layer = document.getElementById('questLayer');
@@ -11285,7 +11673,12 @@ function vibrate(ms){
     if(!SETTINGS.audioEnabled.master) return 0;
     const a = (typeof AUDIO_CATALOG !== 'undefined')
       ? AUDIO_CATALOG.find(x => x.id === assetId) : null;
-    if(a && SETTINGS.audioEnabled[a.category] === false) return 0;
+    if(a){
+      // 'ui' category piggybacks on the SFX mute toggle — one player-facing
+      // "🔔 Efeitos" switch silences all gameplay/UI sounds together.
+      const gate = (a.category === 'ui') ? 'sfx' : a.category;
+      if(SETTINGS.audioEnabled[gate] === false) return 0;
+    }
     return _baseGetVol(assetId);
   };
 })();
@@ -11322,8 +11715,15 @@ const Settings = (function(){
     const consentCb = _el('settingsConsentToggle');
     if(consentCb) consentCb.checked = (SETTINGS.analyticsConsent === 'granted');
   }
-  function open(){ const l = _el('settingsLayer'); if(!l) return; _renderUI(); l.classList.add('show'); }
-  function close(){ const l = _el('settingsLayer'); if(l) l.classList.remove('show'); }
+  function open(){
+    const l = _el('settingsLayer'); if(!l) return;
+    _renderUI(); l.classList.add('show');
+    if(typeof playSfx === 'function') playSfx('sfx_menu_open');
+  }
+  function close(){
+    const l = _el('settingsLayer'); if(l) l.classList.remove('show');
+    if(typeof playSfx === 'function') playSfx('sfx_menu_close');
+  }
   function init(){
     // Wire botão de abrir
     const btn = _el('settingsBtn');
