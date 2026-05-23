@@ -14115,6 +14115,10 @@ function showItemPopup(slotKey){
   renderItemPopup();
   document.getElementById('itemPopup').classList.add('show');
   document.getElementById('itemPopupBackdrop').classList.add('show');
+  // Item slot click vem do canvas via frame delegate (setupItemPopupClicks),
+  // sem passar por <button> — o uiSfxDelegate global não pega. Disparar
+  // o tap SFX manualmente aqui mantém parity com o resto do UI.
+  if(typeof playSfx === 'function') playSfx('sfx_ui_main_tap');
 }
 
 function renderItemPopup(){
