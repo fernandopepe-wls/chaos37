@@ -3639,25 +3639,31 @@ const AUDIO_CATALOG_DEFAULTS = [
     volume: 0.50, pitchRandom: 0.04,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   // --- Wave 2 UI SFX (wired via delegate global em _uiSfxDelegate) ---
+  // Paths em assets/audio/ direto — NÃO em assets/audio/sfx/ como os SFX
+  // antigos (sfx/ subdir é convenção legada que esses arquivos não seguem).
   { id: 'sfx_ui_main_play',       category: 'ui', label: 'SFX — Main play (forge/roll)',
-    files: ['assets/audio/sfx/sfx_ui_main_play.wav'],
+    files: ['assets/audio/sfx_ui_main_play.wav'],
     volume: 0.80, pitchRandom: 0.03,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_ui_main_toggle',     category: 'ui', label: 'SFX — Main toggle (auto / settings / sell-worse)',
-    files: ['assets/audio/sfx/sfx_ui_main_toggle.wav'],
+    files: ['assets/audio/sfx_ui_main_toggle.wav'],
     volume: 0.70, pitchRandom: 0.03,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_ui_main_tap',        category: 'ui', label: 'SFX — Main tap (generic clicks)',
-    files: ['assets/audio/sfx/sfx_ui_main_tap.wav'],
+    files: ['assets/audio/sfx_ui_main_tap.wav'],
     volume: 0.65, pitchRandom: 0.04,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_ui_die',             category: 'ui', label: 'SFX — Bunny death sting',
-    files: ['assets/audio/sfx/sfx_ui_die.wav'],
+    files: ['assets/audio/sfx_ui_die.wav'],
     volume: 0.85, pitchRandom: 0.00,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_ui_reward_receive',  category: 'ui', label: 'SFX — Reward receive (quest / offline collect)',
-    files: ['assets/audio/sfx/sfx_ui_reward_receive.wav'],
+    files: ['assets/audio/sfx_ui_reward_receive.wav'],
     volume: 0.80, pitchRandom: 0.02,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
+  { id: 'sfx_ui_quests',          category: 'ui', label: 'SFX — Quests button click',
+    files: ['assets/audio/sfx_ui_quests.wav'],
+    volume: 0.75, pitchRandom: 0.02,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_menu_open', category: 'ui', label: 'SFX — Menu open',
     files: ['assets/audio/sfx/menu_open.mp3'],
@@ -14293,6 +14299,7 @@ function hideItemPopup(){
     if(id === 'arenaForgeRollBtn')   return 'sfx_ui_main_play';
     if(id === 'arenaAutoBtn')        return 'sfx_ui_main_toggle';
     if(id === 'arenaForgeAutoBtn')   return 'sfx_ui_main_toggle';
+    if(id === 'questBtn')            return 'sfx_ui_quests';
     if(id === 'offlineCollectBtn')   return 'sfx_ui_reward_receive';
     if(el.classList.contains('quest-claim-btn')) return 'sfx_ui_reward_receive';
     // .arenaTab-btn.locked → main_tap (não main_toggle) — o toast EM BREVE já é o feedback
