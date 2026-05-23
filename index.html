@@ -12468,16 +12468,15 @@ const DICE_PIPS = {
   6: [[25,25],[25,50],[25,75],[75,25],[75,50],[75,75]],
 };
 function _renderDicePips(el, face){
-  // Limpa pips antigos (mantém o .face residual se houver, mas ele tá com font-size:0)
-  el.querySelectorAll('.pip').forEach(p => p.remove());
-  const pips = DICE_PIPS[face] || [];
-  for(const [x, y] of pips){
-    const pip = document.createElement('span');
-    pip.className = 'pip';
-    pip.style.left = `${x}%`;
-    pip.style.top  = `${y}%`;
-    el.appendChild(pip);
-  }
+  // NO-OP — herança de um design antigo. Os pips são `display:none` por CSS
+  // (regra `.forge-die .pip { display:none; }` em ~linha 1448) porque a arte
+  // do dado agora vem do PNG `assets/forge/faceN.png` selecionado pelo
+  // attribute `data-face`. Criar 200+ elementos DOM hidden por rolagem era
+  // o que travava o iOS 16 (8 ticks × 5 dados × até 6 pips, cada um com
+  // createElement + setStyle + appendChild, forçando layout/style recalc
+  // síncrono em cada call).
+  // Mantida a função pra não quebrar caller; pode ser removida totalmente
+  // junto com DICE_PIPS quando alguém estiver passando por aqui.
 }
 
 function renderForgeDice(){
