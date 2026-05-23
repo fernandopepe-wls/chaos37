@@ -3784,13 +3784,32 @@ const Music = (function(){
   }
 
   // Atualiza volume das audios EM PLAYBACK pra refletir mudança nos sliders
-  // do Audio Tool. Snap (sem fade) — feedback imediato pro user enquanto
-  // arrasta o slider. Cancela qualquer fade em andamento.
+  // do Audio Tool / toggles do Settings. Snap (sem fade) — feedback imediato.
+  //
+  // iOS WKWebView ignora HTMLAudioElement.volume (limitação documentada da
+  // Apple — sempre toca em volume do sistema). Pra os toggles do Settings
+  // funcionarem no iPhone, quando o target cai pra 0 a faixa é PAUSADA;
+  // quando volta pra >0, é retomada. Flag `_mutedByVolume` distingue pause
+  // por volume (que deve auto-retomar) de pause por boss/visibilidade
+  // (que segue a sua própria lógica e NÃO deve ser tocada aqui).
   function refreshLive(){
     for(const a of [splashAudio, ...gpAudio, bossAudio]){
-      if(a.paused) continue;
       if(a._fadeRAF){ cancelAnimationFrame(a._fadeRAF); a._fadeRAF = null; }
-      a.volume = _liveTarget(a);
+      const target = _liveTarget(a);
+      a.volume = target; // path Android/desktop — iOS ignora silenciosamente
+      if(target <= 0){
+        // Volume zerou → pausa SE ainda tava tocando.
+        if(!a.paused){
+          a._mutedByVolume = true;
+          try { a.pause(); } catch(_){}
+        }
+      } else {
+        // Volume voltou → retoma SE foi nós (refreshLive) que pausamos.
+        if(a.paused && a._mutedByVolume){
+          a._mutedByVolume = false;
+          try { a.play().catch(() => {}); } catch(_){}
+        }
+      }
     }
   }
 
@@ -3855,6 +3874,14 @@ const Music = (function(){
       for(const a of [splashAudio, ...gpAudio, bossAudio]){
         if(a._visWasPlaying){
           a._visWasPlaying = false;
+          // iOS WKWebView: o AVAudioSession entra em sleep quando o app vai
+          // pro background. Chamar play() direto resolve a promise mas a saída
+          // de áudio fica muda por vários segundos enquanto a session reacorda.
+          // Forçar currentTime = 0 dispara um re-seek que prima o audio engine
+          // imediatamente — música volta sem o gap silencioso de "depois volta".
+          // Trade-off: a faixa reinicia do começo em vez de continuar de onde
+          // parou (gameplay tracks são loops curtos, então é aceitável).
+          try { a.currentTime = 0; } catch(_){}
           a.volume = _liveTarget(a);
           try { a.play().catch(() => {}); } catch(_){}
         }
@@ -12821,9 +12848,14 @@ enterArena();
   })();
 
   (async () => {
-    // === 2. Hardware back button (Android) ===
-    // Default: WebView fecha o app. Override: se algum popup/.layer estiver
+    // === 2. Hardware back button (Android) + App state lifecycle (iOS/Android) ===
+    // backButton: default fecha o app. Override: se algum popup/.layer estiver
     // aberto, fecha o popup em vez de sair. Senão, exitApp (default Android).
+    //
+    // appStateChange: sinal mais confiável que `visibilitychange` no iOS — o
+    // WebView do iOS suspende o JS thread em background e o visibilitychange
+    // pode chegar atrasado / fora de ordem. Capacitor garante isActive=false
+    // antes da suspensão e isActive=true após o resume, antes do JS reativar.
     try {
       const { App } = await import('@capacitor/app');
       App.addListener('backButton', () => {
@@ -12836,6 +12868,10 @@ enterArena();
           return;
         }
         App.exitApp().catch(() => {});
+      });
+      App.addListener('appStateChange', ({ isActive }) => {
+        if(typeof Music === 'undefined' || !Music.setVisibilityHidden) return;
+        Music.setVisibilityHidden(!isActive);
       });
     } catch(_){ /* plugin não disponível em browser dev */ }
   })();
