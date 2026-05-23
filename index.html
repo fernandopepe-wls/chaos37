@@ -1434,8 +1434,10 @@
     font-size:0;
     line-height:0;
     cursor:pointer;
-    transition:transform .12s, filter .15s;
     user-select:none;
+    /* will-change promove o dado pra camada composta no GPU; sem isso, cada
+       frame da rotação/spin precisa repaint via CPU (caro em iOS 16). */
+    will-change: transform;
   }
   /* One PNG per face (square, tight crop). Avoids sprite-sheet math. */
   #arenaDiceRow .forge-die[data-face="1"]{ background-image: url('assets/forge/face1.png'); }
@@ -1457,8 +1459,11 @@
   }
   #arenaDiceRow .forge-die.rolling{
     animation:diceRoll .12s infinite linear;
-    /* Subtle motion blur smear — sells the spin without obscuring the face. */
-    filter: blur(0.7px) brightness(1.05);
+    /* Filter blur REMOVIDO — em iOS 16 WebKit, filter:blur em elemento com
+       transform animado força repaint não-compositado por frame. Com 5 dados
+       simultâneos isso travava 10-15 fps no gameplay canvas. A rotação
+       (transform: rotate em diceRoll keyframe) já dá o sense de spin sem
+       precisar do blur. brightness também caiu junto. */
   }
   @keyframes diceRoll{
     0%   { transform:translateY(0)    rotate(0deg);   }
