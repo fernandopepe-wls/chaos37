@@ -5542,6 +5542,10 @@ function initArena(){
   }
 }
 
+// Multiplicador global de velocidade dos inimigos — aplicado no spawn
+// (não por frame, evita custo). Subir = jogo mais frenético, descer = mais
+// folgado. Atual: 1.05 (+5% sobre a tabela base de ARENA_ENEMY_DEFS).
+const ENEMY_SPEED_MULT = 1.05;
 const ARENA_ENEMY_DEFS = {
   // ===== BURROW (stage 1) — sprite-backed =====
   bandit:     { color:'#8b6b3a', r:9,  hp:8,   speed:0.55, dmg:8  },  // grunt
@@ -7428,7 +7432,7 @@ function spawnArenaEnemy(){
   arena.enemies.push({
     kind, x, y, r:def.r,
     hp, maxHp: hp,
-    speed: def.speed,
+    speed: def.speed * ENEMY_SPEED_MULT,
     dmg: Math.max(1, Math.round(def.dmg*scale*wmod.dmg*0.8)),
     xp: Math.round(def.xp * (1 + (arena.stage-1)*0.1)),
     color: def.color,
@@ -7459,7 +7463,7 @@ function spawnArenaBoss(){
     x: bossX, y: bossY,
     r:def.r,
     hp: Math.round(def.hp*scale), maxHp: Math.round(def.hp*scale),
-    speed: def.speed, dmg: Math.round(def.dmg*scale),
+    speed: def.speed * ENEMY_SPEED_MULT, dmg: Math.round(def.dmg*scale),
     xp: def.xp, color: def.color, hurtTimer:0, isBoss:true,
     // sprite state machine (usado se o boss tiver sprite em ENEMY_SPRITE_DEFS)
     animState: 'walk', animFrame: 0, _animTickCounter: 0, _animDone: false,
