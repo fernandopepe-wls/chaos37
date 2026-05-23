@@ -6,6 +6,9 @@ dist
 releases
 scripts/.build-info.json
 
+# PNG optimization backups (script: scripts/optimize-pngs.js)
+public/.png-bak/
+
 # Environment (secrets) — .env.example is tracked
 .env
 .env.local

@@ -10,6 +10,7 @@
     "dev": "vite --mode development",
     "preview": "vite preview --mode development",
     "bump-build": "node scripts/bump-build.js",
+    "optimize-pngs": "node scripts/optimize-pngs.js",
     "prebuild": "node scripts/bump-build.js",
     "prebuild:dev": "node scripts/bump-build.js",
     "prebuild:staging": "node scripts/bump-build.js",
@@ -41,6 +42,7 @@
     "@capacitor/cli": "^7.2.0",
     "@capacitor/ios": "^7.2.0",
     "dotenv": "^16.4.7",
+    "sharp": "^0.34.5",
     "vite": "^6.3.0"
   }
 }
