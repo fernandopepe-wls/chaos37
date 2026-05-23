@@ -89,13 +89,13 @@
     height: var(--actual-vh, 100dvh);
     background:#0a0716;
     overflow:hidden;
-    /* Safe areas expostas como custom props pros filhos posicionados
-       (tab bar / float buttons) compensarem internamente.
-       FORÇADOS A 0 pra UI iOS estender atrás do home indicator (34px) e
-       casar com o look do Android, que não tem essa zona reservada.
-       Pra reativar respeito ao safe-area, trocar pelos env(safe-area-inset-*).
+    /* Safe areas expostas como custom props pros filhos posicionados.
+       TOP usa env() pra empurrar HUD top (pills de stage/sword/carrot/diamond)
+       pra baixo do notch/Dynamic Island no iPhone — Android continua = 0.
+       BOTTOM/LEFT/RIGHT forçados a 0 pra UI estender atrás do home indicator
+       (34px na base) e casar com o look do Android edge-to-edge.
        Splash screen mantém seu próprio padding via env() (linha ~2761). */
-    --safe-top:    0px;
+    --safe-top:    env(safe-area-inset-top, 0px);
     --safe-bottom: 0px;
     --safe-left:   0px;
     --safe-right:  0px;
