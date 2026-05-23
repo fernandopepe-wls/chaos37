@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preview de Assets — Bunny Chaos! Loot Arena</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif; background: #0d0a1a; color: #fff7e0;
+    padding: 32px; line-height: 1.5; }
+  h1 { font-size: 28px; margin: 0 0 6px; color: #ffcc3d; }
+  .subtitle { color: #9b8fc4; margin-bottom: 32px; font-size: 14px; }
+  section { background: #1a1330; border-radius: 12px; padding: 24px;
+    margin-bottom: 24px; }
+  h2 { font-size: 20px; margin: 0 0 16px; padding-bottom: 8px;
+    border-bottom: 1px solid #241a44; color: #ff5fa2; }
+  h3 { font-size: 14px; color: #9b8fc4; margin: 16px 0 8px; font-weight: 600; }
+
+  .icon-row { display: flex; gap: 24px; align-items: flex-end;
+    flex-wrap: wrap; }
+  .icon-cell { text-align: center; }
+  .icon-cell img { display: block; border-radius: 22%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+  .icon-cell .label { font-size: 11px; color: #9b8fc4; margin-top: 8px; }
+
+  .bg-fg-pair { display: flex; gap: 24px; margin-top: 12px; flex-wrap: wrap; }
+  .bg-fg-cell { text-align: center; }
+  .checker { background-image:
+    linear-gradient(45deg, #444 25%, transparent 25%),
+    linear-gradient(-45deg, #444 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #444 75%),
+    linear-gradient(-45deg, transparent 75%, #444 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+    padding: 16px; border-radius: 8px; display: inline-block; }
+  .checker img { max-width: 240px; display: block; border-radius: 22%; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab { padding: 8px 16px; background: #241a44; border: none; color: #fff7e0;
+    cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; }
+  .tab.active { background: #ffcc3d; color: #1a1330; }
+  .gallery { display: none; gap: 16px; overflow-x: auto; padding-bottom: 12px; }
+  .gallery.active { display: flex; }
+  .shot { flex-shrink: 0; text-align: center; }
+  .shot img { max-height: 560px; border: 1px solid #241a44;
+    border-radius: 16px; display: block; }
+  .shot .label { font-size: 11px; color: #9b8fc4; margin-top: 6px; }
+
+  .feature-wrap { position: relative; display: inline-block; max-width: 100%; }
+  .feature-wrap img { width: 100%; max-width: 1024px; border-radius: 8px;
+    display: block; }
+  .play-overlay { position: absolute; top: 12px; right: 12px;
+    width: 56px; height: 56px; border-radius: 50%;
+    background: rgba(255,255,255,0.85); display: flex;
+    align-items: center; justify-content: center; color: #000;
+    font-size: 22px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .feature-note { color: #9b8fc4; font-size: 13px; margin-top: 12px; max-width: 600px; }
+
+  .checklist { list-style: none; padding: 0; }
+  .checklist li { padding: 8px 0; border-bottom: 1px solid #241a44; font-size: 14px; }
+  .checklist input { margin-right: 12px; transform: scale(1.3); accent-color: #ffcc3d; }
+
+  .pending { background: #4a2a10; border-left: 4px solid #ffcc3d; padding: 12px 16px; margin-top: 12px; border-radius: 4px; }
+  .pending strong { color: #ffcc3d; }
+</style>
+</head>
+<body>
+
+<h1>Bunny Chaos! Loot Arena</h1>
+<div class="subtitle">Preview de assets de loja • Revise antes de subir</div>
+
+<section>
+  <h2>Ícone — teste de legibilidade</h2>
+  <p style="color:#9b8fc4;font-size:13px;margin:0 0 12px">
+    Se o bunny não estiver claro em 48px (tela inicial) ou 32px (notificação),
+    regenere. Apple/Google aplicam squircle mask próprio.
+  </p>
+  <div class="icon-row">
+    <div class="icon-cell"><img src="icons/icon-1024.png" width="200"><div class="label">200 px</div></div>
+    <div class="icon-cell"><img src="icons/icon-1024.png" width="128"><div class="label">128 px</div></div>
+    <div class="icon-cell"><img src="icons/icon-1024.png" width="80"><div class="label">80 px</div></div>
+    <div class="icon-cell"><img src="icons/icon-1024.png" width="48"><div class="label">48 px (tela inicial)</div></div>
+    <div class="icon-cell"><img src="icons/icon-1024.png" width="32"><div class="label">32 px (notificação)</div></div>
+  </div>
+
+  <h3>Background / Foreground separados</h3>
+  <div class="bg-fg-pair">
+    <div class="bg-fg-cell">
+      <div class="checker"><img src="icons/icon-1024-bg.png" alt="BG"></div>
+      <div class="label" style="font-size:11px;color:#9b8fc4;margin-top:8px">Só background</div>
+    </div>
+    <div class="bg-fg-cell">
+      <div class="checker"><img src="icons/icon-1024-fg.png" alt="FG"></div>
+      <div class="label" style="font-size:11px;color:#9b8fc4;margin-top:8px">Só foreground (transparente)</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Screenshots</h2>
+  <div class="tabs">
+    <button class="tab active" data-target="ipad">iPad 2048×2732</button>
+    <button class="tab" data-target="iphone65">iPhone 6.5"</button>
+    <button class="tab" data-target="iphone69">iPhone 6.9"</button>
+    <button class="tab" data-target="android">Android 1080×2400</button>
+  </div>
+
+  <div class="gallery active" data-name="ipad">
+    <div class="shot"><img src="screenshots/portrait/ipad-2048x2732/screen1.png"><div class="label">screen1 — Hook</div></div>
+    <div class="shot"><img src="screenshots/portrait/ipad-2048x2732/screen2.png"><div class="label">screen2 — Dado</div></div>
+    <div class="shot"><img src="screenshots/portrait/ipad-2048x2732/screen3.png"><div class="label">screen3 — Poder</div></div>
+  </div>
+  <div class="gallery" data-name="iphone65">
+    <div class="shot"><img src="screenshots/portrait/iphone-6.5-1284x2778/screen1.png"><div class="label">screen1 — Hook</div></div>
+    <div class="shot"><img src="screenshots/portrait/iphone-6.5-1284x2778/screen2.png"><div class="label">screen2 — Dado</div></div>
+    <div class="shot"><img src="screenshots/portrait/iphone-6.5-1284x2778/screen3.png"><div class="label">screen3 — Poder</div></div>
+  </div>
+  <div class="gallery" data-name="iphone69">
+    <div class="shot"><img src="screenshots/portrait/iphone-6.9-1320x2868/screen1.png"><div class="label">screen1 — Hook</div></div>
+    <div class="shot"><img src="screenshots/portrait/iphone-6.9-1320x2868/screen2.png"><div class="label">screen2 — Dado</div></div>
+    <div class="shot"><img src="screenshots/portrait/iphone-6.9-1320x2868/screen3.png"><div class="label">screen3 — Poder</div></div>
+  </div>
+  <div class="gallery" data-name="android">
+    <div class="shot"><img src="screenshots/portrait/android-1080x2400/screen1.png"><div class="label">screen1 — Hook</div></div>
+    <div class="shot"><img src="screenshots/portrait/android-1080x2400/screen2.png"><div class="label">screen2 — Dado</div></div>
+    <div class="shot"><img src="screenshots/portrait/android-1080x2400/screen3.png"><div class="label">screen3 — Poder</div></div>
+  </div>
+
+  <div class="pending">
+    <strong>Pendente:</strong> screens 4 + 5 (gameplay real). Mateus captura combate + dado bonus e envia. Drop in <code>screenshots/portrait/&lt;device&gt;/screen4.png</code> e <code>screen5.png</code>.
+  </div>
+</section>
+
+<section>
+  <h2>Feature Graphic — 1024×500</h2>
+  <div class="feature-wrap">
+    <img src="feature-graphic/feature-1024x500.png" alt="Feature">
+    <div class="play-overlay">▶</div>
+  </div>
+  <p class="feature-note">
+    Círculo branco simula botão de play que Google Play sobrepõe nessa região.
+    Verifica se não cobre nada crítico.
+  </p>
+</section>
+
+<section>
+  <h2>Checklist final</h2>
+  <ul class="checklist">
+    <li><input type="checkbox"> Ícone legível em 48×48?</li>
+    <li><input type="checkbox"> Background e foreground separados funcionam isolados?</li>
+    <li><input type="checkbox"> Screenshots têm narrativa (medo → mecânica → poder)?</li>
+    <li><input type="checkbox"> Captions sem "Download/Install/Play/Free/Baixe Grátis"?</li>
+    <li><input type="checkbox"> Feature graphic deixa canto superior direito limpo?</li>
+    <li><input type="checkbox"> Cores consistentes entre ícone, screenshots e feature?</li>
+    <li><input type="checkbox"> Tudo legível em thumbnail size?</li>
+    <li><input type="checkbox"> Screens 4 + 5 (gameplay real) adicionados?</li>
+  </ul>
+</section>
+
+<script>
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.gallery').forEach(g => g.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelector(`.gallery[data-name="${btn.dataset.target}"]`).classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>
