@@ -4680,6 +4680,7 @@ window.addEventListener('keydown', e=>{
     try {
       localStorage.removeItem('bunnyChaos.ftueStep');
       localStorage.removeItem('bunnyChaos.quests');
+      localStorage.removeItem('bunnyChaos.arenaState'); // reseta gameplay state
     } catch(err){}
     console.log('[cheat] FTUE + quests reset — recarregando...');
     setTimeout(() => location.reload(), 80);
@@ -5517,6 +5518,28 @@ function initArena(){
   arena.deathBannerTimer = 0;
   arena.failedBossCurrentStage = false;
   arena.regions = 0;
+
+  // === PERSISTENCE LOAD ===
+  // Aplica saved state DEPOIS dos defaults — se houver save válido,
+  // sobrescreve. Roda antes do invalidateArenaStats() final pra que o
+  // cache de stats nasça com os items corretos.
+  const _saved = loadArenaState();
+  if(_saved){
+    arena.stage           = _saved.stage           || 1;
+    arena.wave            = _saved.wave            || 1;
+    arena.maxStageReached = Math.max(_saved.max || 1, arena.stage);
+    arena.carrots         = _saved.car             | 0;
+    arena.lettuce         = (_saved.let != null)   ? (_saved.let | 0) : 100;
+    arena.failedBossCurrentStage = !!_saved.fbcs;
+    if(_saved.items && typeof _saved.items === 'object'){
+      arena.items = _saved.items;
+      // Re-aplica weapon sprite no bunny (handSprite path) se houver weapon
+      if(typeof bunnyApplyEquippedWeapon === 'function') bunnyApplyEquippedWeapon();
+    }
+    // Reseta a contagem de spawn pra wave correta carregada
+    arena.waveEnemiesToSpawn = enemiesPerWave(arena.stage, arena.wave);
+    invalidateArenaStats();
+  }
 }
 
 const ARENA_ENEMY_DEFS = {
@@ -11114,6 +11137,48 @@ const FORGE_LEVEL_KEY    = 'bunnyChaos.forgeLevel';
 const FORGE_PROGRESS_KEY = 'bunnyChaos.forgeUpgradeProgress';
 const DIAMONDS_KEY       = 'bunnyChaos.diamonds';
 
+// ============== ARENA STATE PERSISTENCE ==============
+// Salva progressão de gameplay no localStorage: stage atual, wave, items
+// equipados, soft currencies (carrots/lettuce), e flag de boss-fail.
+// Funciona em iOS + Android Capacitor (WebView localStorage padrão).
+//
+// Estratégia: auto-save a cada 5s via setInterval + flush síncrono nos
+// momentos críticos (appStateChange background, beforeunload, stage++).
+// Sem hook por mutação — o tick de 5s cobre tudo com latência aceitável.
+//
+// Sobrevive a: close + reopen, restart do device, app suspend + resume.
+// NÃO sobrevive a: "Limpar dados" no Android, desinstalação do app,
+// pressão extrema de storage do iOS (raro). Pra esses casos, cloud save
+// futuro via Wildlife PlayerProfilesService.
+const ARENA_STATE_KEY = 'bunnyChaos.arenaState';
+const ARENA_STATE_VER = 1; // bump pra invalidar saves antigos em mudança de schema
+function saveArenaState(){
+  if(typeof arena === 'undefined') return;
+  try {
+    localStorage.setItem(ARENA_STATE_KEY, JSON.stringify({
+      v:     ARENA_STATE_VER,
+      stage: arena.stage|0,
+      wave:  arena.wave|0,
+      max:   arena.maxStageReached|0,
+      car:   arena.carrots|0,
+      let:   arena.lettuce|0,
+      items: arena.items,
+      fbcs:  !!arena.failedBossCurrentStage,
+    }));
+  } catch(e){ /* quota full / private mode — swallow */ }
+}
+function loadArenaState(){
+  try {
+    const s = JSON.parse(localStorage.getItem(ARENA_STATE_KEY) || 'null');
+    if(!s || typeof s !== 'object') return null;
+    if(s.v !== ARENA_STATE_VER) return null; // schema mismatch — descarta
+    return s;
+  } catch(e){ return null; }
+}
+function clearArenaState(){
+  try { localStorage.removeItem(ARENA_STATE_KEY); } catch(e){}
+}
+
 // Gemas — moeda premium (LoM-inspired). Ganhadas por quests. Persistidas sempre.
 // Var interna mantém o nome `diamonds` + key 'bunnyChaos.diamonds' por compat
 // retroativa de localStorage (não invalida save dos players existentes).
@@ -14474,8 +14539,14 @@ document.getElementById('offlineCloseBtn').addEventListener('click', ()=>{
 // Isso NUNCA perde o acumulo: lastSeen vira o ultimo "snapshot" e o ganho
 // vira pending, esperando coleta.
 setInterval(accruePendingFromLastSeen, 5000);
+// Auto-save de gameplay state a cada 5s — periodic é mais robusto que wirear
+// cada mutação (carrot drop, equip, etc). Latência máxima de save = 5s, OK.
+setInterval(() => { if(typeof saveArenaState === 'function') saveArenaState(); }, 5000);
 document.addEventListener('visibilitychange', ()=>{
-  if(document.hidden) accruePendingFromLastSeen();
+  if(document.hidden){
+    accruePendingFromLastSeen();
+    if(typeof saveArenaState === 'function') saveArenaState(); // flush antes do iOS suspender
+  }
   // Pausa/retoma música quando app perde/ganha foreground
   if(typeof Music !== 'undefined' && Music.setVisibilityHidden){
     Music.setVisibilityHidden(document.hidden);
@@ -14488,12 +14559,16 @@ window.addEventListener('focus', () => { if(Music && Music.setVisibilityHidden) 
 // Page lifecycle (iOS Safari + Capacitor WebKit emite pagehide quando suspende)
 window.addEventListener('pagehide', () => {
   accruePendingFromLastSeen();
+  if(typeof saveArenaState === 'function') saveArenaState(); // flush gameplay state
   if(typeof Music !== 'undefined' && Music.setVisibilityHidden) Music.setVisibilityHidden(true);
 });
 window.addEventListener('pageshow', () => {
   if(typeof Music !== 'undefined' && Music.setVisibilityHidden) Music.setVisibilityHidden(false);
 });
-window.addEventListener('beforeunload', accruePendingFromLastSeen);
+window.addEventListener('beforeunload', () => {
+  accruePendingFromLastSeen();
+  if(typeof saveArenaState === 'function') saveArenaState();
+});
 // atualiza o glow do botão ZZZ uma vez por segundo
 setInterval(updateSleepBtnGlow, 1000);
 // roda uma vez no boot pra adicionar o que acumulou desde a ultima sessao
@@ -14666,6 +14741,10 @@ enterArena();
         if(typeof Music !== 'undefined' && Music.setVisibilityHidden){
           Music.setVisibilityHidden(!isActive);
         }
+        // Save gameplay state ANTES do iOS suspender — appStateChange é o
+        // sinal mais confiável que visibilitychange em Capacitor iOS. Síncrono
+        // pra garantir flush antes do processo dormir.
+        if(!isActive && typeof saveArenaState === 'function') saveArenaState();
         // Recompute layout no resume: iOS pode ter mudado safe-area (rotação
         // mudou em outro app, multitasking), e o computed style de --safe-top
         // pode ter drift. Sem isso, o HUD às vezes volta com pills atrás do
