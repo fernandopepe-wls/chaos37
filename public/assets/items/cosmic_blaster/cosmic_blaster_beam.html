@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Cosmic Beam — Cartoon Chibi (LoM style)</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #0d0820; overflow: hidden; height: 100%; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  .hint {
+    position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #e9d8ff; font-size: 13px; opacity: 0.6; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div class="hint">Tap / click anywhere to fire the cosmic beam</div>
+<script>
+"use strict";
+
+// ---------- canvas ----------
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
+  cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize(); addEventListener('resize', resize);
+
+const TAU = Math.PI * 2;
+const rand = (a, b) => a + Math.random() * (b - a);
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// ---------- easings ----------
+const E = {
+  linear: t => t,
+  easeOutQuad: t => 1 - (1 - t) * (1 - t),
+  easeInQuart: t => t * t * t * t,
+  easeOutExpo: t => t === 1 ? 1 : 1 - Math.pow(2, -10 * t),
+  easeOutBack: t => 1 + 2.7 * Math.pow(t - 1, 3) + 1.7 * Math.pow(t - 1, 2),
+  holdThenCollapse: t => t < 0.7 ? 0 : (t - 0.7) / 0.3,
+  smoothstep: t => t * t * (3 - 2 * t),
+};
+
+// ---------- tileable value noise (2D, anisotropic grid) ----------
+function hashSeed(seed) {
+  let s = seed | 0;
+  return () => {
+    s = (s * 1664525 + 1013904223) | 0;
+    return ((s >>> 0) % 100000) / 100000;
+  };
+}
+function tileableNoise(W, H, gridX, gridY, seed) {
+  const rnd = hashSeed(seed);
+  const grid = new Float32Array((gridX + 1) * (gridY + 1));
+  for (let gy = 0; gy < gridY; gy++) {
+    for (let gx = 0; gx < gridX; gx++) {
+      grid[gy * (gridX + 1) + gx] = rnd();
+    }
+    grid[gy * (gridX + 1) + gridX] = grid[gy * (gridX + 1)];
+  }
+  for (let gx = 0; gx <= gridX; gx++) {
+    grid[gridY * (gridX + 1) + gx] = grid[gx];
+  }
+  const out = new Float32Array(W * H);
+  for (let y = 0; y < H; y++) {
+    const fy = (y / H) * gridY, gy0 = Math.floor(fy), ty = fy - gy0;
+    const ey = E.smoothstep(ty);
+    for (let x = 0; x < W; x++) {
+      const fx = (x / W) * gridX, gx0 = Math.floor(fx), tx = fx - gx0;
+      const ex = E.smoothstep(tx);
+      const a = grid[gy0 * (gridX + 1) + gx0];
+      const b = grid[gy0 * (gridX + 1) + gx0 + 1];
+      const c = grid[(gy0 + 1) * (gridX + 1) + gx0];
+      const d = grid[(gy0 + 1) * (gridX + 1) + gx0 + 1];
+      out[y * W + x] = lerp(lerp(a, b, ex), lerp(c, d, ex), ey);
+    }
+  }
+  return out;
+}
+function hslToRgb(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+}
+
+// ---------- bake cosmic beam texture ----------
+// Anisotropic grid: gridX small (cells stretched HORIZONTALLY) for streaks ALONG the beam.
+// Beam runs along texture's X axis (we rotate to aim).
+const BEAM_TEX_W = 512, BEAM_TEX_H = 96;
+function bakeBeamTex() {
+  const base = tileableNoise(BEAM_TEX_W, BEAM_TEX_H, 10, 5, 1337);
+  const detail = tileableNoise(BEAM_TEX_W, BEAM_TEX_H, 24, 10, 4242);
+  const noise = new Float32Array(BEAM_TEX_W * BEAM_TEX_H);
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < noise.length; i++) {
+    noise[i] = base[i] * 0.62 + detail[i] * 0.38;
+    if (noise[i] < mn) mn = noise[i];
+    if (noise[i] > mx) mx = noise[i];
+  }
+  // Boost noise near the centerline (vertical midpoint of the texture)
+  // so the core reads as a bright white/magenta spine — silhouette hierarchy.
+  for (let y = 0; y < BEAM_TEX_H; y++) {
+    const dy = Math.abs(y - BEAM_TEX_H / 2) / (BEAM_TEX_H / 2);
+    const coreBoost = 1 - dy * dy;
+    for (let x = 0; x < BEAM_TEX_W; x++) {
+      const i = y * BEAM_TEX_W + x;
+      const n = (noise[i] - mn) / (mx - mn);
+      noise[i] = clamp(n * 0.55 + coreBoost * 0.45, 0, 1);
+    }
+  }
+
+  const cvT = document.createElement('canvas');
+  cvT.width = BEAM_TEX_W; cvT.height = BEAM_TEX_H;
+  const ctxT = cvT.getContext('2d');
+  const id = ctxT.createImageData(BEAM_TEX_W, BEAM_TEX_H);
+  // Cartoon 4-band quantized LUT (deep purple → mid purple → magenta → near-white core)
+  for (let i = 0; i < noise.length; i++) {
+    const v = noise[i];
+    let h, s, l, alpha = 255;
+    if (v < 0.35) {
+      h = 268; s = 78; l = 32;          // deep violet
+    } else if (v < 0.62) {
+      h = 280; s = 82; l = 55;          // mid purple
+    } else if (v < 0.85) {
+      h = 296; s = 88; l = 72;          // bright magenta
+    } else {
+      h = 310; s = 60; l = 94;          // hot pink-white core
+    }
+    // Softer alpha falloff at vertical edges — smoothstep s-curve for gentle blend
+    const y = (i / BEAM_TEX_W) | 0;
+    const dy = Math.abs(y - BEAM_TEX_H / 2) / (BEAM_TEX_H / 2);
+    const edgeAlpha = E.smoothstep(clamp(1 - dy, 0, 1));
+    alpha = Math.round(255 * clamp(edgeAlpha, 0, 1));
+    const rgb = hslToRgb(h, s, l);
+    id.data[i*4] = rgb[0]; id.data[i*4+1] = rgb[1];
+    id.data[i*4+2] = rgb[2]; id.data[i*4+3] = alpha;
+  }
+  ctxT.putImageData(id, 0, 0);
+  return cvT;
+}
+const beamTex = bakeBeamTex();
+
+// ---------- beam state machine ----------
+// phases: idle → anticipation (charge-up) → climax (beam fires) → dissipation
+const BEAM = {
+  active: false,
+  t: 0,
+  durationAnt: 0.18,   // charge-up
+  durationFire: 0.55,  // sustained beam
+  durationDiss: 0.20,  // hard fade
+  origin: { x: 0, y: 0 },
+  target: { x: 0, y: 0 },
+  scrollPx: 0,
+  particles: [],
+};
+
+// ---------- particle ----------
+class P {
+  constructor(o) {
+    Object.assign(this, {
+      x: 0, y: 0, vx: 0, vy: 0, gx: 0, gy: 0, drag: 0,
+      lifetime: 1, life: 0,
+      size0: 8, size1: 8, alpha0: 1, alpha1: 0,
+      h0: 280, s0: 80, l0: 70, h1: null, s1: null, l1: null,
+      shape: 'star', points: 4, innerRatio: 0.45, outline: 2,
+      blend: 'lighter', rot: 0, rotV: 0, seed: Math.random(),
+      easeSize: E.easeOutQuad,
+      easeAlpha: E.easeInQuart,
+      easeColor: E.smoothstep,
+    }, o);
+    if (this.h1 == null) this.h1 = this.h0;
+    if (this.s1 == null) this.s1 = this.s0;
+    if (this.l1 == null) this.l1 = this.l0;
+  }
+  update(dt) {
+    this.life += dt;
+    this.vx += this.gx * dt; this.vy += this.gy * dt;
+    if (this.drag) { this.vx *= Math.exp(-this.drag * dt); this.vy *= Math.exp(-this.drag * dt); }
+    this.x += this.vx * dt; this.y += this.vy * dt;
+    this.rot += this.rotV * dt;
+    return this.life < this.lifetime;
+  }
+  draw(ctx) {
+    const t = this.life / this.lifetime;
+    const ps = this.easeSize(t), pa = this.easeAlpha(t), pc = this.easeColor(t);
+    const size = lerp(this.size0, this.size1, ps);
+    const alpha = lerp(this.alpha0, this.alpha1, pa);
+    if (alpha <= 0 || size <= 0) return;
+    const h = lerp(this.h0, this.h1, pc);
+    const s = lerp(this.s0, this.s1, pc);
+    const l = lerp(this.l0, this.l1, pc);
+    ctx.save();
+    ctx.globalCompositeOperation = this.blend;
+    ctx.globalAlpha = clamp(alpha, 0, 1);
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rot);
+    ctx.fillStyle = `hsl(${h} ${s}% ${l}%)`;
+    ctx.strokeStyle = `hsl(${h} ${Math.max(s - 10, 0)}% ${Math.max(l - 35, 8)}%)`;
+    ctx.lineWidth = this.outline;
+    ctx.lineJoin = 'round';
+    if (this.shape === 'star') drawStar(ctx, size, this.points, this.innerRatio, this.outline > 0);
+    else if (this.shape === 'circle') drawCircle(ctx, size, this.outline > 0);
+    else if (this.shape === 'diamond') drawDiamond(ctx, size, this.outline > 0);
+    else if (this.shape === 'shockwave') drawShockwave(ctx, size, this.outline);
+    ctx.restore();
+  }
+}
+function drawStar(ctx, r, pts, inner, stroke) {
+  ctx.beginPath();
+  for (let i = 0; i < pts * 2; i++) {
+    const a = (i / (pts * 2)) * TAU - Math.PI / 2;
+    const rr = i % 2 === 0 ? r : r * inner;
+    if (i === 0) ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    else ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fill();
+  if (stroke) ctx.stroke();
+}
+function drawCircle(ctx, r, stroke) {
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, TAU);
+  ctx.fill();
+  if (stroke) ctx.stroke();
+}
+function drawDiamond(ctx, r, stroke) {
+  ctx.beginPath();
+  ctx.moveTo(0, -r); ctx.lineTo(r * 0.55, 0);
+  ctx.lineTo(0, r); ctx.lineTo(-r * 0.55, 0);
+  ctx.closePath();
+  ctx.fill();
+  if (stroke) ctx.stroke();
+}
+function drawShockwave(ctx, r, lw) {
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, TAU);
+  ctx.lineWidth = lw;
+  ctx.stroke();
+}
+
+// ---------- fire the beam ----------
+function fireBeam(tx, ty) {
+  // Origin: bottom-center of viewport (like a chibi mushroom firing upward)
+  const ox = innerWidth * 0.5;
+  const oy = innerHeight * 0.78;
+  BEAM.active = true;
+  BEAM.t = 0;
+  BEAM.scrollPx = 0;
+  BEAM.origin = { x: ox, y: oy };
+  BEAM.target = { x: tx, y: ty };
+  BEAM.particles.length = 0;
+
+  // Anticipation: charge-up sparkles bias FORWARD along beam direction
+  const ddx = tx - ox, ddy = ty - oy;
+  const dlen = Math.hypot(ddx, ddy) || 1;
+  const fX = ddx / dlen, fY = ddy / dlen;
+  const dirAng = Math.atan2(ddy, ddx);
+  for (let i = 0; i < 10; i++) {
+    const orbitAng = rand(0, TAU);
+    const sp = rand(60, 140);
+    BEAM.particles.push(new P({
+      x: ox + Math.cos(orbitAng) * 22, y: oy + Math.sin(orbitAng) * 22,
+      vx: -Math.cos(orbitAng) * sp + fX * 40,
+      vy: -Math.sin(orbitAng) * sp + fY * 40,
+      drag: 4,
+      lifetime: 0.22,
+      size0: rand(6, 10), size1: 0,
+      alpha0: 1, alpha1: 1,
+      h0: 290, s0: 85, l0: 75, h1: 310, l1: 92,
+      shape: 'star', points: 4, innerRatio: 0.4, outline: 2,
+      rot: dirAng, rotV: rand(-4, 4),
+      blend: 'lighter',
+      easeSize: E.easeInQuart,
+      easeAlpha: E.linear,
+    }));
+  }
+}
+
+// ---------- impact burst at target ----------
+function spawnImpactBurst(x, y, dirAngle) {
+  // Big star pop + shockwave + forward-cone sparkles (direction-aware).
+  // Pure scale-to-zero (alpha stays solid) — cartoon-correct, no hard cut.
+  BEAM.particles.push(new P({
+    x, y, lifetime: 0.34,
+    size0: 30, size1: 110,
+    alpha0: 1, alpha1: 1,
+    h0: 296, s0: 92, l0: 72, h1: 310, l1: 90,
+    shape: 'star', points: 8, innerRatio: 0.42,
+    outline: 5, rot: dirAngle,
+    blend: 'source-over',
+    easeSize: t => t < 0.55 ? E.easeOutBack(t / 0.55) : 1 - E.easeInQuart((t - 0.55) / 0.45),
+    easeAlpha: E.linear,
+  }));
+  // Shockwave ring (additive, smooth fade)
+  BEAM.particles.push(new P({
+    x, y, lifetime: 0.38,
+    size0: 20, size1: 150,
+    alpha0: 0.9, alpha1: 0,
+    h0: 296, s0: 80, l0: 78,
+    shape: 'shockwave', outline: 5,
+    blend: 'lighter',
+    easeSize: E.easeOutExpo,
+    easeAlpha: E.easeOutQuad,
+  }));
+  // Forward-cone sparkles — fan in beam direction, no backward splash
+  const cone = Math.PI * 0.55;  // ±55° spread around beam direction
+  for (let i = 0; i < 16; i++) {
+    const ang = dirAngle + rand(-cone, cone);
+    const sp = rand(220, 420);
+    const fx = Math.cos(ang) * sp;
+    const fy = Math.sin(ang) * sp;
+    BEAM.particles.push(new P({
+      x, y,
+      vx: fx, vy: fy,
+      gy: 220, drag: 1.4,
+      lifetime: rand(0.4, 0.6),
+      size0: rand(5, 9), size1: 0,
+      alpha0: 1, alpha1: 1,
+      h0: rand(280, 312), s0: 88, l0: 80, l1: 92,
+      shape: i % 3 === 0 ? 'diamond' : 'star',
+      points: 4, innerRatio: 0.4, outline: 2,
+      rot: ang, rotV: rand(-6, 6),
+      blend: 'lighter',
+      easeSize: E.easeInQuart,
+      easeAlpha: E.linear,
+    }));
+  }
+}
+
+// ---------- frame ----------
+let last = performance.now();
+let impactSpawned = false;
+
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 1 / 30);
+  last = now;
+
+  // Background — subtle starfield wash
+  ctx.fillStyle = '#0d0820';
+  ctx.fillRect(0, 0, innerWidth, innerHeight);
+  drawStars(now);
+
+  if (BEAM.active) {
+    BEAM.t += dt;
+    const phaseFireStart = BEAM.durationAnt;
+    const phaseDissStart = BEAM.durationAnt + BEAM.durationFire;
+    const totalEnd = phaseDissStart + BEAM.durationDiss;
+
+    // Scroll texture continuously
+    BEAM.scrollPx += dt * 720;
+    BEAM.scrollPx %= BEAM_TEX_W;
+
+    // Draw beam during fire + dissipation phases
+    if (BEAM.t >= phaseFireStart && BEAM.t < totalEnd) {
+      const inFire = BEAM.t < phaseDissStart;
+      const dissT = inFire ? 0 : (BEAM.t - phaseDissStart) / BEAM.durationDiss;
+      // Smoother dissipation: gentle s-curve for alpha + width
+      const dissAlpha = inFire ? 1 : 1 - E.smoothstep(dissT);
+      const dissWidthMul = inFire ? 1 : 1 - 0.9 * E.smoothstep(dissT);
+      drawBeam(BEAM.origin, BEAM.target, BEAM.scrollPx, dissAlpha, dissWidthMul);
+
+      // Beam direction vectors (forward + perpendicular)
+      const ddx = BEAM.target.x - BEAM.origin.x;
+      const ddy = BEAM.target.y - BEAM.origin.y;
+      const dlen = Math.hypot(ddx, ddy) || 1;
+      const fX = ddx / dlen, fY = ddy / dlen;       // forward unit
+      const pX = -fY, pY = fX;                      // perpendicular unit
+      const dirAng = Math.atan2(ddy, ddx);
+
+      // Spawn impact once at fire-start (direction-aware cone)
+      if (!impactSpawned) {
+        spawnImpactBurst(BEAM.target.x, BEAM.target.y, dirAng);
+        impactSpawned = true;
+      }
+
+      // Continuous sparkles along beam — flow FORWARD along beam axis
+      if (inFire && Math.random() < 0.6) {
+        const u = rand(0.2, 0.95);
+        const bx = lerp(BEAM.origin.x, BEAM.target.x, u);
+        const by = lerp(BEAM.origin.y, BEAM.target.y, u);
+        const off = rand(-22, 22);
+        const fSpeed = rand(140, 260);              // forward velocity along beam
+        const pDrift = rand(-25, 25);               // gentle perpendicular wobble
+        BEAM.particles.push(new P({
+          x: bx + pX * off, y: by + pY * off,
+          vx: fX * fSpeed + pX * pDrift,
+          vy: fY * fSpeed + pY * pDrift,
+          lifetime: rand(0.22, 0.38),
+          size0: rand(3, 6), size1: 0,
+          alpha0: 1, alpha1: 1,
+          h0: rand(285, 312), s0: 88, l0: 85,
+          shape: 'star', points: 4, innerRatio: 0.4, outline: 1.5,
+          rot: dirAng, rotV: rand(-6, 6),
+          blend: 'lighter',
+          easeSize: E.easeInQuart,
+          easeAlpha: E.linear,
+        }));
+      }
+    }
+
+    if (BEAM.t >= totalEnd) {
+      BEAM.active = false;
+      impactSpawned = false;
+    }
+  }
+
+  // Update + draw particles
+  for (let i = BEAM.particles.length - 1; i >= 0; i--) {
+    const p = BEAM.particles[i];
+    if (!p.update(dt)) {
+      BEAM.particles.splice(i, 1);
+    } else {
+      p.draw(ctx);
+    }
+  }
+
+  requestAnimationFrame(frame);
+}
+
+// ---------- beam draw with clip + UV scroll (rounded caps + soft edges) ----------
+function drawBeam(o, t, scroll, fadeAlpha, widthMul) {
+  const dx = t.x - o.x, dy = t.y - o.y;
+  const len = Math.hypot(dx, dy);
+  const ang = Math.atan2(dy, dx);
+  const halfH = 38 * widthMul;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = fadeAlpha;
+  ctx.translate(o.x, o.y);
+  ctx.rotate(ang);
+
+  // Outer bloom — wider, softer additive gradient
+  const grad = ctx.createLinearGradient(0, -halfH * 2.6, 0, halfH * 2.6);
+  grad.addColorStop(0,    'rgba(120, 60, 200, 0)');
+  grad.addColorStop(0.35, 'rgba(160, 80, 230, 0.30)');
+  grad.addColorStop(0.5,  'rgba(200, 120, 250, 0.55)');
+  grad.addColorStop(0.65, 'rgba(160, 80, 230, 0.30)');
+  grad.addColorStop(1,    'rgba(120, 60, 200, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(-halfH * 0.6, -halfH * 2.6, len + halfH * 1.2, halfH * 5.2);
+
+  // Capsule-shaped clip (rounded caps at both ends — no hard rect edge)
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(0, -halfH);
+  ctx.lineTo(len, -halfH);
+  ctx.arc(len, 0, halfH, -Math.PI / 2, Math.PI / 2);
+  ctx.lineTo(0, halfH);
+  ctx.arc(0, 0, halfH, Math.PI / 2, -Math.PI / 2);
+  ctx.closePath();
+  ctx.clip();
+
+  // Tile the beam texture along x with UV scroll
+  const drawH = halfH * 2;
+  let x = -scroll;
+  while (x < len + halfH) {
+    ctx.drawImage(beamTex, x, -halfH, BEAM_TEX_W, drawH);
+    x += BEAM_TEX_W;
+  }
+  ctx.restore();
+
+  // Bright core line (thin, soft) — runs along centerline, marks flow axis
+  const coreGrad = ctx.createLinearGradient(0, -halfH * 0.18, 0, halfH * 0.18);
+  coreGrad.addColorStop(0,   'rgba(255, 220, 255, 0)');
+  coreGrad.addColorStop(0.5, 'rgba(255, 240, 255, 0.85)');
+  coreGrad.addColorStop(1,   'rgba(255, 220, 255, 0)');
+  ctx.fillStyle = coreGrad;
+  ctx.fillRect(0, -halfH * 0.18, len, halfH * 0.36);
+
+  // Soft edge lines (low-alpha, replaces hard graphic outline)
+  ctx.strokeStyle = 'rgba(255, 220, 255, 0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(halfH * 0.4, -halfH * 0.62);
+  ctx.lineTo(len - halfH * 0.2, -halfH * 0.62);
+  ctx.moveTo(halfH * 0.4, halfH * 0.62);
+  ctx.lineTo(len - halfH * 0.2, halfH * 0.62);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// ---------- decorative background stars ----------
+const stars = Array.from({ length: 80 }, () => ({
+  x: Math.random() * innerWidth, y: Math.random() * innerHeight,
+  r: rand(0.4, 1.6), tw: rand(0, TAU), tws: rand(0.6, 1.8),
+}));
+function drawStars(now) {
+  for (const s of stars) {
+    const a = 0.45 + 0.35 * Math.sin(s.tw + now * 0.001 * s.tws);
+    ctx.fillStyle = `rgba(230, 200, 255, ${a.toFixed(3)})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill();
+  }
+}
+
+// ---------- input ----------
+function onTap(e) {
+  const x = (e.touches ? e.touches[0].clientX : e.clientX);
+  const y = (e.touches ? e.touches[0].clientY : e.clientY);
+  if (!BEAM.active) fireBeam(x, y);
+}
+cv.addEventListener('mousedown', onTap);
+cv.addEventListener('touchstart', e => { e.preventDefault(); onTap(e); }, { passive: false });
+
+// Auto-fire one beam on load so the user sees it immediately
+setTimeout(() => fireBeam(innerWidth * 0.5, innerHeight * 0.22), 350);
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

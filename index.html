@@ -3312,6 +3312,9 @@ function bunnyApplyEquippedWeapon(){
       'assets/bunny/weapons/weapon-acorn-slingshot',
       'assets/bunny/weapons/weapon-twin-throwing-acorns',
       'assets/bunny/weapons/weapon-acorn-scattershot',
+      'assets/bunny/weapons/weapon-knights-longsword',
+      'assets/bunny/weapons/weapon-glade-longbow',
+      'assets/bunny/weapons/weapon-wardens-spear',
     ];
     // Per-weapon try/catch so one failure (missing JSON/PNG, decode error)
     // doesn't kill the whole bunny boot. Failed entries are skipped — fallback
@@ -3529,11 +3532,19 @@ function _getSfxAudio(src){
 function playSfx(assetId){
   const asset = AUDIO_CATALOG.find(x => x.id === assetId);
   if(!asset || !asset.files || !asset.files.length) return null;
+  // Use window._getAudioVol (gets patched by Settings to honor mute toggles).
+  // Falling back to the raw helper for boot ordering safety.
+  const volFn = (typeof window !== 'undefined' && typeof window._getAudioVol === 'function')
+    ? window._getAudioVol
+    : getAudioEffectiveVolume;
+  const vol = volFn(assetId);
+  // Skip the play entirely when muted — saves an Audio node clone.
+  if(vol <= 0) return null;
   const idx = asset.files.length > 1 ? (Math.random() * asset.files.length)|0 : 0;
   // Clone so overlapping plays don't truncate each other.
   const base = _getSfxAudio(asset.files[idx]);
   const node = base.cloneNode();
-  node.volume = getAudioEffectiveVolume(assetId);
+  node.volume = vol;
   node.playbackRate = asset.pitchRandom > 0
     ? 1 + (Math.random()*2 - 1) * asset.pitchRandom
     : 1;
@@ -4605,6 +4616,21 @@ function rollSubstatValue(maxValue, combo){
 //  - level inicial vem do combo via rollInitialLevel
 //  - substats armazenam rollQuality (0..1), valor é função do currentLevel
 //  - currentLevel é mutável via tryUpgradeItem; maxLevel = MAX_ITEM_LEVEL
+// Era-aware sprite resolver. Pool entries carry a `spriteId` (e.g.,
+// 'weapon_burrow_pike') + a default `sprite` for era 1. For era 2 / era 3
+// items we swap to the era-specific PNG using the file naming convention:
+//   era_02/<spriteId>_e2.png
+//   era_03/<spriteId>_e3.png
+// Items without spriteId (legacy entries) just return def.sprite as-is.
+function resolveItemSpriteByEra(def, eraIdx){
+  if(!def) return null;
+  if(!def.spriteId || eraIdx <= 0) return def.sprite || null;
+  if(eraIdx === 1) return `assets/items/era_02/${def.spriteId}_e2.png`;
+  if(eraIdx === 2) return `assets/items/era_03/${def.spriteId}_e3.png`;
+  // No art beyond era 3 yet — fall back to highest available.
+  return `assets/items/era_03/${def.spriteId}_e3.png`;
+}
+
 function generateForgedItem(forgeLvl, combo, slotOverride){
   // 1. template (icon / nome / stat primário) — slot define o stat primário,
   //    o template só serve pra ícone/nome flavor
@@ -4628,13 +4654,14 @@ function generateForgedItem(forgeLvl, combo, slotOverride){
   const slotDef = SLOTS_DEF[def.slot] || { primaryStat: def.stat, baseStat0: def.base };
 
   return {
-    // visual / metadados
+    // visual / metadados — sprite resolved per item.eraIdx (era1 / era_02 / era_03 art).
     slot: def.slot,
     name: def.name,
     icon: def.icon,
-    sprite: def.sprite,           // path do PNG (assets/items/eraN/...) — opcional
-    handSprite: def.handSprite,   // path (no ext) do PNG na mão do bunny durante swing
-    archetype: def.archetype,     // pra lookup de comportamento (melee_thrust, ranged_double, etc.)
+    sprite: resolveItemSpriteByEra(def, eraIdx),
+    spriteId: def.spriteId,       // pra resolver de novo se eraIdx mudar
+    handSprite: def.handSprite,
+    archetype: def.archetype,
     weaponType: def.weaponType,
     // stat primário do slot (substitui def.stat/def.base)
     stat: slotDef.primaryStat,
@@ -4841,12 +4868,21 @@ const FORGE_COST = FORGE_BASE_COST;
 // `sprite` aponta pro PNG em assets/items/era1/. `icon` fica como fallback
 // emoji caso o sprite ainda não tenha carregado.
 const ARENA_ITEM_POOL = [
-  // === Weapons (5 archetypes do design doc) ===
-  { slot:'weapon', name:'Burrow Pike',          archetype:'melee_thrust',  stat:'dmg', base:4, weaponType:'melee',  icon:'🗡️', sprite:'assets/items/era1/weapon-burrow-pike.png',           handSprite:'assets/bunny/weapons/weapon-burrow-pike' },
-  { slot:'weapon', name:'Smith’s Mallet',  archetype:'melee_slash',   stat:'dmg', base:5, weaponType:'melee',  icon:'🔨', sprite:'assets/items/era1/weapon-smiths-mallet.png',         handSprite:'assets/bunny/weapons/weapon-smiths-mallet' },
-  { slot:'weapon', name:'Acorn Slingshot',      archetype:'ranged_single', stat:'dmg', base:3, weaponType:'ranged', icon:'🪨', sprite:'assets/items/era1/weapon-acorn-slingshot.png',       handSprite:'assets/bunny/weapons/weapon-acorn-slingshot' },
-  { slot:'weapon', name:'Twin Throwing Acorns', archetype:'ranged_double', stat:'projectiles', base:2, weaponType:'ranged', icon:'🌰', sprite:'assets/items/era1/weapon-twin-throwing-acorns.png', handSprite:'assets/bunny/weapons/weapon-twin-throwing-acorns' },
-  { slot:'weapon', name:'Acorn Scattershot',    archetype:'ranged_triple', stat:'projectiles', base:3, weaponType:'ranged', icon:'💥', sprite:'assets/items/era1/weapon-acorn-scattershot.png',     handSprite:'assets/bunny/weapons/weapon-acorn-scattershot' },
+  // === Weapons — archetype maps to attack style (swing/thrust/slam/ranged) ===
+  // `spriteId` lets the era-aware resolver pick the correct era_02/era_03 art
+  // when item.eraIdx >= 1. `sprite` is the era 1 fallback (or only era for new
+  // weapons that don't exist at era 1 — see longsword/longbow/wardens spear).
+  { slot:'weapon', name:'Burrow Pike',          archetype:'melee_thrust',  stat:'dmg', base:4, weaponType:'melee',  icon:'🗡️', sprite:'assets/items/era1/weapon-burrow-pike.png',           spriteId:'weapon_burrow_pike',         handSprite:'assets/bunny/weapons/weapon-burrow-pike' },
+  { slot:'weapon', name:'Smith’s Mallet',       archetype:'melee_slam',    stat:'dmg', base:5, weaponType:'melee',  icon:'🔨', sprite:'assets/items/era1/weapon-smiths-mallet.png',         spriteId:'weapon_smiths_mallet',       handSprite:'assets/bunny/weapons/weapon-smiths-mallet' },
+  { slot:'weapon', name:'Acorn Slingshot',      archetype:'ranged_single', stat:'dmg', base:3, weaponType:'ranged', icon:'🪨', sprite:'assets/items/era1/weapon-acorn-slingshot.png',       spriteId:'weapon_acorn_slingshot',     handSprite:'assets/bunny/weapons/weapon-acorn-slingshot' },
+  { slot:'weapon', name:'Twin Throwing Acorns', archetype:'ranged_double', stat:'projectiles', base:2, weaponType:'ranged', icon:'🌰', sprite:'assets/items/era1/weapon-twin-throwing-acorns.png', spriteId:'weapon_twin_throwing_acorns', handSprite:'assets/bunny/weapons/weapon-twin-throwing-acorns' },
+  { slot:'weapon', name:'Acorn Scattershot',    archetype:'ranged_triple', stat:'projectiles', base:3, weaponType:'ranged', icon:'💥', sprite:'assets/items/era1/weapon-acorn-scattershot.png',     spriteId:'weapon_acorn_scattershot',   handSprite:'assets/bunny/weapons/weapon-acorn-scattershot' },
+  // === NEW weapons — first appear in era 2/3 (no era 1 art exists) ===
+  // Hand sprites TBD (need authoring); for now they render no in-hand weapon
+  // but attack-type animation + DPS scaling still fire correctly.
+  { slot:'weapon', name:'Knight’s Longsword',   archetype:'melee_swing',   stat:'dmg', base:5, weaponType:'melee',  icon:'⚔️', sprite:'assets/items/era_02/weapon_knights_longsword_e2.png', spriteId:'weapon_knights_longsword', handSprite:'assets/bunny/weapons/weapon-knights-longsword' },
+  { slot:'weapon', name:'Glade Longbow',        archetype:'ranged_single', stat:'dmg', base:4, weaponType:'ranged', icon:'🏹', sprite:'assets/items/era_02/weapon_glade_longbow_e2.png',      spriteId:'weapon_glade_longbow',     handSprite:'assets/bunny/weapons/weapon-glade-longbow' },
+  { slot:'weapon', name:'Warden’s Spear',       archetype:'melee_thrust',  stat:'dmg', base:5, weaponType:'melee',  icon:'🔱', sprite:'assets/items/era_03/weapon_wardens_spear_e3.png',      spriteId:'weapon_wardens_spear',     handSprite:'assets/bunny/weapons/weapon-wardens-spear' },
 
   // === Helmet ===
   { slot:'helmet', name:'Capacete Leve',     variation:'light',  stat:'maxHp', base:12, icon:'🎩', sprite:'assets/items/era1/helmet-light.png' },
@@ -7220,6 +7256,24 @@ function getWeaponType(){
   return (w && w.weaponType) || 'melee';
 }
 
+// Returns 'swing' (default) | 'thrust' | 'slam' based on equipped weapon archetype.
+// Stick / sword / generic → swing. Pike / lance / spear → thrust. Hammer / mace / mallet → slam.
+function getMeleeAttackType(){
+  const arch = (arena.items.weapon && arena.items.weapon.archetype) || '';
+  if(arch.includes('thrust') || arch.includes('pike') || arch.includes('lance') || arch.includes('spear')) return 'thrust';
+  if(arch.includes('slam')   || arch.includes('mallet') || arch.includes('hammer') || arch.includes('mace') || arch.includes('slash')) return 'slam';
+  return 'swing';
+}
+
+// Cooldown frames per melee type (lower = faster cadence). Used as shootTimer reset.
+function getAttackCooldownFrames(){
+  if(getWeaponType() === 'ranged') return 50;
+  const meleeType = getMeleeAttackType();
+  if(meleeType === 'thrust') return 33; // ~1.5× faster
+  if(meleeType === 'slam')   return 70; // ~0.7× slower
+  return 50; // swing default
+}
+
 function arenaAttack(){
   // checa se tem inimigo no range; retorna true se atacou
   const type = getWeaponType();
@@ -7235,7 +7289,12 @@ function arenaAttack(){
   if(!best) return false;
 
   if(type === 'ranged') arenaRangedShot(best);
-  else arenaMeleeSwing(best);
+  else {
+    const meleeType = getMeleeAttackType();
+    if(meleeType === 'thrust') arenaMeleeThrust(best);
+    else if(meleeType === 'slam') arenaMeleeSlam(best);
+    else arenaMeleeSwing(best);
+  }
   return true;
 }
 
@@ -7251,6 +7310,7 @@ function arenaMeleeSwing(target){
   }
   const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
   arena.swings.push({
+    kind: 'swing',
     centerAngle: targetAngle,
     arc:   Math.PI * 0.85 + (bladeStat-1) * 0.20,
     range: 38 + bladeStat * 6,
@@ -7276,6 +7336,74 @@ function arenaMeleeSwing(target){
       color: i%2===0 ? '#ffcc3d' : '#ff9b3a',
     });
   }
+}
+
+// === THRUST attack — pike / lance / spear ===
+// Weapon shoots forward in a narrow line, then retracts. Fast cadence.
+// Hit zone: line forward of bunny, hits during the "extend" window.
+// DPS-neutral: per-hit damage scaled by (cooldown / 50) so cadence change
+// doesn't shift overall damage output relative to swing baseline.
+function arenaMeleeThrust(target){
+  const angle = Math.atan2(target.y - arena.by, target.x - arena.bx);
+  if(bunny){
+    bunnyFacing = (target.x > arena.bx) ? 'right' : 'left';
+    bunnyFacingLockedUntil = performance.now() + 500;
+    bunny.trigger('melee');
+  }
+  const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
+  const THRUST_DMG_MULT = 33 / 50; // matches getAttackCooldownFrames thrust value (0.66)
+  arena.swings.push({
+    kind: 'thrust',
+    centerAngle: angle,
+    range: 48 + bladeStat * 6,
+    frame: 0, lifeFrames: 14, // longer window so the weapon reads on-screen
+    dmg: arenaTotalStat('dmg') * THRUST_DMG_MULT,
+    crit: arenaTotalStat('crit'),
+    hit: new Set(),
+  });
+  // Forward streak VFX — chain of small particles racing along thrust axis.
+  // Cream-yellow core fading to gold for "speed line" feel.
+  const cosA = Math.cos(angle), sinA = Math.sin(angle);
+  for(let i=0; i<12; i++){
+    const dist = 6 + i * 4;
+    const lateral = (Math.random()-0.5) * 5;
+    arena.particles.push({
+      x: arena.bx + cosA*dist - sinA*lateral,
+      y: arena.by + sinA*dist + cosA*lateral,
+      vx: cosA * (4 + Math.random()*3),
+      vy: sinA * (4 + Math.random()*3),
+      life: 6 + ((Math.random()*5)|0),
+      color: i < 6 ? '#fff7d6' : '#ffcc3d',
+    });
+  }
+}
+
+// === SLAM attack — hammer / mace / mallet ===
+// Weapon raises overhead then crashes down on impact point. Slow cadence,
+// AOE circle hit at the strike location.
+// DPS-neutral: per-hit damage scaled by (cooldown / 50) so cadence change
+// doesn't shift overall damage output relative to swing baseline.
+function arenaMeleeSlam(target){
+  const angle = Math.atan2(target.y - arena.by, target.x - arena.bx);
+  if(bunny){
+    bunnyFacing = (target.x > arena.bx) ? 'right' : 'left';
+    bunnyFacingLockedUntil = performance.now() + 1000;
+    bunny.trigger('melee');
+  }
+  const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
+  const range = 42 + bladeStat * 4;
+  const SLAM_DMG_MULT = 70 / 50; // matches getAttackCooldownFrames slam value (1.40)
+  arena.swings.push({
+    kind: 'slam',
+    centerAngle: angle,
+    range: range,
+    aoeR:  22 + bladeStat * 3,
+    frame: 0, lifeFrames: 18,
+    impactFrame: 12,
+    dmg: arenaTotalStat('dmg') * SLAM_DMG_MULT,
+    crit: arenaTotalStat('crit'),
+    hit: new Set(),
+  });
 }
 
 function arenaRangedShot(target){
@@ -7526,7 +7654,7 @@ function updateArena(){
   arena.shootTimer -= atkSpeed;
   if(arena.shootTimer <= 0){
     if(arenaAttack()){
-      arena.shootTimer = 50;
+      arena.shootTimer = getAttackCooldownFrames();
     }
     // se nada no range, shootTimer continua <= 0 → tenta de novo no próximo frame
   }
@@ -7633,26 +7761,102 @@ function updateArena(){
     const sw = arena.swings[i];
     sw.frame++;
     const t = sw.frame / sw.lifeFrames; // 0..1
-    // ângulo da lâmina nesse frame, varrendo o arco
-    const swingAngle = sw.centerAngle + sw.dir * (sw.arc/2 - sw.arc * t);
-    // hit check em quem ainda não levou desse swing
-    for(let j=arena.enemies.length-1;j>=0;j--){
-      const e = arena.enemies[j];
-      if(sw.hit.has(e)) continue;
-      if(e.dying) continue; // bandits em death anim não são targetáveis
-      const dx3 = e.x - arena.bx, dy3 = e.y - arena.by;
-      const dist = Math.hypot(dx3, dy3);
-      if(dist > sw.range + e.r) continue;
-      if(dist < ARENA.BUNNY_R) { /* inimigo encostado, sempre acerta */ }
-      else {
-        const enemyAngle = Math.atan2(dy3, dx3);
-        // diff angular wrap-safe
-        let diff = enemyAngle - swingAngle;
-        while(diff > Math.PI) diff -= Math.PI*2;
-        while(diff < -Math.PI) diff += Math.PI*2;
-        if(Math.abs(diff) > 0.42) continue; // fora da largura da lâmina
+
+    // Per-kind hit-zone resolution. Each path picks the enemies hit on this
+    // tick and runs the shared damage + knockback + kill logic.
+    let hitsThisTick = []; // array of { enemy, idx, dx, dy, dist, kbDir? }
+    if(sw.kind === 'thrust'){
+      // Active window: 0.20 < t < 0.70 (weapon extended forward)
+      if(t > 0.20 && t < 0.75){
+        // Line hit: enemy must be within sw.range along centerAngle and
+        // within a narrow lateral tolerance.
+        const cosA = Math.cos(sw.centerAngle), sinA = Math.sin(sw.centerAngle);
+        for(let j=arena.enemies.length-1;j>=0;j--){
+          const e = arena.enemies[j];
+          if(sw.hit.has(e) || e.dying) continue;
+          const dx3 = e.x - arena.bx, dy3 = e.y - arena.by;
+          // project enemy onto attack axis
+          const along  = dx3 * cosA + dy3 * sinA;
+          const lateral = Math.abs(-dx3 * sinA + dy3 * cosA);
+          if(along < 0 || along > sw.range + e.r) continue;
+          if(lateral > 12 + e.r) continue;
+          hitsThisTick.push({ e, j, dx: dx3, dy: dy3, dist: Math.hypot(dx3, dy3) });
+        }
       }
-      // acerto!
+    } else if(sw.kind === 'slam'){
+      // AOE at the impact point — only resolves on the exact impactFrame.
+      if(sw.frame === sw.impactFrame){
+        const impactX = arena.bx + Math.cos(sw.centerAngle) * sw.range;
+        const impactY = arena.by + Math.sin(sw.centerAngle) * sw.range;
+        const r = sw.aoeR;
+        for(let j=arena.enemies.length-1;j>=0;j--){
+          const e = arena.enemies[j];
+          if(sw.hit.has(e) || e.dying) continue;
+          const ddx = e.x - impactX, ddy = e.y - impactY;
+          const d = Math.hypot(ddx, ddy);
+          if(d > r + e.r) continue;
+          hitsThisTick.push({ e, j, dx: e.x - arena.bx, dy: e.y - arena.by, dist: Math.hypot(e.x - arena.bx, e.y - arena.by) });
+        }
+        // Shockwave VFX at impact. dmg=0 + own hit set so the shared
+        // shockwave update loop doesn't re-damage enemies the slam already hit.
+        arena.effects.push({
+          kind: 'shockwave',
+          x: impactX, y: impactY,
+          r: 4, maxR: sw.aoeR * 1.6,
+          frame: 0, lifeFrames: 18,
+          dmg: 0,
+          hit: new Set(),
+        });
+        // Dust + impact star particles. Two rings — inner fast bright,
+        // outer slower brown dust. Plus a brief screen shake for weight.
+        for(let k=0; k<18; k++){
+          const ang = (k / 18) * Math.PI * 2 + Math.random()*0.2;
+          const fast = k < 9;
+          arena.particles.push({
+            x: impactX, y: impactY,
+            vx: Math.cos(ang) * (fast ? 5 + Math.random()*2 : 2.5 + Math.random()*1.5),
+            vy: Math.sin(ang) * (fast ? 5 + Math.random()*2 : 2.5 + Math.random()*1.5),
+            life: fast ? 10 + ((Math.random()*4)|0) : 18 + ((Math.random()*8)|0),
+            color: fast ? (k%2===0 ? '#fff7d6' : '#ffcc3d') : (k%2===0 ? '#d6b88a' : '#9c7d4a'),
+          });
+        }
+        // Vertical impact pillar — 6 particles shooting upward from impact point.
+        for(let k=0; k<6; k++){
+          arena.particles.push({
+            x: impactX + (Math.random()-0.5)*8,
+            y: impactY,
+            vx: (Math.random()-0.5) * 1.5,
+            vy: -4 - Math.random()*3,
+            life: 14 + ((Math.random()*6)|0),
+            color: '#d6b88a',
+          });
+        }
+        // Screen shake removed per design — impact VFX (dust rings + vertical
+        // pillar particles + shockwave) carry the weight on their own.
+      }
+    } else {
+      // SWING (default arc sweep)
+      const swingAngle = sw.centerAngle + sw.dir * (sw.arc/2 - sw.arc * t);
+      for(let j=arena.enemies.length-1;j>=0;j--){
+        const e = arena.enemies[j];
+        if(sw.hit.has(e) || e.dying) continue;
+        const dx3 = e.x - arena.bx, dy3 = e.y - arena.by;
+        const dist = Math.hypot(dx3, dy3);
+        if(dist > sw.range + e.r) continue;
+        if(dist >= ARENA.BUNNY_R){
+          const enemyAngle = Math.atan2(dy3, dx3);
+          let diff = enemyAngle - swingAngle;
+          while(diff > Math.PI) diff -= Math.PI*2;
+          while(diff < -Math.PI) diff += Math.PI*2;
+          if(Math.abs(diff) > 0.42) continue;
+        }
+        hitsThisTick.push({ e, j, dx: dx3, dy: dy3, dist });
+      }
+    }
+
+    // Apply damage to all enemies hit this tick.
+    for(const hit of hitsThisTick){
+      const { e, j, dx, dy, dist } = hit;
       const isCrit = Math.random() < sw.crit;
       const dmg = isCrit ? Math.round(sw.dmg*2) : sw.dmg;
       e.hp -= dmg;
@@ -7660,16 +7864,17 @@ function updateArena(){
       spawnArenaParticle(e.x, e.y, isCrit ? '#ff5fa2' : '#ff7a1a', isCrit ? 8 : 5);
       spawnArenaDamage(e.x, e.y, dmg, isCrit);
       sw.hit.add(e);
-      // knockback radial leve
+      // knockback radial leve (slam pushes harder)
+      const kb = sw.kind === 'slam' ? 6 : 3;
       if(dist > 0.1){
-        e.x += (dx3/dist) * 3;
-        e.y += (dy3/dist) * 3;
+        e.x += (dx/dist) * kb;
+        e.y += (dy/dist) * kb;
       }
       if(e.hp <= 0){
-        // killArenaEnemy cuida do drop de XP/cenoura + particles + splice/dying
         killArenaEnemy(j, e);
       }
     }
+
     if(sw.frame >= sw.lifeFrames) arena.swings.splice(i,1);
   }
 
@@ -9405,13 +9610,54 @@ function renderArena(){
   // bunny
   drawArenaBunny();
 
-  // Swing weapon — draws equipped handSprite arcing toward target. Drawn
-  // AFTER bunny so the weapon sits in front. Uses arena.swings.frame /
-  // lifeFrames + centerAngle/arc/dir from arenaMeleeSwing.
+  // Weapon draw — branches by sw.kind for each attack type. Drawn AFTER
+  // bunny so the weapon sits in front.
+  //  - swing : weapon sweeps an arc from centerAngle ± arc/2 over t (default)
+  //  - thrust: weapon translates forward + back along centerAngle, peak mid-cycle
+  //  - slam  : weapon raises overhead, rotates down to centerAngle, impact at t=impactFrame
   for(const sw of arena.swings){
     const t = sw.frame / sw.lifeFrames;
-    const swingAngle = sw.centerAngle + sw.dir * (sw.arc/2 - sw.arc * t);
-    drawArenaHandSprite(arena.bx, arena.by, swingAngle, t);
+    if(sw.kind === 'thrust'){
+      const ext = Math.sin(t * Math.PI);
+      const forward = ext * sw.range * 0.12;
+      const x = arena.bx + Math.cos(sw.centerAngle) * forward;
+      const y = arena.by + Math.sin(sw.centerAngle) * forward;
+      drawArenaHandSprite(x, y, sw.centerAngle, t);
+    } else if(sw.kind === 'slam'){
+      // Pure top-down slam: weapon starts pointing UP (-π/2, overhead) and
+      // rotates to target angle at impact. No 180° rotation around the back.
+      // Wind-up lifts weapon above bunny; slam drops to forward-of-bunny.
+      const fImpact = sw.impactFrame || (sw.lifeFrames * 0.65);
+      let weaponAngle, fx, fy;
+      // Shortest-path angular interp from "up" to target angle.
+      const startA = -Math.PI / 2;
+      let delta = sw.centerAngle - startA;
+      while(delta > Math.PI)  delta -= Math.PI * 2;
+      while(delta < -Math.PI) delta += Math.PI * 2;
+      if(sw.frame <= fImpact){
+        const pre = sw.frame / fImpact;
+        const e = pre * pre * (3 - 2*pre); // smoothstep
+        weaponAngle = startA + delta * e;
+        // Lift overhead during wind-up — weapon hovers above bunny.
+        const lift = (1 - e) * 10;
+        fx = arena.bx;
+        fy = arena.by - lift;
+        fx += Math.cos(sw.centerAngle) * (e * sw.range * 0.04);
+        fy += Math.sin(sw.centerAngle) * (e * sw.range * 0.04);
+      } else {
+        const post = (sw.frame - fImpact) / Math.max(1, sw.lifeFrames - fImpact);
+        const pullback = post * post;
+        weaponAngle = sw.centerAngle;
+        const forward = sw.range * 0.04 * (1 - pullback * 0.6);
+        fx = arena.bx + Math.cos(sw.centerAngle) * forward;
+        fy = arena.by + Math.sin(sw.centerAngle) * forward;
+      }
+      drawArenaHandSprite(fx, fy, weaponAngle, t);
+    } else {
+      // SWING default
+      const swingAngle = sw.centerAngle + sw.dir * (sw.arc/2 - sw.arc * t);
+      drawArenaHandSprite(arena.bx, arena.by, swingAngle, t);
+    }
   }
 
   // particles
