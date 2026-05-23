@@ -4553,6 +4553,10 @@ function tryUpgradeItem(item){
 // Display helpers (sempre chamar via essas, nunca usar value bruto)
 function getDisplayedBaseStat(item){
   if(!item) return 0;
+  // Items "sentinela" (ex: galho inicial) usam currentLevel=null + value fixo
+  // pra fugir do escalonamento por baseStat — mantém o display consistente com
+  // a contribuição real em arenaTotalStat.
+  if(item.currentLevel == null && item.value != null) return item.value;
   return baseStat(item.slot, item.eraIdx, item.currentLevel || item.level || 1);
 }
 function getDisplayedSubstats(item){
@@ -4952,7 +4956,7 @@ const arena = {
   slashVFXs:[],
   items:{ weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null },
   // base stats (modificados por items + upgrades)
-  baseDmg:5, baseAtkSpeed:1.0, baseMoveSpeed:0.616, baseMaxHp:100,
+  baseDmg:2, baseAtkSpeed:1.0, baseMoveSpeed:0.616, baseMaxHp:100,
   baseProjectiles:1, baseCrit:0, baseDodge:0, baseXpMult:1, basePickupRange:50,
   startTime:0,
   killCount:0,
@@ -5096,19 +5100,22 @@ function initArena(){
   const ab = document.getElementById('arenaAutoBtn');
   if(ab){ ab.classList.add('active'); ab.textContent = 'AUTO'; }
   arena.items = { weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null };
-  // arma inicial: galho (a pior arma do jogo, melee) — schema novo com currentLevel
+  // arma inicial: galho (a pior arma do jogo, melee) — sentinela com valor fixo:
+  // currentLevel=null força arenaTotalStat a usar `value` em vez de baseStat,
+  // mantendo o galho em 0 de dano (puro starter — sem upgrade por level/era).
+  // Total visível com galho equipado = arena.baseDmg(2) + value(0) = 2.
   arena.items.weapon = {
     slot:'weapon', name:'Galho', stat:'dmg', icon:'🌿',
     sprite:'assets/items/era1/weapon_wood_stick.png',
     handSprite:'assets/bunny/weapons/weapon-wood-stick',
     rarity:'primitive', eraKey:'primitive', eraIdx:0, era: ERAS[0].name, eraColor:'#888780',
     weaponType:'melee',
-    currentLevel:1, initialLevel:1, maxLevel: MAX_ITEM_LEVEL, level:1,
+    currentLevel:null, initialLevel:1, maxLevel: MAX_ITEM_LEVEL, level:1,
     substats:[],
-    value: baseStat('weapon', 0, 1),
+    value: 0,
   };
   if(typeof bunnyApplyEquippedWeapon === 'function') bunnyApplyEquippedWeapon();
-  arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 0.616;
+  arena.baseDmg = 2; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 0.616;
   arena.baseMaxHp = 100; arena.baseProjectiles = 1; arena.baseCrit = 0;
   arena.baseDodge = 0; arena.baseXpMult = 1; arena.basePickupRange = 50;
   arena.startTime = performance.now();
