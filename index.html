@@ -9069,22 +9069,71 @@ function drawArenaHUD(){
   }
 
   // banner de MORTE (respawn)
+  // === DEATH banner — mesmo design do STAGE CLEAR mas em vermelho ===
+  // Scale-in + hold + fade-out, glow radial sutil, texto chunky com stroke
+  // preto. Mantém timer de 90 frames (1.5s) — não estende o downtime antes
+  // do respawn.
   if(arena.deathBannerTimer > 0){
-    const lifeT = arena.deathBannerTimer / 90;
-    const alpha = Math.min(1, lifeT*2);
+    const t = arena.deathBannerTimer;
+    const lifeT = t / 90;
+    const cx = W / 2;
+    const cy = ARENA.TOP_Y + (ARENA.BOT_Y - ARENA.TOP_Y) * 0.45;
+    // Phases: entry (scale 0.7→1 + fade in), hold, exit (fade out)
+    let scale = 1, alpha = 1;
+    if(lifeT > 0.88){
+      const u = (1 - lifeT) / 0.12;
+      scale = 0.7 + 0.3 * u;
+      alpha = u;
+    } else if(lifeT > 0.20){
+      scale = 1.0;
+      alpha = 1;
+    } else {
+      alpha = lifeT / 0.20;
+    }
+
+    ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = 'rgba(60,0,0,0.55)';
-    ctx.fillRect(0, ARENA.TOP_Y + 80, W, 70);
-    ctx.font = 'bold 24px Fredoka, system-ui, monospace';
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+
+    // Soft glow vermelho por trás do texto — radial gradient
+    const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 110);
+    glowGrad.addColorStop(0,    'rgba(255,82,82,0.40)');
+    glowGrad.addColorStop(0.5,  'rgba(255,82,82,0.18)');
+    glowGrad.addColorStop(1,    'rgba(255,82,82,0)');
+    ctx.fillStyle = glowGrad;
+    ctx.fillRect(-120, -50, 240, 100);
+
+    // Texto "DERROTADO!" — sólido vermelho, mesmo tamanho do STAGE CLEAR
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#000';
-    ctx.fillText('DERROTADO', W/2+2, ARENA.TOP_Y+114+2);
+    ctx.textBaseline = 'middle';
+    ctx.font = '900 35px Fredoka, system-ui, monospace';
+    ctx.lineJoin = 'round';
+    ctx.miterLimit = 2;
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = '#1a0e08';
+    ctx.strokeText('DERROTADO!', 0, 0);
     ctx.fillStyle = '#ff5252';
-    ctx.fillText('DERROTADO', W/2, ARENA.TOP_Y+114);
-    ctx.font = 'bold 12px Fredoka, system-ui, monospace';
+    ctx.fillText('DERROTADO!', 0, 0);
+
+    ctx.restore();
+
+    // Sub-label cream abaixo — info do respawn (wave reset pra 1)
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.9;
+    ctx.font = '600 12px Fredoka, system-ui, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#1a0e08';
     ctx.fillStyle = '#fff7e0';
-    ctx.fillText(`Fase ${stageLabel(arena.stage)} — Onda 1`, W/2, ARENA.TOP_Y+136);
+    const txtRetry = `Voltando pra Onda 1`;
+    ctx.strokeText(txtRetry, cx, cy + 26);
+    ctx.fillText(txtRetry,   cx, cy + 26);
+    ctx.restore();
     ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
     ctx.globalAlpha = 1;
   }
 
