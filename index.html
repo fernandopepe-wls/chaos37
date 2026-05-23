@@ -14219,6 +14219,12 @@ function renderItemPopup(){
 function hideItemPopup(){
   document.getElementById('itemPopup').classList.remove('show');
   document.getElementById('itemPopupBackdrop').classList.remove('show');
+  // Item popup fecha via click outside-the-card (frame capture handler em
+  // setupItemPopupClicks), que stopImmediatePropagation o evento — então o
+  // uiSfxDelegate global nunca vê. Wire direto aqui pra qualquer close-path
+  // (click fora, programatic close) tocar o back SFX consistente com o
+  // resto dos popups (#settingsCloseBtn, #questCloseBtn, etc).
+  if(typeof playSfx === 'function') playSfx('sfx_ui_back');
 }
 
 // Universal click-through fix: clicks DENTRO de qualquer .layer popup
