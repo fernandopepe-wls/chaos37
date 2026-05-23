@@ -5278,6 +5278,13 @@ function onWaveClear(){
     arena.carrots += (5 + arena.stage) * 5;
     spawnArenaParticle(arena.bx, arena.by, '#ffcc3d', 36);
     arena.regions++;
+    // Telemetria — boss_defeated + stage_cleared (alias pra clareza no funil).
+    // time_in_stage_ms permite calcular dificuldade média por stage server-side.
+    if(window.Analytics){
+      var _tIn = window._SESSION ? (Date.now() - window._SESSION.stageStartAt) : 0;
+      Analytics.send('boss_defeated', { time_in_stage_ms: _tIn });
+      Analytics.send('stage_cleared', { time_in_stage_ms: _tIn });
+    }
   } else if(arena.wave === (WAVES_PER_STAGE - 1)){
     // última wave normal limpa: avança pro boss automaticamente NA PRIMEIRA TENTATIVA.
     // Se já tinha perdido pra esse boss, entra em loop e espera o player
@@ -5288,11 +5295,16 @@ function onWaveClear(){
     } else {
       arena.wave = WAVES_PER_STAGE;
       startNewWave();
+      // Telemetria — boss_engaged (auto-progression path, 1ª tentativa).
+      if(window.Analytics) Analytics.send('boss_engaged', { via: 'auto' });
     }
   } else {
     // waves 1-3 → próxima
     arena.wave++;
     startNewWave();
+    // Telemetria — granularidade dentro do stage. wave aqui já é a próxima
+    // (1..WAVES_PER_STAGE-1); cleared_wave = wave - 1.
+    if(window.Analytics) Analytics.send('wave_cleared', { cleared_wave: arena.wave - 1 });
   }
 }
 
@@ -5306,9 +5318,25 @@ function challengeBoss(){
   // pula direto pra wave do boss
   arena.wave = WAVES_PER_STAGE;
   startNewWave();
+  // Telemetria — boss_engaged via clique manual (player tentou de novo após falhar).
+  // retry_count = quantas vezes já tinha falhado nesse boss (failedBossCurrentStage
+  // é bool, então só sabemos 1+; servidor agrega pra contar tentativas reais).
+  if(window.Analytics) Analytics.send('boss_engaged', { via: 'manual' });
 }
 
 function onArenaDeath(){
+  // Telemetria — player_died é o evento-chave pro funil de churn. Reportar
+  // ANTES de mutar `arena.wave` pra capturar onde a morte aconteceu.
+  // was_boss=true ajuda a identificar walls do boss vs morte em wave normal.
+  // session_deaths incrementa antes do send pra refletir esta morte.
+  if(window._SESSION) window._SESSION.sessionDeaths++;
+  if(window.Analytics){
+    Analytics.send('player_died', {
+      wave: arena.wave,
+      was_boss: arena.wave === WAVES_PER_STAGE,
+      session_deaths: window._SESSION ? window._SESSION.sessionDeaths : 0,
+    });
+  }
   // sem game over — volta pra wave 1 do stage atual com HP cheio
   // se morreu lutando o boss, marca pra desbloquear o botão "DESAFIAR BOSS"
   if(arena.wave === WAVES_PER_STAGE){
@@ -13365,6 +13393,14 @@ function loop(now){
   }
   if(steps === 4) acc = 0;
 
+  // Telemetria: detecta qualquer mudança de arena.stage e dispara stage_started.
+  // Cobre todos os caminhos (progressão natural via tickArenaWave, cheat skip,
+  // save load com stage > 1). Idempotente — só dispara uma vez por mudança via
+  // o guard `lastTrackedStage`. Auto-context já injeta o `stage` atual.
+  if(state === STATE.ARENA_PLAY && window._SESSION){
+    window._SESSION.checkStageChange();
+  }
+
   // joystick zone: restringe à play area da arena (grid onde o coelho pode andar)
   const joyEl = _loopEls.joy;
   if(state === STATE.ARENA_PLAY){
@@ -13484,8 +13520,27 @@ enterArena();
         App.exitApp().catch(() => {});
       });
       App.addListener('appStateChange', ({ isActive }) => {
-        if(typeof Music === 'undefined' || !Music.setVisibilityHidden) return;
-        Music.setVisibilityHidden(!isActive);
+        if(typeof Music !== 'undefined' && Music.setVisibilityHidden){
+          Music.setVisibilityHidden(!isActive);
+        }
+        // Telemetria de sessão — app_paused é o melhor proxy de "session end"
+        // em mobile (iOS/Android não disparam unload confiável). bg_duration no
+        // resume separa "deu uma olhada no Instagram" de "saiu de vez e voltou
+        // depois". Combinado, dá pra inferir churn e duração de sessão.
+        if(window._SESSION && window.Analytics){
+          if(!isActive){
+            window._SESSION.bgEnteredAt = Date.now();
+            Analytics.send('app_paused', {
+              session_duration_ms: Date.now() - window._SESSION.sessionStartAt,
+              session_deaths: window._SESSION.sessionDeaths,
+            });
+          } else {
+            var bgMs = window._SESSION.bgEnteredAt > 0
+              ? (Date.now() - window._SESSION.bgEnteredAt) : 0;
+            window._SESSION.bgEnteredAt = 0;
+            Analytics.send('app_resumed', { bg_duration_ms: bgMs });
+          }
+        }
       });
     } catch(_){ /* plugin não disponível em browser dev */ }
   })();
@@ -13503,6 +13558,10 @@ enterArena();
       await platform.initialize({ appId, environment });
       window._WildlifePlatform = platform;
       console.log(`[Platform] SDK inicializado (${appId} / ${environment})`);
+      // session_start é o marco zero pra calcular session_duration_ms nos
+      // próximos eventos. Dispara só depois do SDK estar pronto pra garantir
+      // entrega — Analytics.send no-op se !isInitialized.
+      if(window.Analytics) Analytics.send('session_start');
     } catch(e){
       console.warn('[Platform] SDK init falhou — game continua sem analytics/attribution', e && e.message);
     }
@@ -13555,6 +13614,50 @@ enterArena();
           // Fire-and-forget — não await
           p.analyticsSendEvent(eventType, ctx).catch(function(){ /* swallow */ });
         } catch(_){ /* swallow */ }
+      },
+    };
+
+    // ============== TELEMETRIA — Progression + Churn ==============
+    // _SESSION é um state-machine simples pra rastrear:
+    //   - Reach    : até onde o player chega (stage_started por mudança de stage)
+    //   - Churn    : onde param de jogar (last event registrado por player)
+    //   - Sessão   : duração de sessão e bg_duration via App.appStateChange
+    //
+    // Eventos disparados (ver USO no comentário acima):
+    //   session_start, app_paused, app_resumed
+    //   stage_started, wave_cleared, boss_engaged, boss_defeated, stage_cleared,
+    //   player_died
+    //
+    // Auto-context (stage/forge_lv/carrots/era) já injetado pelo Analytics.send,
+    // então nem precisamos passar `stage` aqui — pega de `arena` em runtime.
+    window._SESSION = {
+      sessionStartAt:  Date.now(),
+      stageStartAt:    Date.now(),  // quando entrou no stage atual (reset em stage_started)
+      bgEnteredAt:     0,           // quando o app foi pro background (0 = nunca)
+      sessionDeaths:   0,           // mortes nesta sessão (zera só em refresh/relaunch)
+      lastTrackedStage: 0,          // pra detectar mudança de stage no main loop
+      // Marca a entrada num stage; retorna o tempo gasto no stage ANTERIOR (ms).
+      onStageEnter: function(){
+        var now = Date.now();
+        var elapsed = now - this.stageStartAt;
+        this.stageStartAt = now;
+        return elapsed;
+      },
+      // Helper: fire stage_started se arena.stage mudou desde a última vez.
+      // Chamado do main loop pra capturar TODA mudança (progression, cheat, save resume).
+      checkStageChange: function(){
+        if(typeof arena === 'undefined') return;
+        if(arena.stage === this.lastTrackedStage) return;
+        var prev = this.lastTrackedStage;
+        this.lastTrackedStage = arena.stage;
+        var timeInPrevStage = this.onStageEnter();
+        // Só envia se já tinha trackeado pelo menos 1 stage antes (evita disparar com
+        // prev=0 logo no boot — esse é coberto por session_start + stage_started inicial
+        // que é disparado abaixo independentemente).
+        if(window.Analytics) Analytics.send('stage_started', {
+          prev_stage: prev,
+          time_in_prev_stage_ms: prev > 0 ? timeInPrevStage : 0,
+        });
       },
     };
   })();
