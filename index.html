@@ -9318,11 +9318,17 @@ function drawArenaBunny(){
       // groundOffset igual ao side path (BUNNY_STATE_TUNE branch) — alinha
       // os pés do bunny com o nível visual do chão (~10px abaixo de game.y).
       const fdy = y + 10 - fdh * (m.footAnchor || 0.85);
+      // Red tint flash quando bunny toma hit — mesma técnica do enemy white
+      // flash (`brightness(2.2) saturate(0)` em _drawBanditSprite), mas com
+      // receita de canvas filter pra produzir vermelho: sepia→hue-rotate.
+      // Usa ctx.filter (não composite) pra evitar o bug do source-atop que
+      // virava quadrado vermelho em iOS WebKit. Restaurado depois do draw.
+      const _hurtFlashFwd = arena.hurtTimer > 0;
+      if(_hurtFlashFwd){
+        ctx.filter = 'sepia(1) saturate(8) hue-rotate(-50deg) brightness(1.3)';
+      }
       ctx.drawImage(BUNNY_FORWARD_IMG, sx, sy, m.frame, m.frame, fdx, fdy, fdw, fdh);
-      // Hurt flash REMOVIDO — antes era um rect vermelho com source-atop, mas
-      // em algumas plataformas o composite quebrava e aparecia como quadrado
-      // vermelho literal. Substituído pelo cartoon VFX (star + sparks em
-      // palette vermelho) spawnado no site do hit detection. Ver onArenaHurt.
+      if(_hurtFlashFwd) ctx.filter = 'none';
     } else {
       // Per-state tune: scale multiplier + actual foot pixel position no source
       // frame. Walk uses 320px sheet (vs 256 dos outros) → normalizado pra
@@ -9364,10 +9370,16 @@ function drawArenaBunny(){
         const lungePx = dhState * 0.16 * curve;
         lungeX = lungePx * (flipX ? -1 : 1);
       }
+      // Red tint flash quando bunny toma hit — receita sepia→hue-rotate pra
+      // pintar o sprite inteiro de vermelho durante hurtTimer. Aplicado via
+      // ctx.filter ANTES do draw, restaurado depois (mesma técnica do
+      // _drawBanditSprite com 'brightness(2.2) saturate(0)' pro flash branco).
+      const _hurtFlashSide = arena.hurtTimer > 0;
+      if(_hurtFlashSide){
+        ctx.filter = 'sepia(1) saturate(8) hue-rotate(-50deg) brightness(1.3)';
+      }
       bunny.draw(ctx, x + lungeX, y + yShift + groundOffset, stateScale, flipX);
-      // bunny.drawHurtTint REMOVIDO pelo mesmo motivo do forward sprite —
-      // o feedback de dano agora vem do cartoon VFX vermelho (star + sparks)
-      // spawnado em spawnSlashVFXCartoon(..., { palette:'red' }).
+      if(_hurtFlashSide) ctx.filter = 'none';
     }
     ctx.imageSmoothingEnabled = prevSmooth;
   } else {
