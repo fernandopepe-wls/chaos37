@@ -4395,8 +4395,14 @@ function evalComboArr(diceArr){
   // Lançamento Máx. = todos diferentes E sem sequência.
   if(!diceArr || diceArr.length===0) return 'NONE';
   const counts = {};
-  const values = diceArr.map(d=>d.value);
-  for(const v of values) counts[v] = (counts[v]||0)+1;
+  // Aceita ARRAY de valores raw (Number[]) OU array de objetos {value}.
+  // Caller hot-path (renderForgeDice todo frame) passa raw — evita o
+  // .map alocando 5 wrappers + array novo por frame.
+  const isRaw = typeof diceArr[0] === 'number';
+  for(let i=0; i<diceArr.length; i++){
+    const v = isRaw ? diceArr[i] : diceArr[i].value;
+    counts[v] = (counts[v]||0)+1;
+  }
   const countVals = Object.values(counts).sort((a,b)=>b-a);
   const distinct = Object.keys(counts).map(Number).sort((a,b)=>a-b);
 
@@ -9592,17 +9598,45 @@ const ERA_GROUND_COLOR = [
   '#38a875', // 9 divine (Verdant Eternal) — verde esmeralda
 ];
 // Converte 'rgb(r,g,b)' OU '#RRGGBB' pra 'rgba(r,g,b,alpha)'. Pra gradients.
+// Memoiza resultado por (color, alpha). renderArena chama 2x/frame com
+// (groundColor, 0) e (groundColor, 1) — só 10 eras × 2 alphas = 20 entradas
+// no cache, no máximo. Evita parseInt × 3 + slice × 3 + template string
+// por frame. Cache nunca cresce sem controle porque cores são fixas.
+const _toRGBACache = new Map();
 function _toRGBA(color, alpha){
+  const key = color + '|' + alpha;
+  const cached = _toRGBACache.get(key);
+  if(cached !== undefined) return cached;
+  let result;
   if(color.startsWith('rgb(')){
-    return color.replace('rgb(', 'rgba(').replace(')', `,${alpha})`);
-  }
-  if(color.startsWith('#') && color.length >= 7){
+    result = color.replace('rgb(', 'rgba(').replace(')', `,${alpha})`);
+  } else if(color.startsWith('#') && color.length >= 7){
     const r = parseInt(color.slice(1,3), 16);
     const g = parseInt(color.slice(3,5), 16);
     const b = parseInt(color.slice(5,7), 16);
-    return `rgba(${r},${g},${b},${alpha})`;
+    result = `rgba(${r},${g},${b},${alpha})`;
+  } else {
+    result = color;
   }
-  return color;
+  _toRGBACache.set(key, result);
+  return result;
+}
+
+// Cache do gradient de fade do background (transparente → groundColor).
+// Recriado SOMENTE quando groundColor / fadeStart / groundTop mudam — na
+// prática isso só acontece em mudança de era ou ajuste via UI Tool de
+// bgOverlapPx/bgFadeHpx. Sem o cache, createLinearGradient + 2 addColorStop
+// rodavam todo frame.
+const _bgGradientCache = { key: null, gradient: null };
+function _getBgFadeGradient(groundColor, fadeStart, groundTop){
+  const key = groundColor + '|' + fadeStart + '|' + groundTop;
+  if(_bgGradientCache.key === key) return _bgGradientCache.gradient;
+  const g = ctx.createLinearGradient(0, fadeStart, 0, groundTop);
+  g.addColorStop(0, _toRGBA(groundColor, 0));
+  g.addColorStop(1, _toRGBA(groundColor, 1));
+  _bgGradientCache.key = key;
+  _bgGradientCache.gradient = g;
+  return g;
 }
 
 function renderArena(){
@@ -9647,11 +9681,9 @@ function renderArena(){
       const groundTop = Math.max(0, drawH - overlap);
       const fadeStart = Math.max(0, groundTop - fadeH);
       // Gradient: transparente em fadeStart → sólido em groundTop. Cobre a borda
-      // cinza do video sem corte visível.
-      const fade = ctx.createLinearGradient(0, fadeStart, 0, groundTop);
-      fade.addColorStop(0, _toRGBA(groundColor, 0));
-      fade.addColorStop(1, _toRGBA(groundColor, 1));
-      ctx.fillStyle = fade;
+      // cinza do video sem corte visível. Cacheado por (color, fadeStart, groundTop)
+      // — só recria em mudança de era / UI Tool tweak.
+      ctx.fillStyle = _getBgFadeGradient(groundColor, fadeStart, groundTop);
       ctx.fillRect(0, fadeStart, W, groundTop - fadeStart);
       // Faixa sólida do verde — do overlap até o fim do canvas.
       ctx.fillStyle = groundColor;
@@ -10045,8 +10077,11 @@ const Quests = (function(){
     // (slot weapon começa equipado mas é o starter — pro design da quest, queremos
     // que o player equipe 3 dos itens DROPADOS pela forja, então só sobe quando
     // _bump também sobe equip_first).
-    const equippedCount = (typeof arena !== 'undefined' && arena.items)
-      ? Object.values(arena.items).filter(x => x).length : 0;
+    // Inline-iterate — evita Object.values + filter alocações (chamado em onEquipped)
+    let equippedCount = 0;
+    if(typeof arena !== 'undefined' && arena.items){
+      for(const k in arena.items) if(arena.items[k]) equippedCount++;
+    }
     _set('equip_3_items', Math.min(equippedCount, 3));
   }
   function onBossDefeated(){ _bump('defeat_boss', 1); }
@@ -10317,8 +10352,13 @@ const Tutorial = (function(){
     _showStep();
   }
   function _equippedCount(){
-    return (typeof arena !== 'undefined' && arena.items)
-      ? Object.values(arena.items).filter(x => x).length : 0;
+    // Inline-iterate em vez de Object.values().filter().length — evita
+    // alocar 2 arrays intermediários a cada chamada (FTUE chama via
+    // _tryShowBossStep + observer, pode rodar com frequência).
+    if(typeof arena === 'undefined' || !arena.items) return 0;
+    let n = 0;
+    for(const k in arena.items) if(arena.items[k]) n++;
+    return n;
   }
   // Aguarda elemento ficar visível (width/height > 0) — observa mudanças de class.
   function _whenVisible(sel, cb){
@@ -11870,7 +11910,7 @@ function renderForgeDice(){
   let activeCombo = null;
   let highlightSet = null;
   if(forgeRoll.phase === 'after-roll'){
-    const comboKey = evalComboArr(forgeRoll.dice.map(v=>({value:v})));
+    const comboKey = evalComboArr(forgeRoll.dice); // raw values, sem map wrap
     activeCombo = COMBO_DATA[comboKey] || COMBO_DATA.NONE;
     forgeRoll.currentCombo = activeCombo;
     const glowColor = COMBO_GLOW_COLOR[activeCombo.id];
