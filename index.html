@@ -3630,8 +3630,8 @@ const AUDIO_CATALOG_DEFAULTS = [
     files: ['assets/audio/sfx/ui_click.mp3'],
     volume: 0.80, pitchRandom: 0.04,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
-  { id: 'sfx_ui_back',   category: 'ui', label: 'SFX — UI back',
-    files: ['assets/audio/sfx/ui_back.mp3'],
+  { id: 'sfx_ui_back',   category: 'ui', label: 'SFX — UI back (close/cancel/X)',
+    files: ['assets/audio/sfx_ui_back.wav'],
     volume: 0.70, pitchRandom: 0.04,
     fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0} },
   { id: 'sfx_ui_hover',  category: 'ui', label: 'SFX — UI hover',
@@ -14303,6 +14303,14 @@ function hideItemPopup(){
     // Tabs PVP/HERÓI/EXPLORAR/LOJA têm .locked + dispatch EM BREVE toast.
     if(el.classList.contains('arenaTab-btn') && el.classList.contains('locked')){
       return 'sfx_ui_click_error';
+    }
+    // === BACK / CLOSE / CANCEL / X ===
+    // IDs específicos dos botões de Voltar/Fechar dos popups + IAP cancel.
+    // Verificado ANTES do main_tap pra não cair no catch-all.
+    if(id === 'settingsCloseBtn'  || id === 'questCloseBtn'
+       || id === 'offlineCloseBtn'   || id === 'forgeLevelCloseBtn'
+       || id === 'autoForgeCloseBtn' || id === 'iapCosmicCancelBtn'){
+      return 'sfx_ui_back';
     }
     // AUTO forge antes do unlock (Lv 3) — abre o popup que mostra a ladder bloqueada.
     if(id === 'arenaForgeAutoBtn'
