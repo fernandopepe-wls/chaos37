@@ -3389,17 +3389,82 @@ const AUDIO_CATALOG_DEFAULTS = [
     crossfadeIn:  { enabled:true,  ms: 2000 },
     crossfadeOut: { enabled:true,  ms: 2000 },
   },
-  // === FUTURE SFX / UI (quando os assets forem adicionados, listar aqui) ===
-  // {
-  //   id: 'sfx_carrot_pickup', category: 'sfx', label: 'SFX — Carrot pickup',
-  //   files: [
-  //     'assets/audio/sfx/carrot_01.wav',
-  //     'assets/audio/sfx/carrot_02.wav',  // variations: random pick on trigger
-  //     'assets/audio/sfx/carrot_03.wav',
-  //   ],
-  //   volume: 0.8, pitchRandom: 0.15,
-  //   fadeIn: { enabled:false, ms: 0 }, fadeOut: { enabled:false, ms: 0 },
-  // },
+  // === FORGE SFX (Layer-generated, dropped into assets/audio/forge/) ===
+  // One-shot triggers wired in animateForgeRoll, forgeMainAction, openForgeCompare.
+  // Volume/pitch tunable via the Audio Tool (key "3").
+  {
+    id: 'sfx_forge_press', category: 'ui', label: 'SFX — ROLAR press',
+    files: ['assets/audio/forge/forge_roll_press.mp3'],
+    volume: 0.85, pitchRandom: 0.05,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0},
+  },
+  {
+    id: 'sfx_dice_roll', category: 'sfx', label: 'SFX — Dice roll (one-shot)',
+    files: ['assets/audio/forge/dice_roll.mp3'],
+    volume: 0.85, pitchRandom: 0.05,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0},
+  },
+  {
+    id: 'sfx_die_land', category: 'sfx', label: 'SFX — Die land tock',
+    files: ['assets/audio/forge/die_land_lock.mp3'],
+    volume: 0.65, pitchRandom: 0.12,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0},
+  },
+  {
+    id: 'sfx_forge_popup_open', category: 'ui', label: 'SFX — Forge popup open',
+    files: ['assets/audio/forge/forge_popup_open.wav.mp3'],
+    volume: 0.80, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0},
+  },
+  // Per-combo-tier stingers — dispatched by combo.id at combo land.
+  {
+    id: 'sfx_combo_none', category: 'sfx', label: 'SFX — Combo: NONE / QUASE',
+    files: ['assets/audio/forge/combo_none.wav.mp3'],
+    volume: 0.75, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0},
+  },
+  {
+    id: 'sfx_combo_pair', category: 'sfx', label: 'SFX — Combo: PAIR',
+    files: ['assets/audio/forge/combo_pair.wav.mp3'],
+    volume: 0.80, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0},
+  },
+  {
+    id: 'sfx_combo_twopair', category: 'sfx', label: 'SFX — Combo: TWOPAIR',
+    files: ['assets/audio/forge/combo_twopair.wav.mp3'],
+    volume: 0.85, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0},
+  },
+  {
+    id: 'sfx_combo_three', category: 'sfx', label: 'SFX — Combo: THREE',
+    files: ['assets/audio/forge/combo_three.wav.mp3'],
+    volume: 0.85, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0},
+  },
+  {
+    id: 'sfx_combo_straight', category: 'sfx', label: 'SFX — Combo: STRAIGHT',
+    files: ['assets/audio/forge/combo_straight.wav.mp3'],
+    volume: 0.90, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0},
+  },
+  {
+    id: 'sfx_combo_full', category: 'sfx', label: 'SFX — Combo: FULL HOUSE',
+    files: ['assets/audio/forge/combo_full.wav.mp3'],
+    volume: 0.90, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0},
+  },
+  {
+    id: 'sfx_combo_four', category: 'sfx', label: 'SFX — Combo: FOUR',
+    files: ['assets/audio/forge/combo_four.wav.mp3'],
+    volume: 0.95, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0},
+  },
+  {
+    id: 'sfx_combo_jackpot', category: 'sfx', label: 'SFX — Combo: FIVE (JACKPOT)',
+    files: ['assets/audio/forge/combo_jackpot.wav.mp3'],
+    volume: 1.00, pitchRandom: 0.00,
+    fadeIn:{enabled:false,ms:0}, fadeOut:{enabled:false,ms:0},
+  },
 ];
 
 // Mixer global — master + per-category gain (0..1).
@@ -3455,6 +3520,38 @@ function getAudioEffectiveVolume(assetId){
 // pra saber o volume target dinâmico. Quando o user mexe nos sliders, esta
 // função retorna o valor atualizado na hora.
 window._getAudioVol = getAudioEffectiveVolume;
+
+// === SFX one-shot trigger ===
+// Lightweight per-asset Audio cache so repeated triggers don't re-download.
+// For overlapping plays (e.g., 5 die-land tocks in quick succession), we
+// clone the cached Audio node so concurrent instances don't fight over the
+// same currentTime. Asset volume + random pitch applied per play.
+const _sfxCache = new Map();
+function _getSfxAudio(src){
+  let a = _sfxCache.get(src);
+  if(!a){
+    a = new Audio(src);
+    a.preload = 'auto';
+    _sfxCache.set(src, a);
+  }
+  return a;
+}
+function playSfx(assetId){
+  const asset = AUDIO_CATALOG.find(x => x.id === assetId);
+  if(!asset || !asset.files || !asset.files.length) return null;
+  const idx = asset.files.length > 1 ? (Math.random() * asset.files.length)|0 : 0;
+  // Clone so overlapping plays don't truncate each other.
+  const base = _getSfxAudio(asset.files[idx]);
+  const node = base.cloneNode();
+  node.volume = getAudioEffectiveVolume(assetId);
+  node.playbackRate = asset.pitchRandom > 0
+    ? 1 + (Math.random()*2 - 1) * asset.pitchRandom
+    : 1;
+  const p = node.play();
+  if(p && p.catch) p.catch(() => {}); // ignore autoplay-block errors
+  return node;
+}
+window.playSfx = playSfx;
 
 // ============ MUSIC MANAGER ============
 // 1 splash track (loop) + 2 gameplay tracks (alternam).
@@ -3544,6 +3641,19 @@ const Music = (function(){
   // total mesmo com promise resolvendo). Awaitar `canplay` (readyState>=3)
   // garante que o áudio realmente vai tocar.
   function _doPlay(audio, fadeInMs, onPlay){
+    // Single-music guarantee — fade out + pause any OTHER music track that
+    // happens to be playing. Prevents two tracks layering when crossfade
+    // calls overlap (e.g., spam-pressing boss button, or rapid state flips).
+    for(const other of [splashAudio, ...gpAudio, bossAudio]){
+      if(other === audio) continue;
+      if(other.paused) continue;
+      if(other._fadeRAF){ cancelAnimationFrame(other._fadeRAF); other._fadeRAF = null; }
+      fadeTo(other, 0, 250);
+      const t = other;
+      setTimeout(() => {
+        try { t.pause(); t.currentTime = 0; } catch(_){}
+      }, 280);
+    }
     audio.currentTime = 0;
     audio.volume = 0;
     const p = audio.play();
@@ -5137,6 +5247,11 @@ function onArenaDeath(){
   if(arena.wave === WAVES_PER_STAGE){
     arena.failedBossCurrentStage = true;
   }
+  // Music: if player died during boss fight (or any time boss music is active),
+  // crossfade back to gameplay since the boss round just ended.
+  if(typeof Music !== 'undefined' && Music.isBossActive && Music.isBossActive()){
+    Music.crossfadeFromBoss();
+  }
   arena.hp = arena.maxHp;
   arena.enemies = [];
   arena.swings = [];
@@ -6502,6 +6617,10 @@ function cheatSkipStage(){
   }
   arena.wave = 1;
   arena.failedBossCurrentStage = false;
+  // Music: skip stage leaves any active boss fight → back to gameplay music.
+  if(typeof Music !== 'undefined' && Music.isBossActive && Music.isBossActive()){
+    Music.crossfadeFromBoss();
+  }
   // limpa estado de combate
   arena.enemies = [];
   arena.swings = [];
@@ -11628,6 +11747,8 @@ function animateForgeRoll(onDone){
 
   // Kick the spin after windup completes
   setTimeout(() => {
+    // SFX: dice tumble one-shot fires when spin actually starts (t≈130ms).
+    if(typeof playSfx === 'function') playSfx('sfx_dice_roll');
     for(const el of _forgeDice()) {
       // Don't spin held dice
       const i = +(el.dataset.i || 0);
@@ -11670,6 +11791,8 @@ function animateForgeRoll(onDone){
             void el.offsetWidth;
             el.classList.add('settled');
             spawnDieParticles(el);
+            // SFX: tock per die landing — pitch random gives 5 staggered tocks variety.
+            if(typeof playSfx === 'function') playSfx('sfx_die_land');
             // Value pop removed — read as floating damage numbers in gameplay.
             setTimeout(() => el.classList.remove('settled'), 300);
           }, delay);
@@ -11697,6 +11820,22 @@ function animateForgeRoll(onDone){
             if(intensity) triggerScreenShake(intensity);
             triggerComboTierText(combo.id, color);
             triggerComboSignature(combo.id, color);
+            // SFX: per-tier stinger. FIVE → jackpot; MAXROLL falls back to NONE.
+            if(typeof playSfx === 'function'){
+              const stingerMap = {
+                NONE:    'sfx_combo_none',
+                MAXROLL: 'sfx_combo_none',
+                PAIR:    'sfx_combo_pair',
+                TWOPAIR: 'sfx_combo_twopair',
+                THREE:   'sfx_combo_three',
+                STRAIGHT:'sfx_combo_straight',
+                FULL:    'sfx_combo_full',
+                FOUR:    'sfx_combo_four',
+                FIVE:    'sfx_combo_jackpot',
+              };
+              const sfxId = stingerMap[combo.id];
+              if(sfxId) playSfx(sfxId);
+            }
             // Combo-bond burst: small star particles at each combo-participating die,
             // tinted by combo color. Visually links the matched set the moment
             // glow appears. Skipped for NONE/MAXROLL (no glow on those tiers).
@@ -11783,6 +11922,8 @@ function forgeMainAction(){
     btn.classList.add('squish');
     setTimeout(() => btn.classList.remove('squish'), 450);
   }
+  // SFX: button tap at t=0.
+  if(typeof playSfx === 'function') playSfx('sfx_forge_press');
   animateForgeRoll();
 }
 
@@ -11808,6 +11949,8 @@ function openForgeCompare(){
   const newItem = arena.pendingForgeItem;
   if(!newItem) return;
   const oldItem = arena.items[newItem.slot];
+  // SFX: card slide-in pop when the compare popup opens.
+  if(typeof playSfx === 'function') playSfx('sfx_forge_popup_open');
 
   // popula linha "Equipado" (slot atual)
   const oldTag    = document.getElementById('forgeOldTag');
