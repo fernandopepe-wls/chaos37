@@ -4293,6 +4293,14 @@ function syncKeyboardInput(){
 window.addEventListener('keydown', e=>{
   keys[e.key]=true;
   syncKeyboardInput();
+  // ============ DEV/STAGING-ONLY KEYBOARD SHORTCUTS ============
+  // NOTA: tentamos gatear este bloco em `if(__DEBUG_ENABLED__)`, mas o Vite
+  // `define` SÓ substitui em `<script type="module">` (e em imports ES),
+  // não em `<script>` inline simples como este. Sem substituição, a leitura
+  // de `__DEBUG_ENABLED__` em runtime no inline lança ReferenceError.
+  // Alternativa: deixar como está — cheat code (~3 KB) fica no bundle de
+  // produção mas é inalcançável em mobile (não tem teclado físico). Migrar
+  // pra um module script daria o DCE, mas requer refactor maior.
   // === CHEAT: tecla "1" pula pro próximo stage (debug / playtesting) ===
   if(e.key === '1' && !e.repeat && typeof cheatSkipStage === 'function'){
     cheatSkipStage();
@@ -4302,8 +4310,6 @@ window.addEventListener('keydown', e=>{
     cheatLevelUpForge();
   }
   // === CHEAT: tecla "K" reseta FTUE + quests pra testar do zero ===
-  // Limpa localStorage do FTUE/quests e recarrega — força ressetting completo
-  // do estado in-memory (incluindo arena.items, contagem de equip, etc).
   if((e.key === 'k' || e.key === 'K') && !e.repeat){
     try {
       localStorage.removeItem('bunnyChaos.ftueStep');
@@ -4316,8 +4322,7 @@ window.addEventListener('keydown', e=>{
   if((e.key === 'j' || e.key === 'J') && !e.repeat && typeof cheatCycleWeapon === 'function'){
     cheatCycleWeapon();
   }
-  // === CHEAT: tecla "H" mata o boss instantaneamente (pra testar cerimônia
-  // de STAGE CLEAR sem precisar grindar a wave inteira) ===
+  // === CHEAT: tecla "H" mata o boss instantaneamente (testar cerimônia) ===
   if((e.key === 'h' || e.key === 'H') && !e.repeat && typeof cheatKillBoss === 'function'){
     cheatKillBoss();
   }
@@ -4346,8 +4351,6 @@ window.addEventListener('keydown', e=>{
       const isShown = panel.classList.toggle('show');
       if(isShown && typeof _audioToolBuildBody === 'function'){
         _audioToolBuildBody();
-        // Pre-warm cache de previews — primeiro click de cada arquivo fica
-        // sem travamento de UI (download + decode acontecem agora em background).
         if(typeof _audioToolPrewarmCache === 'function') _audioToolPrewarmCache();
       }
     }
@@ -4547,6 +4550,7 @@ function tryUpgradeItem(item){
   }
   arena.carrots -= cost;
   item.currentLevel += 1;
+  invalidateArenaStats(); // baseStat depende de currentLevel → recalcular
   return { success:true, costPaid: cost, newLevel: item.currentLevel };
 }
 
@@ -4976,14 +4980,28 @@ const arena = {
   regions:0,
 };
 
+// arenaTotalStat é chamado MUITO: HUD render (60Hz × pelo menos 1 stat),
+// cada ataque/swing (dmg + atkSpeed), cada projétil spawn (projectiles),
+// cada update de movimento (moveSpeed). Cache por nome + generation counter
+// que incrementa em equip/unequip/upgrade. Hit cache evita o loop sobre
+// 8 slots + substats interpretation por stat por frame.
+const _arenaStatCache = Object.create(null);
+let _arenaStatGen = 0;
+function invalidateArenaStats(){
+  // Bump da generation; entradas antigas naturalmente ficam inválidas no
+  // próximo lookup. Mais barato que limpar o objeto (cache hit rate
+  // posterior aproveita as mesmas keys quando os valores re-convergem).
+  _arenaStatGen++;
+}
 function arenaTotalStat(name){
+  const cached = _arenaStatCache[name];
+  if(cached && cached.gen === _arenaStatGen) return cached.val;
   let value = arena['base'+name[0].toUpperCase()+name.slice(1)] || 0;
   for(const slot of ARENA_SLOTS){
     const it = arena.items[slot];
     if(!it) continue;
     // 1. stat primário do item (escalado por era × level via baseStat)
     if(it.stat === name){
-      // usa cache quando consistente, ou recalcula direto pra evitar drift
       value += (it.currentLevel != null)
         ? baseStat(it.slot, it.eraIdx, it.currentLevel)
         : (it.value || 0);
@@ -4994,8 +5012,6 @@ function arenaTotalStat(name){
       for(const s of it.substats){
         const conv = SUBSTAT_TO_ARENA[s.id];
         if(!conv) continue;
-        // se substat tem rollQuality (novo schema), computa valor pelo level;
-        // senão usa s.value (backward compat com items antigos sem rollQuality)
         const v = (s.rollQuality != null)
           ? substatValue(s.max, s.rollQuality, lvl)
           : (s.value || 0);
@@ -5004,6 +5020,7 @@ function arenaTotalStat(name){
       }
     }
   }
+  _arenaStatCache[name] = { gen: _arenaStatGen, val: value };
   return value;
 }
 
@@ -5100,6 +5117,7 @@ function initArena(){
   const ab = document.getElementById('arenaAutoBtn');
   if(ab){ ab.classList.add('active'); ab.textContent = 'AUTO'; }
   arena.items = { weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null };
+  invalidateArenaStats(); // wipe inventory → reseta tudo
   // arma inicial: galho (a pior arma do jogo, melee) — sentinela com valor fixo:
   // currentLevel=null força arenaTotalStat a usar `value` em vez de baseStat,
   // mantendo o galho em 0 de dano (puro starter — sem upgrade por level/era).
@@ -5724,7 +5742,7 @@ window.addEventListener('DOMContentLoaded', () => {
 function _audioToolBuildBody(){
   const body = document.getElementById('audioToolBody');
   if(!body) return;
-  body.innerHTML = '';
+  body.textContent = ''; // clear via textContent (mais rápido que innerHTML)
 
   // === Toolbar — PAUSAR/RETOMAR áudio do jogo + STOP ALL previews ===
   const isPaused = (typeof Music !== 'undefined' && Music.isPaused) ? Music.isPaused() : false;
@@ -6295,7 +6313,7 @@ function _resetScalePreset(){
 function _scaleToolBuildBody(){
   const body = document.getElementById('scaleToolBody');
   if(!body) return;
-  body.innerHTML = '';
+  body.textContent = ''; // clear via textContent (mais rápido que innerHTML)
   // Botão Reset no topo
   const reset = document.createElement('button');
   reset.className = 'scaleTool-reset';
@@ -6337,7 +6355,7 @@ window.addEventListener('DOMContentLoaded', () => {
 function _buildLayoutEditorBody(){
   const body = document.getElementById('layoutEditorBody');
   if(!body) return;
-  body.innerHTML = '';
+  body.textContent = ''; // clear via textContent (mais rápido que innerHTML)
   for(const row of LAYOUT_SCHEMA){
     if(row.section){
       const sec = document.createElement('div');
@@ -7138,6 +7156,7 @@ function arenaEquipItem(item){
   // se não tem item OU o novo é melhor (raridade > ou valor da mesma stat >)
   if(!cur){
     arena.items[item.slot] = item;
+    invalidateArenaStats();
     if(typeof Quests   !== 'undefined') Quests.onEquipped();
     if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
     if(window.Analytics) Analytics.send('item_equipped', {
@@ -7153,6 +7172,7 @@ function arenaEquipItem(item){
     // Recompensa o item antigo substituído em carrots
     _grantDiscardCarrots(cur);
     arena.items[item.slot] = item;
+    invalidateArenaStats();
     if(typeof Quests   !== 'undefined') Quests.onEquipped();
     if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
     if(window.Analytics) Analytics.send('item_equipped', {
@@ -10210,7 +10230,7 @@ const Quests = (function(){
     }
     if(_renderList._lastFp === fp) return;
     _renderList._lastFp = fp;
-    list.innerHTML = '';
+    list.textContent = ''; // textContent é ~mais rápido que innerHTML pra clear
     for(const d of QUEST_DEFS){
       const e = _entry(d.id);
       if(!e) continue;
@@ -11742,6 +11762,7 @@ function autoForgeCeremonyChain(rolls, combo){
           if(typeof _carrotPopAtRollBtn === 'function') _carrotPopAtRollBtn(v);
         }
         arena.items[item.slot] = item;
+        invalidateArenaStats();
         summary.equipped++;
         if(eraIdx > summary.bestEra) summary.bestEra = eraIdx;
         if(typeof Quests   !== 'undefined') Quests.onEquipped();
@@ -12793,6 +12814,7 @@ document.getElementById('forgeEquipBtn').addEventListener('click', ()=>{
     const oldItem = arena.items[arena.pendingForgeItem.slot];
     if(oldItem) _grantDiscardCarrots(oldItem);
     arena.items[arena.pendingForgeItem.slot] = arena.pendingForgeItem;
+    invalidateArenaStats();
     if(typeof Quests   !== 'undefined') Quests.onEquipped();
     if(typeof Tutorial !== 'undefined') Tutorial.onEquipped();
     if(window.Analytics) Analytics.send('item_equipped', {
@@ -12936,7 +12958,7 @@ function renderItemPopup(){
     if(slotFrame) slotFrame.style.setProperty('--slot-bg', '#e5e1d4');
     nameEl.innerHTML = `<span style="color:#9b8fc4">Vazio</span> · ${(ARENA_SLOT_LABELS[slotKey] || slotKey)}`;
     primaryEl.innerHTML = `<span style="color:#9b8fc4;font-weight:normal">Sem item — forje um pra equipar</span>`;
-    subsEl.innerHTML = '';
+    subsEl.textContent = ''; // clear
     lvlRow.classList.add('hidden');
     upRow.style.display = 'none';
     return;
