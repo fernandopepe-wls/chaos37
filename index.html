@@ -15371,6 +15371,16 @@ const _loopEls = {
   forgeLvBtn:  document.getElementById('arenaForgeLevelBtn'),
   forgeLvNum:  document.getElementById('forgeLevelNum'),
 };
+// iOS render throttle: iPhone com ProMotion (15 Pro+) roda a 120Hz, dobrando
+// a pressão de budget de frame (8.3ms vs 16.7ms em 60Hz). Trabalho que cabe
+// em 60fps no Android dropa frames no iPhone simplesmente por causa da freq.
+// Galaxy S24 default 60Hz não tem esse problema → user reporta S24 fluido
+// e iPhone 15 Pro travado no mesmo código.
+// Fix: em iOS, gate o renderArena() pra ~60Hz mesmo em devices 120Hz.
+// rAF continua firing 120×/seg mas o draw heavy só roda a 60Hz.
+// Touch latency aumenta ~8ms (1 frame), imperceptível pro player.
+let _lastRenderTime = 0;
+const _IOS_RENDER_INTERVAL = 16.4;  // ~60.97Hz target
 function loop(now){
   let frame = now - last;
   last = now;
@@ -15455,7 +15465,18 @@ function loop(now){
   // game state já tá atualizado. Auto-forge NÃO entra nessa condição (flag
   // só seta em modo manual) — auto cicla popups rápido, precisa do canvas
   // visualmente continuo.
-  if(!arena.forgeComparePopupOpen) renderArena();
+  // iOS 120Hz throttle: skip draw se < 16.4ms desde último render. rAF
+  // continua firing a 120Hz, draw fica em ~60Hz. Reduz GPU work pela metade
+  // em iPhones ProMotion onde a freq dobrada era a causa raiz dos frame drops.
+  let _shouldRender = true;
+  if(_IS_IOS_PERF){
+    if(now - _lastRenderTime < _IOS_RENDER_INTERVAL){
+      _shouldRender = false;
+    } else {
+      _lastRenderTime = now;
+    }
+  }
+  if(_shouldRender && !arena.forgeComparePopupOpen) renderArena();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
