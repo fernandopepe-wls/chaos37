@@ -1511,6 +1511,11 @@
        (transform: rotate em diceRoll keyframe) já dá o sense de spin sem
        precisar do blur. brightness também caiu junto. */
   }
+  /* iOS: roll animation 2× mais lenta = metade dos layer composites/sec
+     pros 5 dados simultâneos. Visual ainda lê como "spin" mas GPU respira. */
+  html.ios-perf #arenaDiceRow .forge-die.rolling{
+    animation-duration: .24s;
+  }
   @keyframes diceRoll{
     0%   { transform:translateY(0)    rotate(0deg);   }
     25%  { transform:translateY(-3px) rotate(15deg);  }
@@ -1613,6 +1618,28 @@
   }
   .forge-dice-row.row-rolling{
     transform: scale(1.32);
+  }
+  /* iOS WebKit: durante o spin o jogo INTEIRO (canvas + bunny + enemies)
+     caía FPS porque os 5 dados com will-change:transform + .rolling
+     infinite animation + row-rolling parent scale forçavam re-composição
+     da árvore inteira (canvas inclusive). Fixes empilhados:
+       1. .forge-dice-row ganha contain:layout paint + isolation:isolate
+          → isola layer hierarchy do dice tray, canvas não precisa
+          recompose quando dado anima.
+       2. .forge-die perde will-change:transform — promoção permanente
+          de 5 layers + animação faz layer churn. Sem will-change, browser
+          promove lazy só durante a animação.
+       3. row-rolling scale baixa de 1.32 → 1.18 — parent transform menos
+          agressivo = menos pressão de re-layout dos filhos. */
+  html.ios-perf .forge-dice-row{
+    contain: layout paint;
+    isolation: isolate;
+  }
+  html.ios-perf #arenaDiceRow .forge-die{
+    will-change: auto;
+  }
+  html.ios-perf .forge-dice-row.row-rolling{
+    transform: scale(1.18);
   }
 
   /* Settle: per-die bounce when spin ends. Replaces .rolling for ~280ms. */
