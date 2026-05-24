@@ -2608,16 +2608,24 @@
     max-height: min(400px, calc(100vh - 220px));
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding-right: 4px;
-    scrollbar-width: thin;
-    scrollbar-color: #b07a3a transparent;
+    padding-right: 8px;
+    /* Firefox: 'auto' (vs thin) pra scrollbar mais largo. */
+    scrollbar-width: auto;
+    scrollbar-color: #b07a3a #e8dfc4;
   }
-  #questList::-webkit-scrollbar{ width: 6px; }
+  /* WebKit (Safari iOS / Chrome): 10px de largura + track visível pra leitura
+     fácil de quanto falta scrollar. */
+  #questList::-webkit-scrollbar{ width: 10px; }
   #questList::-webkit-scrollbar-thumb{
     background: #b07a3a;
-    border-radius: 3px;
+    border-radius: 5px;
+    border: 2px solid #e8dfc4;
+    background-clip: padding-box;
   }
-  #questList::-webkit-scrollbar-track{ background: transparent; }
+  #questList::-webkit-scrollbar-track{
+    background: #e8dfc4;
+    border-radius: 5px;
+  }
   .quest-row{
     background:#fff7e0;
     border:2px solid #b07a3a;
@@ -3459,7 +3467,6 @@
     <!-- quest popup (LoM-style mission panel) -->
     <div class="layer" id="questLayer">
       <div class="forge-popup-card quest-card">
-        <div class="forge-popup-tag">📜 Missões</div>
         <h2 class="forge-level-title">Missões iniciais</h2>
         <p class="forge-level-desc">Complete missões e resgate <svg class="gem-icon" aria-hidden="true"><use href="#gemSymbol"/></svg> gemas pra evoluir mais rápido.</p>
         <div id="questList"></div>
