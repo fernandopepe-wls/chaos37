@@ -1527,10 +1527,17 @@
        (transform: rotate em diceRoll keyframe) já dá o sense de spin sem
        precisar do blur. brightness também caiu junto. */
   }
-  /* iOS: roll animation 2× mais lenta = metade dos layer composites/sec
-     pros 5 dados simultâneos. Visual ainda lê como "spin" mas GPU respira. */
+  /* iOS Quick Win: DESLIGA a animation .rolling completamente.
+     Antes (desktop/Android): rotate keyframe .12s infinite linear → 5 dados
+     animando simultâneo = layer composite churn constante na GPU.
+     Antes (iOS): .24s (metade da freq) — ainda custoso.
+     Agora (iOS): animation:none. Dados ficam ESTÁTICOS visualmente, mas o
+     data-face muda a cada 70ms (tick do setInterval). Player vê faces
+     mudando random = leitura como "rolando" preservada, sem o custo de
+     5 transforms simultâneos competindo com canvas pelo GPU.
+     Android/Desktop mantém intacto (rotate keyframe original). */
   html.ios-perf #arenaDiceRow .forge-die.rolling{
-    animation-duration: .24s;
+    animation: none;
   }
   @keyframes diceRoll{
     0%   { transform:translateY(0)    rotate(0deg);   }
