@@ -1675,6 +1675,12 @@
     78%  { transform: scale(.95, 1.05) translateY(0); }
     100% { transform: scale(1, 1)       translateY(0); }
   }
+  /* iOS: skip settle bounce — user pediu visual minimalista. Dado pousa
+     direto sem .settled keyframe (.28s scale/translate). Pra leitura ainda
+     tem o face PNG mudando + SFX die_land tock. */
+  html.ios-perf #arenaDiceRow .forge-die.settled{
+    animation: none;
+  }
 
   /* Value pop above each die when it settles. Floats up + fades. */
   .forge-die-value-pop{
@@ -13837,14 +13843,10 @@ const _SHAKE_CLS = {
 };
 const _SHAKE_MS = { tiny: 250, small: 360, big: 560, mega: 820, bigIOS: 420, megaIOS: 500 };
 function triggerScreenShake(intensity){
-  // iOS: usar intermediates 'bigIOS'/'megaIOS' (amplitude + duração ~50%
-  // dos originais). Antes era downgrade total pra 'small' (3px×320ms) que
-  // funcionou perfeito (user report: 0 lag). Agora reintroduz mais juice
-  // pros combos top mantendo cost moderado vs versão full.
-  if(_IS_IOS_PERF){
-    if(intensity === 'big')  intensity = 'bigIOS';
-    if(intensity === 'mega') intensity = 'megaIOS';
-  }
+  // iOS: skip TOTAL — user pediu visual minimalista (só tier text + combo
+  // glow nos dados). Sem shake = sem body transform = sem fullscreen
+  // recompose. Visual ainda lê via tier text "NICE!"/"JACKPOT!!" + SFX.
+  if(_IS_IOS_PERF) return;
   const cls = _SHAKE_CLS[intensity];
   if(!cls) return;
   // Strip all shake classes so a new one restarts cleanly.
@@ -13864,6 +13866,9 @@ function triggerScreenShake(intensity){
 const _FLASH_SCALE = { tiny: 0.30, small: 0.80, big: 1.20, mega: 1.80 };
 const _FLASH_MS    = { tiny: 200,  small: 380,  big: 520,  mega: 720  };
 function triggerComboFlash(color, intensity){
+  // iOS: skip — user pediu visual minimalista. Sem flash = sem radial
+  // gradient + animation = canvas livre. Combo lê via tier text + glow.
+  if(_IS_IOS_PERF) return;
   const el = document.getElementById('forgeComboFlash');
   if(!el) return;
   const scale = _FLASH_SCALE[intensity] || _FLASH_SCALE.small;
@@ -13883,6 +13888,9 @@ function triggerComboFlash(color, intensity){
 // shake + flash + tier-text. Keeps the tier ladder readable at a glance.
 
 function triggerSweepBar(color){
+  // iOS: skip — user pediu visual minimalista. Sweep bar é 120vw element
+  // animando left + opacity, custo de paint em fullscreen-ish region.
+  if(_IS_IOS_PERF) return;
   const el = document.getElementById('forgeSweepBar');
   if(!el) return;
   if(color) el.style.setProperty('--sweep-color', color);
@@ -13893,6 +13901,9 @@ function triggerSweepBar(color){
 }
 
 function triggerRays(color){
+  // iOS: skip — user pediu visual minimalista. Rays é conic gradient
+  // 800×800 rotating + mask, custo de paint+composite alto.
+  if(_IS_IOS_PERF) return;
   const el = document.getElementById('forgeRays');
   if(!el) return;
   if(color) el.style.setProperty('--rays-color', color);
