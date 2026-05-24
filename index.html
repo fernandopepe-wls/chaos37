@@ -3244,8 +3244,9 @@
         <div class="settings-section">
           <h3 class="settings-section-title">🌎 Idioma</h3>
           <div class="settings-lang-row">
+            <!-- English button removido — game ainda não localizado em en.
+                 Bottão PT mantido como indicador visual do idioma atual. -->
             <button class="settings-lang-btn active" data-lang="pt">🇧🇷 Português</button>
-            <button class="settings-lang-btn"        data-lang="en">🇬🇧 English</button>
           </div>
         </div>
 
@@ -7667,8 +7668,14 @@ function _coalesceCarrotPickupPop(gameX, gameY, amount){
   const cr = _cccCanvRect, lr = _cccLayerRect;
   const scaleX = cr.width  / _cccGameCanv.width;
   const scaleY = cr.height / _cccGameCanv.height;
-  const vx = cr.left + gameX * scaleX;
-  const vy = cr.top  + (gameY - 18) * scaleY;  // float above bunny head
+  // Pop AGORA sobe DA carrot pill (top-right HUD) em vez de cima do bunny.
+  // Reforça visualmente que o contador do pill subiu. gameX/gameY ignorados.
+  // Spawna logo abaixo do centro do pill — animação faz float-up que cruza
+  // a pill, parecendo que a cenoura "entrou" no inventário.
+  const pillCx = LAYOUT.carrotPillX + LAYOUT.carrotPillW * 0.5;
+  const pillCy = LAYOUT.carrotPillY + SAFE.topLogical + LAYOUT.carrotPillH * 0.5;
+  const vx = cr.left + pillCx * scaleX;
+  const vy = cr.top  + (pillCy + LAYOUT.carrotPillH * 0.45) * scaleY;
   const now = performance.now();
   const c = _carrotPickupCoalesce;
   if(c && c.el && c.el.parentNode && (now - c.lastT) < 220){
