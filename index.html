@@ -1920,6 +1920,25 @@
     25%, 45%, 65% { transform: translate3d(-12px, -4px, 0); }
     35%, 55%, 75% { transform: translate3d( 12px,  4px, 0); }
   }
+  /* iOS-friendly intermediates: amplitude + duration reduzidos vs originais
+     (big 12px/500ms, mega 12px/750ms). Body transform ainda força recompose
+     mas com 50% do tempo + 50% da amplitude = ~25% do custo original.
+     User report: 0 lag com small downgrade total, então tentamos restore
+     parcial pra dar mais impacto nos combos top sem voltar o problema. */
+  body.forge-shake-bigIOS{ animation: forgeShakeBigIOS .38s cubic-bezier(.36,.07,.19,.97); }
+  @keyframes forgeShakeBigIOS{
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d( 3px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-5px, -1px, 0); }
+    40%, 60% { transform: translate3d( 5px,  1px, 0); }
+  }
+  body.forge-shake-megaIOS{ animation: forgeShakeMegaIOS .45s cubic-bezier(.36,.07,.19,.97); }
+  @keyframes forgeShakeMegaIOS{
+    10%, 90% { transform: translate3d(-2px, 0, 0); }
+    20%, 80% { transform: translate3d( 4px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-7px, -2px, 0); }
+    40%, 60% { transform: translate3d( 7px,  2px, 0); }
+  }
   #forgeComboLabel{
     text-align:center;font-size:18px;font-weight:bold;letter-spacing:.4px;
     margin:6px 0 4px;
@@ -13760,10 +13779,10 @@ function spawnSparkles(dieEl, color, count){
   const rect = dieEl.getBoundingClientRect();
   const cx = rect.left + rect.width/2;
   const cy = rect.top  + rect.height/2;
-  // iOS: cap em 3 (vs 7 desktop). 5 glow dice × 7 = 35 DOM nodes em 1 frame
-  // no combo land. Cap → 15 nodes total. Sparkles ainda lê visualmente como
-  // "magic burst" mas iOS WebKit não sufoca em style invalidation.
-  const n = _IS_IOS_PERF ? Math.min(3, count || 3) : (count || 6);
+  // iOS: cap em 5 (vs 7 desktop). Mais denso que o cap 3 anterior, mas
+  // ainda 28% menos que desktop. 5 glow dice × 5 = 25 sparkles (vs 35
+  // original / vs 15 do cap 3). User pediu mais juice nos combos top.
+  const n = _IS_IOS_PERF ? Math.min(5, count || 5) : (count || 6);
   const glyphs = ['✦', '✧', '✨', '★'];
   for(let i=0; i<n; i++){
     const sp = document.createElement('div');
@@ -13792,11 +13811,11 @@ function spawnDieParticles(dieEl, color){
   const rect = dieEl.getBoundingClientRect();
   const cx = rect.left + rect.width/2;
   const cy = rect.top  + rect.height/2;
-  // iOS: cap em 3 (vs 8 desktop). Settle gera 5 dice × 8 = 40 DOM particles
-  // em 350ms staggered. Combo land chama isso 2× por glow die = 80 mais.
-  // Cap em 3 reduz pra 15 (settle) + 30 (combo) = 45 vs 120 antes.
-  // Cada appendChild ao body forçava style invalidation propagada.
-  const count = _IS_IOS_PERF ? 3 : 8;
+  // iOS: cap em 5 (vs 8 desktop). User pediu mais juice. 5 dice × 5 = 25
+  // particles no settle (vs 15 do cap 3, vs 40 original). Combo land 2×
+  // burst per glow die = 50 mais (vs 30, vs 80 original). Total 75 (vs 45,
+  // vs 120). Ainda 38% redução, mas burst visual mais denso.
+  const count = _IS_IOS_PERF ? 5 : 8;
   for(let i=0; i<count; i++){
     const p = document.createElement('div');
     p.className = 'forge-die-particle';
@@ -13820,15 +13839,20 @@ const _SHAKE_CLS = {
   small: 'forge-shake-small',
   big:   'forge-shake-big',
   mega:  'forge-shake-mega',
+  // iOS intermediates: amplitude + duration reduzidos. Triggered via
+  // intensity remap em triggerScreenShake quando _IS_IOS_PERF.
+  bigIOS:  'forge-shake-bigIOS',
+  megaIOS: 'forge-shake-megaIOS',
 };
-const _SHAKE_MS = { tiny: 250, small: 360, big: 560, mega: 820 };
+const _SHAKE_MS = { tiny: 250, small: 360, big: 560, mega: 820, bigIOS: 420, megaIOS: 500 };
 function triggerScreenShake(intensity){
-  // iOS: body transform força recompose fullscreen (canvas + popups + HUD).
-  // 'big' = 12px×500ms, 'mega' = 12px×750ms são os piores. Downgrade pra
-  // 'small' (3px×320ms) que ainda comunica impacto mas com 1/4 do custo.
-  // 'tiny' e 'small' já passam direto (transform pequeno + curto).
-  if(_IS_IOS_PERF && (intensity === 'big' || intensity === 'mega')){
-    intensity = 'small';
+  // iOS: usar intermediates 'bigIOS'/'megaIOS' (amplitude + duração ~50%
+  // dos originais). Antes era downgrade total pra 'small' (3px×320ms) que
+  // funcionou perfeito (user report: 0 lag). Agora reintroduz mais juice
+  // pros combos top mantendo cost moderado vs versão full.
+  if(_IS_IOS_PERF){
+    if(intensity === 'big')  intensity = 'bigIOS';
+    if(intensity === 'mega') intensity = 'megaIOS';
   }
   const cls = _SHAKE_CLS[intensity];
   if(!cls) return;
@@ -13888,11 +13912,11 @@ function triggerRays(color){
 }
 
 function spawnConfetti(count){
-  // iOS: skip confetti — 40 emoji 🥕 DOM com animation em 1 frame =
-  // explosão de layout work. Emoji é text-render via font (mais caro que
-  // sprite). Combo FIVE perde a chuva de cenoura mas flash + rays + sweep
-  // + text 'JACKPOT!!' + sparkles ainda comunicam o impacto.
-  if(_IS_IOS_PERF) return;
+  // iOS: cap em 15 (vs 40 desktop). User pediu chuva de volta no jackpot.
+  // 15 emoji ainda é spawn pesado em 1 frame (mais que sparkles/particles)
+  // mas spread over 1.6-2.8s de duração (random per piece) → DOM thrash
+  // menos concentrado vs spawnSparkles/spawnDieParticles que duram 480ms.
+  if(_IS_IOS_PERF) count = Math.min(15, count);
   for(let i=0; i<count; i++){
     const p = document.createElement('div');
     p.className = 'forge-confetti';
