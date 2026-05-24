@@ -1470,9 +1470,17 @@
     position:relative;
     box-sizing:border-box;
     aspect-ratio:1/1;
-    /* Per-face PNGs cropped tight to die bounds (~288-301px square). Dice
-       fill the element fully with their outline + shine baked in. */
-    background-size: 100% 100%;
+    /* SPRITE SHEET (single texture, 576×96, 6 cols × 1 row, 96px cells).
+       Antes eram 6 PNGs separados (face1.png..face6.png) trocados via
+       background-image swap a cada mudança de data-face. Durante spin
+       isso causa 40 texture uploads/swap na GPU iOS (5 dados × 8 ticks),
+       lag visível. Sheet único + background-position muda APENAS o frame
+       sem re-upload de texture — drop direto do custo de GPU.
+       background-size: 600% 100% → 6× o tamanho do dado nessa única
+       imagem, então cada face ocupa 1/6 do background.
+       background-position: -(N-1)*100% 0 → mostra face N. */
+    background-image: url('assets/forge/dice_faces_sheet.png');
+    background-size: 600% 100%;
     background-repeat: no-repeat;
     background-color: transparent;
     border: 0;
@@ -1482,16 +1490,19 @@
     cursor:pointer;
     user-select:none;
     /* will-change promove o dado pra camada composta no GPU; sem isso, cada
-       frame da rotação/spin precisa repaint via CPU (caro em iOS 16). */
+       frame da rotação/spin precisa repaint via CPU (caro em iOS 16).
+       Gated em html.ios-perf (lá abaixo) — em iOS sem will-change pra
+       evitar layer churn permanente. */
     will-change: transform;
   }
-  /* One PNG per face (square, tight crop). Avoids sprite-sheet math. */
-  #arenaDiceRow .forge-die[data-face="1"]{ background-image: url('assets/forge/face1.png'); }
-  #arenaDiceRow .forge-die[data-face="2"]{ background-image: url('assets/forge/face2.png'); }
-  #arenaDiceRow .forge-die[data-face="3"]{ background-image: url('assets/forge/face3.png'); }
-  #arenaDiceRow .forge-die[data-face="4"]{ background-image: url('assets/forge/face4.png'); }
-  #arenaDiceRow .forge-die[data-face="5"]{ background-image: url('assets/forge/face5.png'); }
-  #arenaDiceRow .forge-die[data-face="6"]{ background-image: url('assets/forge/face6.png'); }
+  /* Sprite position por face: cada cell é 1/6 (16.666%) da sheet width.
+     N=1 mostra do offset 0%; N=2 mostra -100%; ... N=6 mostra -500%. */
+  #arenaDiceRow .forge-die[data-face="1"]{ background-position:    0% 0; }
+  #arenaDiceRow .forge-die[data-face="2"]{ background-position: -100% 0; }
+  #arenaDiceRow .forge-die[data-face="3"]{ background-position: -200% 0; }
+  #arenaDiceRow .forge-die[data-face="4"]{ background-position: -300% 0; }
+  #arenaDiceRow .forge-die[data-face="5"]{ background-position: -400% 0; }
+  #arenaDiceRow .forge-die[data-face="6"]{ background-position: -500% 0; }
   /* CSS pips no longer used — sprite carries the pip art now. */
   .forge-die .pip{ display:none; }
 
@@ -4554,18 +4565,11 @@ const SPLASH_ASSETS = [
   'assets/ui-roll-forge.png',    // usado via CSS background
   'assets/ui-bg-bottom.png',     // usado via canvas drawUIImage
   'assets/ui-panel-card.png',    // BOTTOM CARD 9-slice background (1024 PNG for cross-device compat)
-  // Dice faces — CSS background-image dos .forge-die. SEM preload, iOS
-  // WebKit decoda os 6 PNGs main-thread no PRIMEIRO clique no ROLAR
-  // (data-face muda → CSS resolve url() → fetch + decode síncronos).
-  // Cada decode ~30-50ms em iPhone 11 Pro → 180-300ms de freeze visível
-  // logo após o tap do ROLAR. Preload no splash desloca esse custo pro
-  // boot e o 1º roll fica fluido.
-  'assets/forge/face1.png',
-  'assets/forge/face2.png',
-  'assets/forge/face3.png',
-  'assets/forge/face4.png',
-  'assets/forge/face5.png',
-  'assets/forge/face6.png',
+  // Dice faces sprite sheet (576×96, todas as 6 faces num único texture).
+  // Substituiu os 6 PNGs separados pra eliminar texture swaps na GPU
+  // durante spin — agora só background-position muda em vez de
+  // background-image (5 dados × 8 ticks = ANTES 40 swaps/roll, AGORA 0).
+  'assets/forge/dice_faces_sheet.png',
 ];
 (function runSplashScreen(){
   const splash = document.getElementById('splashScreen');
