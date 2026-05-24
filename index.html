@@ -4665,6 +4665,32 @@ const SPLASH_ASSETS = [
   });
 })();
 
+// Item sprite preloader — background, não-bloqueante.
+// User report: lag no momento que o forge popup abre com o item novo.
+// Causa: <img src='items/eraX/...'> decode lazy main-thread iOS na primeira
+// vez que o sprite aparece. Items são 256×256 palette PNG (~10-20KB cada),
+// 84 total no pool. Decode pre-emptivo em background descarrega esse custo
+// pro splash → popups abrem instantâneos depois.
+// setTimeout 200ms pra esperar SPLASH_ASSETS terminar (priority de boot).
+setTimeout(() => {
+  if(typeof ARENA_ITEM_POOL === 'undefined') return;
+  const seen = new Set();
+  for(const it of ARENA_ITEM_POOL){
+    if(it && it.sprite && !seen.has(it.sprite)){
+      seen.add(it.sprite);
+      const img = new Image();
+      img.src = it.sprite; // dispara fetch + decode em background
+    }
+  }
+  // Cosmic Blaster (IAP item) também — sprite usado no popup compare
+  // se player tem a arma equipada.
+  const cosmic = 'assets/items/era_05/cosmic_blaster/cosmic_blaster.png';
+  if(!seen.has(cosmic)){
+    const img = new Image();
+    img.src = cosmic;
+  }
+}, 200);
+
 // ============ CONFIG ============
 // W (logical width) é FIXO em 360 — referência de design. Todas as coords
 // e tamanhos de HUD são definidos em "logical px" relativos a essa largura.
