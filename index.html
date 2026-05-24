@@ -11129,7 +11129,11 @@ function fillItemIconHTML(el, item, sizePx){
   if(!el) return;
   if(item && item.sprite){
     const sz = sizePx || 64;
-    el.innerHTML = `<img src="${item.sprite}" alt="" style="width:${sz}px;height:${sz}px;object-fit:contain;display:block;pointer-events:none;"/>`;
+    // decoding="async" hint: iOS WebKit às vezes honra esse atributo pra
+    // fazer decode off-main-thread (sem bloquear paint inicial do popup).
+    // Mesmo quando ignorado, é grátis tentar. Plus sprites já são preloaded
+    // em background no boot — esse <img> só lê do cache do browser.
+    el.innerHTML = `<img src="${item.sprite}" alt="" decoding="async" style="width:${sz}px;height:${sz}px;object-fit:contain;display:block;pointer-events:none;"/>`;
     // remove font-size do parent pra não criar gap vertical do baseline
     el.style.fontSize = '0';
   } else {
@@ -13623,7 +13627,7 @@ function forgeItemCardInner(item){
   const lvl = item.level ? `<div class="rare" style="color:${era.color}">Lv ${item.level}</div>` : '';
   // Sprite > emoji icon (sprite fica embedded como <img>, caso contrário cai emoji)
   const iconContent = item.sprite
-    ? `<img src="${item.sprite}" alt="" style="width:64px;height:64px;object-fit:contain;display:block;margin:auto;"/>`
+    ? `<img src="${item.sprite}" alt="" decoding="async" style="width:64px;height:64px;object-fit:contain;display:block;margin:auto;"/>`
     : item.icon;
   return `
     <div class="ico" style="color:${era.color}">${iconContent}</div>
@@ -14432,44 +14436,51 @@ function openForgeCompare(){
   // Não muda state pra ARENA_TAB — gameplay continua rodando ao fundo enquanto
   // o popup do item está visível (tanto em manual quanto durante a cerimônia
   // do auto-forge). Player pode ver inimigos se movendo + bunny atacando.
-  showLayer('forgeCompare');
+  // FIX B (iOS perf): defer showLayer + animation classes por 1 RAF. Browser
+  // tem 1 frame extra pra processar todas as mutations innerHTML acima ANTES
+  // da transition display:none→flex disparar. Sem isso, iOS WKWebKit faz
+  // style recalc + paint tudo numa explosão única → frame drop visível.
+  // Custo: ~16ms a mais de delay (1 frame), imperceptível pro player.
+  requestAnimationFrame(() => {
+    showLayer('forgeCompare');
 
-  // === JUICE: stagger reveal animations on the popup ===
-  // Card slides in, new row pops, slot shines + persistent rarity aura,
-  // NOVO! badge bounces. All classes are one-shot or cleaned on close.
-  const card = document.querySelector('#forgeCompare .forge-popup-card');
-  const newRow = document.getElementById('forgeNewRow');
-  const newSlotEl = document.getElementById('forgeNewSlot');
-  const novoEl = newSlotEl && newSlotEl.querySelector('.novo');
-  // Era color drives the slot aura tint (higher era = bigger feel).
-  const era = (typeof ERAS !== 'undefined' && ERAS[newItem.eraIdx]) || (ERAS && ERAS[0]);
-  const rarityColor = (era && era.color) || '#ffcc3d';
-  if(newSlotEl) newSlotEl.style.setProperty('--rarity-color', rarityColor);
-  // Strip any leftover anim classes, force reflow, re-apply.
-  for(const el of [card, newRow, newSlotEl, novoEl]){
-    if(!el) continue;
-    el.classList.remove('reveal', 'shine', 'new-aura');
-  }
-  if(card) void card.offsetWidth;
-  if(card)      card.classList.add('reveal');
-  if(newRow)    newRow.classList.add('reveal');
-  if(newSlotEl) newSlotEl.classList.add('shine', 'new-aura');
-  if(novoEl)    novoEl.classList.add('reveal');
-  // Substat numbers tick up 0 → target. Delay so the row finishes its reveal
-  // first; matches the .new.reveal keyframe (~180ms delay + ~380ms anim).
-  setTimeout(() => {
-    if(!newRow) return;
-    const nums = newRow.querySelectorAll('.num');
-    for(const n of nums) animateNumberTickUp(n, 520);
-  }, 380);
-  // Strip transient anim classes after they finish so closing/reopening replays cleanly.
-  setTimeout(() => {
-    if(card)      card.classList.remove('reveal');
-    if(newRow)    newRow.classList.remove('reveal');
-    if(newSlotEl) newSlotEl.classList.remove('shine');
-    if(novoEl)    novoEl.classList.remove('reveal');
-    // .new-aura persists while popup is open — cleaned when popup closes (see closeForge / forgeApplyAndClose).
-  }, 1400);
+    // === JUICE: stagger reveal animations on the popup ===
+    // Card slides in, new row pops, slot shines + persistent rarity aura,
+    // NOVO! badge bounces. All classes are one-shot or cleaned on close.
+    const card = document.querySelector('#forgeCompare .forge-popup-card');
+    const newRow = document.getElementById('forgeNewRow');
+    const newSlotEl = document.getElementById('forgeNewSlot');
+    const novoEl = newSlotEl && newSlotEl.querySelector('.novo');
+    // Era color drives the slot aura tint (higher era = bigger feel).
+    const era = (typeof ERAS !== 'undefined' && ERAS[newItem.eraIdx]) || (ERAS && ERAS[0]);
+    const rarityColor = (era && era.color) || '#ffcc3d';
+    if(newSlotEl) newSlotEl.style.setProperty('--rarity-color', rarityColor);
+    // Strip any leftover anim classes, force reflow, re-apply.
+    for(const el of [card, newRow, newSlotEl, novoEl]){
+      if(!el) continue;
+      el.classList.remove('reveal', 'shine', 'new-aura');
+    }
+    if(card) void card.offsetWidth;
+    if(card)      card.classList.add('reveal');
+    if(newRow)    newRow.classList.add('reveal');
+    if(newSlotEl) newSlotEl.classList.add('shine', 'new-aura');
+    if(novoEl)    novoEl.classList.add('reveal');
+    // Substat numbers tick up 0 → target. Delay so the row finishes its reveal
+    // first; matches the .new.reveal keyframe (~180ms delay + ~380ms anim).
+    setTimeout(() => {
+      if(!newRow) return;
+      const nums = newRow.querySelectorAll('.num');
+      for(const n of nums) animateNumberTickUp(n, 520);
+    }, 380);
+    // Strip transient anim classes after they finish so closing/reopening replays cleanly.
+    setTimeout(() => {
+      if(card)      card.classList.remove('reveal');
+      if(newRow)    newRow.classList.remove('reveal');
+      if(newSlotEl) newSlotEl.classList.remove('shine');
+      if(novoEl)    novoEl.classList.remove('reveal');
+      // .new-aura persists while popup is open — cleaned when popup closes (see closeForge / forgeApplyAndClose).
+    }, 1400);
+  });
 
   if(typeof Tutorial !== 'undefined') Tutorial.onForgeOpened();
 }
