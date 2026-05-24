@@ -2291,6 +2291,20 @@
         drop-shadow(0 2px 0  rgba(0,0,0,0.45));
     }
   }
+  /* iOS WebKit: drop-shadow ×3 empilhado em loop INFINITE 2.2s força
+     re-raster da silhueta + 3 soft-shadow passes a cada frame. Esse
+     botão fica VISÍVEL O TEMPO TODO no gameplay (top-right shop)
+     → tax permanente de FPS no canvas. Override pra scale-only pulse
+     que mantém o feedback visual de "chama atenção" sem o GPU killer.
+     Match com o pattern do comboPulseIOS aplicado no dice glow. */
+  @keyframes iapCosmicPulseIOS{
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.08); }
+  }
+  html.ios-perf #iapCosmicBtn{
+    animation-name: iapCosmicPulseIOS !important;
+    box-shadow: 0 0 12px rgba(216,140,255,0.6);
+  }
   .iap-card{max-width:320px;margin:0 auto;}
   /* Preview do item dentro do modal IAP — icon esquerda + stats direita */
   .iap-preview-row{
@@ -4652,6 +4666,11 @@ const ctx = canvas.getContext('2d');
    pra baixo pra não ficar embaixo do notch/status bar. Idem o tab bar do
    bottom (esse é resolvido via CSS env() direto). */
 const SAFE = { topLogical: 0, bottomLogical: 0 };
+// Flag iOS pra perf gates em JS (CSS já usa html.ios-perf). Checada uma
+// vez no boot — o flag não muda durante a sessão. Hot-paths checando esse
+// boolean em vez de classList.contains a cada draw.
+const _IS_IOS_PERF = (typeof document !== 'undefined')
+  && document.documentElement.classList.contains('ios-perf');
 function _computeSafeAreaLogical(){
   const frameEl = document.getElementById('frame');
   if(!frameEl) return;
@@ -7699,6 +7718,12 @@ function rollItem(){
   return generateForgedItem(arena.forgeLevel, COMBO_DATA.MAXROLL);
 }
 
+// Hard cap em particles — sem cap, kills em sequência (boss wave/AoE/nuke)
+// empilham 300-400 vivas simultaneamente. Cada uma é 1 fillRect 2×2 +
+// alpha/fillStyle set por frame; 300+ = 900+ state changes/frame → no iOS
+// WebKit isso despenca FPS porque o backing store (DPR=2 → ~786 pixels) não
+// consegue flush rápido. 120 é generoso pra leitura visual e segura o gameplay.
+const MAX_ARENA_PARTICLES = 120;
 function spawnArenaParticle(x,y,color,count){
   for(let i=0;i<count;i++){
     arena.particles.push({
@@ -7708,6 +7733,11 @@ function spawnArenaParticle(x,y,color,count){
       life:18+((Math.random()*8)|0),
       color,
     });
+  }
+  // Trim oldest se ultrapassou. splice é O(n) mas n é pequeno e roda só
+  // em frames de spawn, não em todo render frame.
+  if(arena.particles.length > MAX_ARENA_PARTICLES){
+    arena.particles.splice(0, arena.particles.length - MAX_ARENA_PARTICLES);
   }
 }
 
@@ -9566,14 +9596,25 @@ function drawArenaBunny(){
       // Red tint flash quando bunny toma hit — mesma técnica do enemy white
       // flash (`brightness(2.2) saturate(0)` em _drawBanditSprite), mas com
       // receita de canvas filter pra produzir vermelho: sepia→hue-rotate.
-      // Usa ctx.filter (não composite) pra evitar o bug do source-atop que
-      // virava quadrado vermelho em iOS WebKit. Restaurado depois do draw.
+      // iOS WebKit: ctx.filter recompila shader interno por draw + força
+      // readback. Em boss waves com bunny + 8 enemies piscando simultâneo
+      // o custo é cumulativo. iOS skip o filter — sprite blink só por
+      // hurtTimer pulse (visualmente aceitável, menor visual diferente).
       const _hurtFlashFwd = arena.hurtTimer > 0;
-      if(_hurtFlashFwd){
+      if(_hurtFlashFwd && !_IS_IOS_PERF){
         ctx.filter = 'sepia(1) saturate(8) hue-rotate(-50deg) brightness(1.3)';
       }
       ctx.drawImage(BUNNY_FORWARD_IMG, sx, sy, m.frame, m.frame, fdx, fdy, fdw, fdh);
-      if(_hurtFlashFwd) ctx.filter = 'none';
+      if(_hurtFlashFwd && !_IS_IOS_PERF) ctx.filter = 'none';
+      // iOS-only fallback: tint overlay rect em multiply mode — cheap mas
+      // visível como flash vermelho. Pisca 50% do tempo (frames alternados).
+      if(_hurtFlashFwd && _IS_IOS_PERF && (arena.hurtTimer % 6 < 3)){
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-atop';
+        ctx.fillStyle = 'rgba(255,80,80,0.6)';
+        ctx.fillRect(fdx, fdy, fdw, fdh);
+        ctx.restore();
+      }
     } else {
       // Per-state tune: scale multiplier + actual foot pixel position no source
       // frame. Walk uses 320px sheet (vs 256 dos outros) → normalizado pra
@@ -9618,16 +9659,23 @@ function drawArenaBunny(){
         const lungePx = dhState * 0.16 * curve;
         lungeX = lungePx * (flipX ? -1 : 1);
       }
-      // Red tint flash quando bunny toma hit — receita sepia→hue-rotate pra
-      // pintar o sprite inteiro de vermelho durante hurtTimer. Aplicado via
-      // ctx.filter ANTES do draw, restaurado depois (mesma técnica do
-      // _drawBanditSprite com 'brightness(2.2) saturate(0)' pro flash branco).
+      // Red tint flash quando bunny toma hit. iOS skip filter (ver comment
+      // no branch forward). Mesmo padrão de overlay rect.
       const _hurtFlashSide = arena.hurtTimer > 0;
-      if(_hurtFlashSide){
+      if(_hurtFlashSide && !_IS_IOS_PERF){
         ctx.filter = 'sepia(1) saturate(8) hue-rotate(-50deg) brightness(1.3)';
       }
       bunny.draw(ctx, x + lungeX, y + yShift + groundOffset, stateScale, flipX);
-      if(_hurtFlashSide) ctx.filter = 'none';
+      if(_hurtFlashSide && !_IS_IOS_PERF) ctx.filter = 'none';
+      if(_hurtFlashSide && _IS_IOS_PERF && (arena.hurtTimer % 6 < 3)){
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-atop';
+        ctx.fillStyle = 'rgba(255,80,80,0.6)';
+        const _dw = stateScale * 256;
+        const _dh = stateScale * 256;
+        ctx.fillRect(x + lungeX - _dw*0.5, y + yShift + groundOffset - _dh*0.85, _dw, _dh);
+        ctx.restore();
+      }
     }
     ctx.imageSmoothingEnabled = prevSmooth;
   } else {
@@ -10249,8 +10297,19 @@ function drawArenaHUD(){
       ctx.scale(pulseScale, pulseScale);
       ctx.translate(-cx, -cy);
       if(pulseGlow > 0){
-        ctx.shadowColor = (pulse && pulse.color) || '#ffcc3d';
-        ctx.shadowBlur  = 26 * pulseGlow;
+        // iOS WebKit: ctx.shadowBlur usa Core Graphics Gaussian blur PER DRAW,
+        // sem cache. shadowBlur=26 sobre _pillPath + fill + stroke + slot card
+        // dispara blur-raster 5-8× por frame durante 400ms do pulse → spike
+        // visível ao equipar item. Em iOS skipa shadowBlur e usa stroke ring
+        // colorido (cheap) como fallback visual.
+        if(typeof window !== 'undefined' && document.documentElement.classList.contains('ios-perf')){
+          // Halo via stroke ring desenhado APÓS o slot — mais barato.
+          // Flag pra adicionar o ring depois do drawForgeStyleSlot.
+          var _equipHaloIOS = { color: (pulse && pulse.color) || '#ffcc3d', alpha: pulseGlow };
+        } else {
+          ctx.shadowColor = (pulse && pulse.color) || '#ffcc3d';
+          ctx.shadowBlur  = 26 * pulseGlow;
+        }
       }
     }
     // slot regular (equipamento) — usa o MESMO design do forge-popup-slot:
@@ -10259,6 +10318,18 @@ function drawArenaHUD(){
     {
       const slotColorKey = ERA_SLOT_COLOR[it.eraIdx] || 'yellow';
       drawForgeStyleSlot(sx, sy, slotW, slotH, slotColorKey);
+    }
+    // iOS halo replacement: stroke ring colorido em volta do slot.
+    if(typeof _equipHaloIOS !== 'undefined' && _equipHaloIOS){
+      ctx.save();
+      ctx.globalAlpha = _equipHaloIOS.alpha;
+      ctx.strokeStyle = _equipHaloIOS.color;
+      ctx.lineWidth = 4;
+      ctx.strokeRect(sx - 2, sy - 2, slotW + 4, slotH + 4);
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = _equipHaloIOS.alpha * 0.5;
+      ctx.strokeRect(sx - 5, sy - 5, slotW + 10, slotH + 10);
+      ctx.restore();
     }
     // Reset shadow before icon so it doesn't get a halo too (only frame glows).
     ctx.shadowColor = 'transparent';
@@ -10647,7 +10718,12 @@ function _drawBanditSprite(e, x, y){
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   // Flash branco quando levou hit — filter encapsulado pelo save().
-  if(e.hurtTimer > 0 && !e.dying){
+  // iOS WebKit: ctx.filter recompila shader interno + força readback. Em boss
+  // waves com 8+ enemies piscando simultaneamente o custo é cumulativo →
+  // FPS despenca. iOS skip filter, usa overlay rect branco semitransparent
+  // em source-atop (cheaper) pra dar o mesmo flash visual.
+  const _enemyHurt = e.hurtTimer > 0 && !e.dying;
+  if(_enemyHurt && !_IS_IOS_PERF){
     ctx.filter = 'brightness(2.2) saturate(0)';
   }
   // Foot anchor in dest rect (fraction from top). Default 0.5 (center) keeps
@@ -10663,6 +10739,13 @@ function _drawBanditSprite(e, x, y){
     ctx.scale(-1, 1);
   }
   ctx.drawImage(img, sx, sy, fW, fH, dx, dy, dsW, dsH);
+  // iOS overlay branco source-atop — pinta SÓ os pixels não-transparentes do
+  // sprite (com a flip transform ainda ativa, então fica alinhado).
+  if(_enemyHurt && _IS_IOS_PERF && (e.hurtTimer % 6 < 3)){
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillRect(dx, dy, dsW, dsH);
+  }
   ctx.restore();
   return true;
 }
