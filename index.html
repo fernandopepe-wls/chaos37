@@ -9597,28 +9597,19 @@ function drawArenaBunny(){
       // groundOffset igual ao side path (BUNNY_STATE_TUNE branch) — alinha
       // os pés do bunny com o nível visual do chão (~10px abaixo de game.y).
       const fdy = y + 10 - fdh * (m.footAnchor || 0.85);
-      // Red tint flash quando bunny toma hit — mesma técnica do enemy white
-      // flash (`brightness(2.2) saturate(0)` em _drawBanditSprite), mas com
-      // receita de canvas filter pra produzir vermelho: sepia→hue-rotate.
-      // iOS WebKit: ctx.filter recompila shader interno por draw + força
-      // readback. Em boss waves com bunny + 8 enemies piscando simultâneo
-      // o custo é cumulativo. iOS skip o filter — sprite blink só por
-      // hurtTimer pulse (visualmente aceitável, menor visual diferente).
+      // Red tint flash quando bunny toma hit — receita sepia→hue-rotate pra
+      // pintar o sprite inteiro de vermelho durante hurtTimer. Aplicado via
+      // ctx.filter ANTES do draw, restaurado depois (mesma técnica do
+      // _drawBanditSprite com 'brightness(2.2) saturate(0)' pro flash branco).
+      // iOS WebKit tem custo extra com ctx.filter mas é transient (~6 frames
+      // por hit). source-atop overlay path foi revertido — virava quadrado
+      // colorido em vez de clip ao sprite alpha (bug conhecido WebKit).
       const _hurtFlashFwd = arena.hurtTimer > 0;
-      if(_hurtFlashFwd && !_IS_IOS_PERF){
+      if(_hurtFlashFwd){
         ctx.filter = 'sepia(1) saturate(8) hue-rotate(-50deg) brightness(1.3)';
       }
       ctx.drawImage(BUNNY_FORWARD_IMG, sx, sy, m.frame, m.frame, fdx, fdy, fdw, fdh);
-      if(_hurtFlashFwd && !_IS_IOS_PERF) ctx.filter = 'none';
-      // iOS-only fallback: tint overlay rect em multiply mode — cheap mas
-      // visível como flash vermelho. Pisca 50% do tempo (frames alternados).
-      if(_hurtFlashFwd && _IS_IOS_PERF && (arena.hurtTimer % 6 < 3)){
-        ctx.save();
-        ctx.globalCompositeOperation = 'source-atop';
-        ctx.fillStyle = 'rgba(255,80,80,0.6)';
-        ctx.fillRect(fdx, fdy, fdw, fdh);
-        ctx.restore();
-      }
+      if(_hurtFlashFwd) ctx.filter = 'none';
     } else {
       // Per-state tune: scale multiplier + actual foot pixel position no source
       // frame. Walk uses 320px sheet (vs 256 dos outros) → normalizado pra
@@ -9663,23 +9654,18 @@ function drawArenaBunny(){
         const lungePx = dhState * 0.16 * curve;
         lungeX = lungePx * (flipX ? -1 : 1);
       }
-      // Red tint flash quando bunny toma hit. iOS skip filter (ver comment
-      // no branch forward). Mesmo padrão de overlay rect.
+      // Red tint flash quando bunny toma hit — receita sepia→hue-rotate pra
+      // pintar o sprite inteiro de vermelho durante hurtTimer. Aplicado via
+      // ctx.filter ANTES do draw, restaurado depois. source-atop overlay
+      // path foi REVERTIDO — virava quadrado vermelho em vez de clip ao
+      // sprite alpha em iOS WebKit (bug source-atop conhecido). Custo de
+      // ctx.filter aceito como transient.
       const _hurtFlashSide = arena.hurtTimer > 0;
-      if(_hurtFlashSide && !_IS_IOS_PERF){
+      if(_hurtFlashSide){
         ctx.filter = 'sepia(1) saturate(8) hue-rotate(-50deg) brightness(1.3)';
       }
       bunny.draw(ctx, x + lungeX, y + yShift + groundOffset, stateScale, flipX);
-      if(_hurtFlashSide && !_IS_IOS_PERF) ctx.filter = 'none';
-      if(_hurtFlashSide && _IS_IOS_PERF && (arena.hurtTimer % 6 < 3)){
-        ctx.save();
-        ctx.globalCompositeOperation = 'source-atop';
-        ctx.fillStyle = 'rgba(255,80,80,0.6)';
-        const _dw = stateScale * 256;
-        const _dh = stateScale * 256;
-        ctx.fillRect(x + lungeX - _dw*0.5, y + yShift + groundOffset - _dh*0.85, _dw, _dh);
-        ctx.restore();
-      }
+      if(_hurtFlashSide) ctx.filter = 'none';
     }
     ctx.imageSmoothingEnabled = prevSmooth;
   } else {
@@ -10726,12 +10712,10 @@ function _drawBanditSprite(e, x, y){
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   // Flash branco quando levou hit — filter encapsulado pelo save().
-  // iOS WebKit: ctx.filter recompila shader interno + força readback. Em boss
-  // waves com 8+ enemies piscando simultaneamente o custo é cumulativo →
-  // FPS despenca. iOS skip filter, usa overlay rect branco semitransparent
-  // em source-atop (cheaper) pra dar o mesmo flash visual.
-  const _enemyHurt = e.hurtTimer > 0 && !e.dying;
-  if(_enemyHurt && !_IS_IOS_PERF){
+  // source-atop overlay path foi REVERTIDO — virava quadrado branco em vez
+  // de clip ao sprite alpha em iOS WebKit (bug source-atop conhecido).
+  // ctx.filter custa mais mas é transient (~6 frames/hit). Aceito.
+  if(e.hurtTimer > 0 && !e.dying){
     ctx.filter = 'brightness(2.2) saturate(0)';
   }
   // Foot anchor in dest rect (fraction from top). Default 0.5 (center) keeps
@@ -10747,13 +10731,6 @@ function _drawBanditSprite(e, x, y){
     ctx.scale(-1, 1);
   }
   ctx.drawImage(img, sx, sy, fW, fH, dx, dy, dsW, dsH);
-  // iOS overlay branco source-atop — pinta SÓ os pixels não-transparentes do
-  // sprite (com a flip transform ainda ativa, então fica alinhado).
-  if(_enemyHurt && _IS_IOS_PERF && (e.hurtTimer % 6 < 3)){
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.fillRect(dx, dy, dsW, dsH);
-  }
   ctx.restore();
   return true;
 }
