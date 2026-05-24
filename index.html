@@ -2592,8 +2592,34 @@
   .stats-breakdown .stb-total .stb-label{font-size:14px;color:#3a230b;}
   .stats-breakdown .stb-total .stb-power{color:#3a230b;font-size:16px;}
 
-  /* Quest popup card — lista de missões com progress + RESGATAR */
-  .quest-card{max-width:320px;margin:0 auto;}
+  /* Quest popup card — lista de missões com progress + RESGATAR.
+     max-height + flex column garante que o card cabe na viewport mesmo
+     com 18 quests; #questList scroll. */
+  .quest-card{
+    max-width:320px;
+    margin:0 auto;
+    max-height: calc(100vh - 60px);
+    display: flex;
+    flex-direction: column;
+  }
+  /* Lista scrollável — overflow só nessa região, não no card inteiro.
+     Mantém header (tag + título) e footer (botão Voltar) fixos visíveis. */
+  #questList{
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    /* padding lateral mantém o respiro do shadow das quest-rows */
+    padding-right: 4px;
+    /* scrollbar estilizada (Chrome/WebKit) */
+    scrollbar-width: thin;
+    scrollbar-color: #b07a3a transparent;
+  }
+  #questList::-webkit-scrollbar{ width: 6px; }
+  #questList::-webkit-scrollbar-thumb{
+    background: #b07a3a;
+    border-radius: 3px;
+  }
+  #questList::-webkit-scrollbar-track{ background: transparent; }
   .quest-row{
     background:#fff7e0;
     border:2px solid #b07a3a;
@@ -11583,8 +11609,6 @@ function addDiamonds(n){
 const QUEST_DEFS = [
   // ===== Tutorial quests (easy, primeiros minutos) =====
   { id:'roll_dice',     label:'Jogue os dados pela 1ª vez',           target:1,    reward:10   },
-  { id:'equip_first',   label:'Equipe seu 1º item',                   target:1,    reward:20   },
-  { id:'claim_first',   label:'Resgate sua 1ª recompensa de missão',  target:1,    reward:30   },
   { id:'equip_3_items', label:'Equipe 3 itens diferentes',            target:3,    reward:50   },
   { id:'defeat_boss',   label:'Derrote o 1º chefão',                  target:1,    reward:100  },
   // ===== Kill quests (cumulativo, atravessa sessões) =====
@@ -11641,7 +11665,6 @@ const Quests = (function(){
   // === Event hooks — sistemas do jogo chamam isso quando algo acontece ===
   function onRolled(){ _bump('roll_dice', 1); }
   function onEquipped(){
-    _bump('equip_first', 1);
     // equip_3_items: tracka pelo número de slots equipados (não cumulativo).
     // Conta items distintos atualmente no arena.items. Galho inicial não conta
     // (slot weapon começa equipado mas é o starter — pro design da quest, queremos
@@ -11661,7 +11684,7 @@ const Quests = (function(){
       _set('kill_5_bosses', arena.regions);
     }
   }
-  function onClaimed(){ _bump('claim_first', 1); }
+  function onClaimed(){ /* hook reservado pra futuras meta-quests */ }
   // Hook: chamado a cada kill de inimigo (boss inclusive). Sincroniza quests
   // cumulativas de kill com arena.killCount (autoritative). Boss tem hook
   // separado (onBossDefeated) que cuida do contador de chefões via arena.regions.
@@ -11754,13 +11777,14 @@ const Quests = (function(){
     for(const d of QUEST_DEFS){
       const e = _entry(d.id);
       if(!e) continue;
+      // User pediu: quest resgatada some da lista (não fica na "claimed"
+      // grayed-out). Reduz clutter no painel conforme player progride.
+      if(e.claimed) continue;
       const s = statusOf(d.id);
       const row = document.createElement('div');
-      row.className = 'quest-row' + (s === 'claimed' ? ' claimed' : '');
+      row.className = 'quest-row';
       const pct = Math.min(100, (e.progress / d.target) * 100);
-      const btnHTML = s === 'claimed'
-        ? '<button class="quest-claim-btn" disabled>✓ RESGATADO</button>'
-        : `<button class="quest-claim-btn" data-claim-id="${d.id}" ${s !== 'claimable' ? 'disabled' : ''}>RESGATAR</button>`;
+      const btnHTML = `<button class="quest-claim-btn" data-claim-id="${d.id}" ${s !== 'claimable' ? 'disabled' : ''}>RESGATAR</button>`;
       row.innerHTML = `
         <div class="quest-label">${d.label}</div>
         <div class="quest-progress">
