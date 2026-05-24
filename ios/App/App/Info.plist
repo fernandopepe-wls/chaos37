@@ -37,6 +37,13 @@
 	<array>
 		<string>arm64</string>
 	</array>
+	<!-- Game é portrait-only por design (HUD top, dice tray bottom, etc).
+	     UIRequiresFullScreen=YES opta-out do iPad multitasking (split-view/
+	     slide-over), o que permite manter portrait-only no iPad sem violar
+	     a regra ITMS-90474 ("apps com iPad support precisam de todas as 4
+	     orientações pra multitasking"). Sem isso o upload pra ASC falha. -->
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
