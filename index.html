@@ -10514,7 +10514,12 @@ function drawArenaHUD(){
 // Per-kind override: ENEMY_SPRITE_DEFS[kind].anims[state] supplies custom
 // {frames,cols,frameW,frameH,loop,fadeOut} when the sheet doesn't match
 // the default 256² × 30/20/15 grid (e.g., orange slime: 256w × 508h, 8f rows).
-const ENEMY_SPRITE_FRAME = 256;
+// Source PNG cell size (em pixels do sprite sheet). Sheets foram resized
+// 50% pra 768×640 com cells 128×128 (vs original 1536×1280 cells 256×256).
+// Render display continua igual — sprite drawn em display logical px (44,
+// 100 pro boss, etc), source vira menor mas ainda 1.6× > backing display.
+// Cortou 228 MB → 57 MB de VRAM em iOS WebKit.
+const ENEMY_SPRITE_FRAME = 128;
 const ENEMY_SPRITE_FRAME_TICKS = 2;
 const ENEMY_SPRITE_ANIMS = {
   walk:   { frames:30, cols:6, loop:true,  fadeOut:false },
@@ -10561,16 +10566,15 @@ const ENEMY_SPRITE_DEFS = {
     src: 'assets/enemies/Burrow/burrow_enemy_orange_slime',
     base: 'burrow_enemy_orange_slime',
     display: 44, defaultFacing: 'left',
-    // Sheet has 8 frames in 1 row, frames are tall-rectangular (256w × 508h
-    // for walk/attack; 258w × 512h for death). Art occupies y=[216..343] of
-    // 508-tall frame — body center at frac 0.55, matches the "game.y = body
-    // center" convention the other enemies use (default footFrac=0.5).
+    // Sheet has 8 frames in 1 row. Após resize 50% pro iOS, cells viram
+    // 128×254 (walk/attack) e 129×256 (death). Art ainda em body center
+    // 0.55 — footFrac=0.42 preserved.
     anims: {
       // walk frameTicks=5 → 12fps anim (vs default 30fps). Slime moves slow
       // so the fast bouncy walk cycle looked jittery — halve speed for readability.
-      walk:   { frames:8, cols:8, frameW:256, frameH:508, loop:true,  fadeOut:false, frameTicks:5 },
-      attack: { frames:8, cols:8, frameW:256, frameH:508, loop:false, fadeOut:false },
-      death:  { frames:8, cols:8, frameW:258, frameH:512, loop:false, fadeOut:true  },
+      walk:   { frames:8, cols:8, frameW:128, frameH:254, loop:true,  fadeOut:false, frameTicks:5 },
+      attack: { frames:8, cols:8, frameW:128, frameH:254, loop:false, fadeOut:false },
+      death:  { frames:8, cols:8, frameW:129, frameH:256, loop:false, fadeOut:true  },
     },
     footFrac: 0.42,
   },
