@@ -1908,6 +1908,14 @@
     25%, 45%, 65% { transform: translate3d(-12px, -4px, 0); }
     35%, 55%, 75% { transform: translate3d( 12px,  4px, 0); }
   }
+  /* iOS: shake aplicado no canvas (#game) em vez de body. Mesmo keyframe,
+     mesmo timing, mas custo de composite drasticamente menor — canvas tem
+     layer próprio, body shake recompoe a página inteira (DOM popups, HUD,
+     IAP button, etc). Visual idêntico pro player. */
+  #game.forge-shake-tiny{  animation: forgeShakeTiny  .14s ease-out; }
+  #game.forge-shake-small{ animation: forgeShakeSmall .32s cubic-bezier(.36,.07,.19,.97); }
+  #game.forge-shake-big{   animation: forgeShakeBig   .50s cubic-bezier(.36,.07,.19,.97); }
+  #game.forge-shake-mega{  animation: forgeShakeMega  .75s cubic-bezier(.36,.07,.19,.97); }
   #forgeComboLabel{
     text-align:center;font-size:18px;font-weight:bold;letter-spacing:.4px;
     margin:6px 0 4px;
@@ -13800,7 +13808,10 @@ function spawnDieParticles(dieEl, color){
   const rect = dieEl.getBoundingClientRect();
   const cx = rect.left + rect.width/2;
   const cy = rect.top  + rect.height/2;
-  const count = 8;
+  // iOS: cap em 3 (vs 8 desktop). 5 dados × 8 = 40 DOM particles em settle.
+  // Cada appendChild ao body forçava layout/style recalc. 5 × 3 = 15 nodes,
+  // muito menos pressão. Visual ainda lê como burst.
+  const count = _IS_IOS_PERF ? 3 : 8;
   for(let i=0; i<count; i++){
     const p = document.createElement('div');
     p.className = 'forge-die-particle';
@@ -13826,16 +13837,25 @@ const _SHAKE_CLS = {
   mega:  'forge-shake-mega',
 };
 const _SHAKE_MS = { tiny: 250, small: 360, big: 560, mega: 820 };
+// iOS: shake aplicado em #game (canvas) em vez de body. Canvas tem
+// composite layer próprio, então transformar canvas não força recompose
+// fullscreen da página (que body shake fazia). Popups/HUD DOM ficam still.
+// Em non-iOS mantém body shake (visual mais imersivo, mas afeta menos
+// porque desktop/Android compositor é mais robusto).
 function triggerScreenShake(intensity){
   const cls = _SHAKE_CLS[intensity];
   if(!cls) return;
+  const target = _IS_IOS_PERF
+    ? document.getElementById('game')
+    : document.body;
+  if(!target) return;
   // Strip all shake classes so a new one restarts cleanly.
-  for(const c of Object.values(_SHAKE_CLS)) document.body.classList.remove(c);
-  void document.body.offsetWidth;
-  document.body.classList.add(cls);
+  for(const c of Object.values(_SHAKE_CLS)) target.classList.remove(c);
+  void target.offsetWidth;
+  target.classList.add(cls);
   if(_shakeTimer) clearTimeout(_shakeTimer);
   _shakeTimer = setTimeout(() => {
-    for(const c of Object.values(_SHAKE_CLS)) document.body.classList.remove(c);
+    for(const c of Object.values(_SHAKE_CLS)) target.classList.remove(c);
     _shakeTimer = 0;
   }, _SHAKE_MS[intensity] || 360);
 }
@@ -13885,6 +13905,11 @@ function triggerRays(color){
 }
 
 function spawnConfetti(count){
+  // iOS: skip confetti completo. 40 emoji 🥕 DOM com animation em 1 frame =
+  // explosão de layout work + cada emoji é text-render via font (cost extra
+  // vs sprite). Combo FIVE perde a chuva de cenouras, mas flash + rays +
+  // sweep + text "JACKPOT!!" + sparkles ainda comunicam o impacto.
+  if(_IS_IOS_PERF) return;
   for(let i=0; i<count; i++){
     const p = document.createElement('div');
     p.className = 'forge-confetti';
@@ -15252,7 +15277,15 @@ function loop(now){
     forgeInline.classList.remove('show');
   }
 
-  renderArena();
+  // Skip renderArena() quando um popup .layer.show está aberto (Settings,
+  // Quest, AutoForge, IAP, Stats, Gameover, ForgeCompare, ItemPopup, etc).
+  // Canvas continua atualizando logic em background (enemies se movem, etc),
+  // mas pára de desenhar — libera 100% da GPU pro popup animar smooth.
+  // Em iOS WebKit isso economiza ~10-15ms/frame durante popups abertos.
+  // Logic continua porque user pode esperar que enemies não congelem ao
+  // abrir Settings. Quando popup fecha, próximo frame renderiza estado atual.
+  const _anyPopupOpen = !!document.querySelector('.layer.show, #itemPopupBackdrop.show');
+  if(!_anyPopupOpen) renderArena();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
