@@ -12351,7 +12351,24 @@ if(document.readyState === 'loading'){
 // (entitlement permanente, persistido em localStorage). UI: float button
 // que esconde após compra. Em produção usa Platform().purchasesBuyProduct;
 // em dev/browser (sem SDK) cai pra fluxo confirm() que concede a arma grátis.
+//
+// === Registro nos painéis (precisa estar criado pro IAP funcionar) ===
+// Apple App Store Connect:
+//   Product ID:  bunny.cosmic_weapon_001
+//   Apple ID:    6772646989  (interno do ASC, gerado ao criar o produto.
+//                            Usado em integrações server-side via App Store
+//                            Server API ou ASC API; client StoreKit não usa
+//                            esse — só usa o Product ID.)
+//   Type:        Non-Consumable
+//   Status:      Ready to Submit (após preencher localizações + screenshot)
+// Google Play Console:
+//   Product ID:  bunny.cosmic_weapon_001  (MESMO ID, case-sensitive)
+//   Type:        Managed product (= non-consumable)
+//
+// Trocar o Product ID quebra TODOS os entitlements existentes — Apple não
+// permite renomear, só criar novo. Trate como imutável depois do 1º release.
 const IAP_COSMIC_WEAPON_ID = 'bunny.cosmic_weapon_001';
+const IAP_APPLE_ID         = '6772646989'; // ref ASC interno (server-side use)
 const IAP_OWNED_KEY        = 'bunnyChaos.iap.cosmicWeapon';
 
 const CosmicIAP = (function(){
