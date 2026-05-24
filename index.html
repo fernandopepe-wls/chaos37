@@ -4249,24 +4249,14 @@ const Music = (function(){
       primer.volume = 0;
       primer.play().catch(() => {});
     } catch(_){}
-    // 2) Warm-up de todas as faixas de música: play() @ vol 0, depois pause.
-    //    Marca cada elemento como "tocou pelo menos uma vez dentro de gesture",
-    //    o que destrava o iOS pra plays subsequentes (programáticas).
-    for(const a of [...gpAudio, bossAudio]){
-      if(!a.paused) continue;
-      try {
-        const oldVol = a.volume;
-        a.volume = 0;
-        const p = a.play();
-        if(p && p.then){
-          p.then(() => {
-            try { a.pause(); a.volume = oldVol; } catch(_){}
-          }).catch(() => {
-            a.volume = oldVol;
-          });
-        }
-      } catch(_){}
-    }
+    // Warm-up de gpAudio/bossAudio REMOVIDO — criava race condition com
+    // o unlock() listener no mesmo gesture. Sequência problemática:
+    //   1. unlock(): pending exists → audio.play() (fade target ~0.49)
+    //   2. primer: a.volume = 0; a.play(); .then(a.pause())
+    //   3. .then() fires async → pause() mata a música recém-iniciada.
+    // User report: SFX toca mas música não. Bug match.
+    // O silent buffer (passo 1 acima) já é suficiente pra destravar
+    // AVAudioSession do iOS. Plays subsequentes funcionam sem warm-up.
     // SFX prewarm REMOVIDO — antes criava Audio() pra ~60 arquivos no
     // primeiro gesture (todo asset SFX/UI do catalog). User report: audio
     // parou de funcionar em iOS+Android. Suspeita: iOS tem limite histórico
