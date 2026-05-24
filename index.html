@@ -14365,6 +14365,16 @@ function openForgeCompare(){
   // (player vê inimigos parados/bunny parado enquanto lê stats). Custo
   // perf preferível à pausa visual. Flag forgeComparePopupOpen continua
   // existindo mas nunca é setada como true — main loop sempre renderiza.
+  //
+  // TODO PÓS-LAUNCH: refactor da cerimônia de forge pra canvas-rendered.
+  // Após ~30 commits de otimização DOM-side (resize de items/weapons/enemies,
+  // sprite sheet dos dados, skip de todos os DOM particles iOS, throttle
+  // 60Hz pra devices ProMotion, RAF defer do popup, etc.), o iPhone ainda
+  // sofre FPS drop no spin dos dados. Causa raiz: 5 elementos DOM
+  // CSS-animated + canvas a 60Hz competindo no WKWebView compositor.
+  // Solução definitiva: mover dice + popup compare pro canvas principal
+  // (renderArena), eliminando o mix DOM+canvas. ~6-10h de refactor.
+  // Build atual é JOGÁVEL — drop perceptível mas não breaking.
   // SFX: card slide-in pop when the compare popup opens.
   if(typeof playSfx === 'function') playSfx('sfx_forge_popup_open');
 
