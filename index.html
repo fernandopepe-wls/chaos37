@@ -14360,6 +14360,15 @@ function openForgeCompare(){
   const newItem = arena.pendingForgeItem;
   if(!newItem) return;
   const oldItem = arena.items[newItem.slot];
+  // Flag pra skip renderArena() durante popup — game logic continua
+  // (updateArena no fixed-step), só pausa o DRAW do canvas. Player tá
+  // focado lendo stats do item, canvas atrás não precisa atualizar.
+  // Em iOS isso libera 100% do GPU pro popup transição (não compete
+  // com canvas 60fps). Skip aplica SOMENTE em modo manual — auto-forge
+  // continua renderizando pra manter continuidade visual entre rolls.
+  if(!forgeRoll.autoMode){
+    arena.forgeComparePopupOpen = true;
+  }
   // SFX: card slide-in pop when the compare popup opens.
   if(typeof playSfx === 'function') playSfx('sfx_forge_popup_open');
 
@@ -14546,6 +14555,8 @@ function animateNumberTickUp(el, duration){
 
 function closeForge(){
   arena.pendingForgeItem = null;
+  // Re-habilita renderArena() — popup fechou, canvas volta a desenhar.
+  arena.forgeComparePopupOpen = false;
   // Strip popup juice classes so next forge replays cleanly.
   const newSlotEl = document.getElementById('forgeNewSlot');
   if(newSlotEl) newSlotEl.classList.remove('new-aura', 'shine');
@@ -15437,7 +15448,14 @@ function loop(now){
     forgeInline.classList.remove('show');
   }
 
-  renderArena();
+  // Skip renderArena() quando forgeCompare popup está visível em modo manual.
+  // Player tá focado lendo stats do item — canvas atrás não precisa redesenhar
+  // a 60fps. iOS libera GPU pro popup paint + transition smooth. updateArena()
+  // (logic) continua no fixed-step loop acima, então quando popup fechar, o
+  // game state já tá atualizado. Auto-forge NÃO entra nessa condição (flag
+  // só seta em modo manual) — auto cicla popups rápido, precisa do canvas
+  // visualmente continuo.
+  if(!arena.forgeComparePopupOpen) renderArena();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
