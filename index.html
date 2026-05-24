@@ -8047,6 +8047,10 @@ function killArenaEnemy(idx, e){
   spawnArenaParticle(e.x, e.y - 4, '#ffcc3d', 6);
   spawnArenaParticle(e.x, e.y - 4, '#ff9b3a', 4);
   arena.killCount++;
+  // Quests: sync kill quests cumulativas (kill_50, kill_200, ...) com
+  // arena.killCount. Boss tem hook separado (onBossDefeated abaixo) que
+  // também sincroniza o contador kill_5_bosses com arena.regions.
+  if(typeof Quests !== 'undefined') Quests.onEnemyKilled();
   if(e.isBoss){
     arena.regions++;
     spawnArenaParticle(e.x, e.y, '#ff5252', 30);
@@ -11577,11 +11581,30 @@ function addDiamonds(n){
 // 5 missões iniciais, sequenciais semanticamente (mas todas trackeam progress).
 // Recompensa = 💠 gemas. Persiste { progress, claimed } por id em localStorage.
 const QUEST_DEFS = [
-  { id:'roll_dice',     label:'Jogue os dados pela 1ª vez',           target:1, reward:10  },
-  { id:'equip_first',   label:'Equipe seu 1º item',                   target:1, reward:20  },
-  { id:'claim_first',   label:'Resgate sua 1ª recompensa de missão',  target:1, reward:30  },
-  { id:'equip_3_items', label:'Equipe 3 itens diferentes',            target:3, reward:50  },
-  { id:'defeat_boss',   label:'Derrote o 1º chefão',                  target:1, reward:100 },
+  // ===== Tutorial quests (easy, primeiros minutos) =====
+  { id:'roll_dice',     label:'Jogue os dados pela 1ª vez',           target:1,    reward:10   },
+  { id:'equip_first',   label:'Equipe seu 1º item',                   target:1,    reward:20   },
+  { id:'claim_first',   label:'Resgate sua 1ª recompensa de missão',  target:1,    reward:30   },
+  { id:'equip_3_items', label:'Equipe 3 itens diferentes',            target:3,    reward:50   },
+  { id:'defeat_boss',   label:'Derrote o 1º chefão',                  target:1,    reward:100  },
+  // ===== Kill quests (cumulativo, atravessa sessões) =====
+  { id:'kill_50',       label:'Derrote 50 inimigos',                  target:50,   reward:80   },
+  { id:'kill_200',      label:'Derrote 200 inimigos',                 target:200,  reward:150  },
+  { id:'kill_500',      label:'Derrote 500 inimigos',                 target:500,  reward:300  },
+  { id:'kill_1000',     label:'Derrote 1000 inimigos',                target:1000, reward:500  },
+  { id:'kill_5_bosses', label:'Derrote 5 chefões',                    target:5,    reward:250  },
+  // ===== Forge level quests (milestones de progressão) =====
+  { id:'forge_lvl_5',   label:'Alcance Forja Nível 5',                target:5,    reward:100  },
+  { id:'forge_lvl_10',  label:'Alcance Forja Nível 10',               target:10,   reward:200  },
+  { id:'forge_lvl_15',  label:'Alcance Forja Nível 15',               target:15,   reward:350  },
+  { id:'forge_lvl_20',  label:'Alcance Forja Nível 20',               target:20,   reward:500  },
+  { id:'forge_lvl_25',  label:'Alcance Forja Nível 25',               target:25,   reward:750  },
+  // ===== Stage progression quests =====
+  { id:'reach_stage_5',  label:'Alcance o Estágio 5',                 target:5,    reward:80   },
+  { id:'reach_stage_10', label:'Alcance o Estágio 10',                target:10,   reward:150  },
+  { id:'reach_stage_15', label:'Alcance o Estágio 15',                target:15,   reward:300  },
+  { id:'reach_stage_20', label:'Alcance o Estágio 20',                target:20,   reward:450  },
+  { id:'reach_stage_25', label:'Alcance o Estágio 25',                target:25,   reward:600  },
 ];
 const QUESTS_KEY = 'bunnyChaos.quests';
 
@@ -11631,8 +11654,45 @@ const Quests = (function(){
     }
     _set('equip_3_items', Math.min(equippedCount, 3));
   }
-  function onBossDefeated(){ _bump('defeat_boss', 1); }
+  function onBossDefeated(){
+    _bump('defeat_boss', 1);
+    // Sync boss kill quest com arena.regions (= total bosses derrotados)
+    if(typeof arena !== 'undefined' && typeof arena.regions === 'number'){
+      _set('kill_5_bosses', arena.regions);
+    }
+  }
   function onClaimed(){ _bump('claim_first', 1); }
+  // Hook: chamado a cada kill de inimigo (boss inclusive). Sincroniza quests
+  // cumulativas de kill com arena.killCount (autoritative). Boss tem hook
+  // separado (onBossDefeated) que cuida do contador de chefões via arena.regions.
+  function onEnemyKilled(){
+    if(typeof arena === 'undefined') return;
+    const total = arena.killCount || 0;
+    _set('kill_50',   total);
+    _set('kill_200',  total);
+    _set('kill_500',  total);
+    _set('kill_1000', total);
+  }
+  // Hook: chamado quando arena.forgeLevel sobe (após upgrade completar).
+  // Sync quests de forge level com o nível atual.
+  function onForgeLevel(level){
+    if(typeof level !== 'number') level = (typeof arena !== 'undefined') ? arena.forgeLevel : 0;
+    _set('forge_lvl_5',  level);
+    _set('forge_lvl_10', level);
+    _set('forge_lvl_15', level);
+    _set('forge_lvl_20', level);
+    _set('forge_lvl_25', level);
+  }
+  // Hook: chamado quando arena.stage muda (avança ou load com stage > 1).
+  // Sync quests de stage com o stage atual.
+  function onStageReached(stage){
+    if(typeof stage !== 'number') stage = (typeof arena !== 'undefined') ? arena.stage : 0;
+    _set('reach_stage_5',  stage);
+    _set('reach_stage_10', stage);
+    _set('reach_stage_15', stage);
+    _set('reach_stage_20', stage);
+    _set('reach_stage_25', stage);
+  }
   function _bump(id, delta){
     const e = _entry(id), d = _def(id);
     if(!e || !d || e.claimed) return;
@@ -11746,8 +11806,25 @@ const Quests = (function(){
         if(claimBtn && !claimBtn.disabled) claim(claimBtn.dataset.claimId);
       });
     }
+    // Auto-sync no boot: se player tem save com killCount/forgeLevel/stage
+    // já avançados, popula as quests cumulativas pra refletir o estado atual.
+    // Sem isso, player que volta após várias sessões via OTA update via as
+    // quests novas em 0/X mesmo com 500 kills + Forja Lv 15 acumulados.
+    // Atraso de 100ms — arena state é carregado async no boot.
+    setTimeout(() => {
+      if(typeof arena === 'undefined') return;
+      onEnemyKilled();
+      if(arena.regions) _set('kill_5_bosses', arena.regions);
+      onForgeLevel(arena.forgeLevel);
+      onStageReached(arena.stage);
+    }, 100);
   }
-  return { init, onRolled, onEquipped, onBossDefeated, onClaimed, claim, statusOf, claimableCount, open, close, toggle };
+  return {
+    init,
+    onRolled, onEquipped, onBossDefeated, onClaimed,
+    onEnemyKilled, onForgeLevel, onStageReached,
+    claim, statusOf, claimableCount, open, close, toggle,
+  };
 })();
 // Inicializa após DOM ready (HTML do botão + modal precisa existir).
 if(document.readyState === 'loading'){
@@ -12752,6 +12829,8 @@ function applyForgeUpgradeIfReady(){
   arena.forgeUpgradeTimeSec = null;
   saveForgeLevel();
   saveForgeProgress();
+  // Quests: sync quests de forge level (forge_lvl_5/10/15/20/25)
+  if(typeof Quests !== 'undefined') Quests.onForgeLevel(arena.forgeLevel);
   spawnArenaParticle(arena.bx, arena.by, '#5fb0d8', 24);
   return true;
 }
@@ -15516,6 +15595,8 @@ enterArena();
           prev_stage: prev,
           time_in_prev_stage_ms: prev > 0 ? timeInPrevStage : 0,
         });
+        // Quests: sync quests de stage (reach_stage_5/10/15/20/25)
+        if(typeof Quests !== 'undefined') Quests.onStageReached(arena.stage);
       },
     };
   })();
