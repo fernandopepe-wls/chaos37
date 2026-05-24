@@ -1194,6 +1194,36 @@
     color:#3a2a18;
     box-shadow:0 2px 4px rgba(0,0,0,0.08);
   }
+  /* X close — espelho da tag, no canto superior direito. Round + hit area
+     generosa pra dedo (44×44 conforme HIG do iOS). Reusável: qualquer
+     .forge-popup-card que receba esse botão ganha o X no canto. */
+  .forge-popup-close{
+    position:absolute;
+    top:-12px;right:10px;
+    width:30px;height:30px;
+    border:1.5px solid #d6cfc1;
+    border-radius:50%;
+    background:#f5ecd2;
+    color:#3a2a18;
+    font-family:'Fredoka', system-ui, sans-serif;
+    font-size:14px;font-weight:bold;line-height:1;
+    cursor:pointer;
+    box-shadow:0 2px 4px rgba(0,0,0,0.08);
+    padding:0;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform 0.08s ease, background 0.12s ease;
+    /* Hit area extended via padding (visual stays 30×30, tap stays 44×44) */
+    -webkit-tap-highlight-color:transparent;
+  }
+  .forge-popup-close::before{
+    content:'';
+    position:absolute;
+    inset:-8px;
+  }
+  .forge-popup-close:active{
+    transform:scale(0.92);
+    background:#e8dfc4;
+  }
   /* Linha de item (slot + info) */
   .forge-popup-row{
     display:flex;align-items:center;gap:12px;
@@ -3028,6 +3058,9 @@
     <div id="itemPopupBackdrop">
       <div class="forge-popup-card" id="itemPopup">
         <div class="forge-popup-tag">Equipado</div>
+        <!-- Close X — alguns players ficam presos esperando achar como sair
+             do popup. Click-outside já funciona, mas o X torna explícito. -->
+        <button class="forge-popup-close" id="itemPopupCloseBtn" aria-label="Fechar">✕</button>
 
         <!-- Linha do item -->
         <div class="forge-popup-row" id="itemPopupItemRow">
@@ -14197,6 +14230,13 @@ for(const el of document.querySelectorAll('#arenaDiceRow .forge-die')){
 }
 
 // Item popup: upgrade buttons (sobe nível do item gastando cenouras)
+// Close X — hideItemPopup() já toca sfx_ui_back, então não precisa
+// playSfx aqui. classify() do delegate retorna null pra este id pra
+// evitar dupla-tocada (main_tap + back simultâneos).
+document.getElementById('itemPopupCloseBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  hideItemPopup();
+});
 document.getElementById('itemPopupUpgradeBtn').addEventListener('click', (e)=>{
   e.stopPropagation();
   if(!_currentPopupSlot) return;
@@ -14447,6 +14487,10 @@ function hideItemPopup(){
        || id === 'statsCloseBtn'){
       return 'sfx_ui_back';
     }
+    // itemPopupCloseBtn: hideItemPopup() já toca sfx_ui_back manualmente
+    // (porque o click-outside path do popup faz stopImmediatePropagation
+    // e o delegate não vê). Retornar null aqui evita dupla-tocada.
+    if(id === 'itemPopupCloseBtn') return null;
     // AUTO forge antes do unlock (Lv 3) — abre o popup que mostra a ladder bloqueada.
     if(id === 'arenaForgeAutoBtn'
        && typeof arena !== 'undefined'
