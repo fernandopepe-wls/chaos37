@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Stab VFX Preview — Cartoon (Legends of Mushroom style)</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #1b1230; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; color: #fff; }
+  #stage { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: crosshair; }
+  #ui {
+    position: fixed; top: 14px; left: 14px;
+    background: rgba(20,12,40,0.7); backdrop-filter: blur(8px);
+    padding: 12px 16px; border-radius: 12px;
+    font-size: 13px; line-height: 1.55; pointer-events: none; user-select: none;
+    border: 1px solid rgba(255,216,74,0.25);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  #ui b { color: #ffd84a; font-size: 14px; }
+  button {
+    pointer-events: auto; margin-right: 6px; margin-top: 6px;
+    padding: 6px 14px; background: linear-gradient(180deg, #ffe97a 0%, #ffb84a 100%);
+    color: #2b1a40; border: 2px solid #2b1a40; border-radius: 8px;
+    font-weight: bold; cursor: pointer; font-size: 12px;
+    box-shadow: 0 2px 0 #2b1a40;
+  }
+  button:hover { background: linear-gradient(180deg, #fff093 0%, #ffc870 100%); }
+  button:active { transform: translateY(2px); box-shadow: 0 0 0 #2b1a40; }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div id="ui">
+  <div><b>Stab VFX — Cartoon</b></div>
+  <div>Tap / click = fire stab toward point</div>
+  <div>Origin = mushroom hero</div>
+  <div>
+    <button id="btnAuto">Auto-fire</button>
+    <button id="btnClear">Clear</button>
+  </div>
+</div>
+<script type="module">
+import {
+  spawnStabVFX,
+  updateParticles,
+  renderParticles,
+  getShakeOffset,
+  createVFXState,
+} from './stab-vfx.js';
+
+const TAU = Math.PI * 2;
+const rand = (a, b) => a + Math.random() * (b - a);
+
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+let DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+let bgCanvas = null;
+function buildBackground() {
+  const w = window.innerWidth, h = window.innerHeight;
+  bgCanvas = document.createElement('canvas');
+  bgCanvas.width = w * DPR; bgCanvas.height = h * DPR;
+  const bg = bgCanvas.getContext('2d');
+  bg.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+  const sky = bg.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0, '#3d2766');
+  sky.addColorStop(0.55, '#2b1a4a');
+  sky.addColorStop(1, '#1a0d33');
+  bg.fillStyle = sky; bg.fillRect(0, 0, w, h);
+
+  for (let i = 0; i < 80; i++) {
+    const x = Math.random() * w, y = Math.random() * h * 0.7;
+    const r = Math.random() * 1.4 + 0.3;
+    bg.globalAlpha = Math.random() * 0.5 + 0.2;
+    bg.fillStyle = '#ffe9a8';
+    bg.beginPath(); bg.arc(x, y, r, 0, TAU); bg.fill();
+  }
+  bg.globalAlpha = 1;
+
+  for (let i = 0; i < 6; i++) {
+    const x = Math.random() * w, y = Math.random() * h;
+    const r = rand(60, 160);
+    const g = bg.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, 'rgba(180,120,220,0.18)');
+    g.addColorStop(1, 'rgba(180,120,220,0)');
+    bg.fillStyle = g; bg.beginPath(); bg.arc(x, y, r, 0, TAU); bg.fill();
+  }
+
+  const gd = bg.createRadialGradient(w/2, h*0.72, 20, w/2, h*0.72, Math.max(w,h)*0.55);
+  gd.addColorStop(0, 'rgba(255,200,120,0.12)');
+  gd.addColorStop(1, 'rgba(255,200,120,0)');
+  bg.fillStyle = gd; bg.fillRect(0, 0, w, h);
+
+  const vg = bg.createRadialGradient(w/2, h/2, Math.min(w,h)*0.35, w/2, h/2, Math.max(w,h)*0.75);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+  bg.fillStyle = vg; bg.fillRect(0, 0, w, h);
+}
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = window.innerWidth * DPR;
+  canvas.height = window.innerHeight * DPR;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  buildBackground();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- Hero (cute mushroom) ---------------------------------------
+function drawMushroom(ctx, cx, cy, bobT) {
+  ctx.save();
+  const bob = Math.sin(bobT * 2.2) * 3;
+  cy += bob;
+  ctx.globalAlpha = 0.45;
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(cx, cy + 50, 32, 8, 0, 0, TAU); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = '#f3e2c2'; ctx.strokeStyle = '#3a2410'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(cx - 16, cy + 44);
+  ctx.quadraticCurveTo(cx - 18, cy + 10, cx - 14, cy);
+  ctx.lineTo(cx + 14, cy);
+  ctx.quadraticCurveTo(cx + 18, cy + 10, cx + 16, cy + 44);
+  ctx.quadraticCurveTo(cx, cy + 50, cx - 16, cy + 44);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+
+  ctx.fillStyle = '#2a1810';
+  ctx.beginPath(); ctx.arc(cx - 6, cy + 16, 2.4, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 6, cy + 16, 2.4, 0, TAU); ctx.fill();
+  ctx.fillStyle = 'rgba(255,140,160,0.55)';
+  ctx.beginPath(); ctx.arc(cx - 9, cy + 22, 3, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 9, cy + 22, 3, 0, TAU); ctx.fill();
+  ctx.strokeStyle = '#2a1810'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(cx, cy + 21, 3, 0.15, Math.PI - 0.15); ctx.stroke();
+
+  ctx.fillStyle = '#d63a3a'; ctx.strokeStyle = '#3a1010'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(cx - 32, cy + 4);
+  ctx.quadraticCurveTo(cx - 36, cy - 24, cx - 18, cy - 30);
+  ctx.quadraticCurveTo(cx, cy - 38, cx + 18, cy - 30);
+  ctx.quadraticCurveTo(cx + 36, cy - 24, cx + 32, cy + 4);
+  ctx.quadraticCurveTo(cx, cy + 8, cx - 32, cy + 4);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,180,180,0.6)';
+  ctx.beginPath();
+  ctx.ellipse(cx - 10, cy - 22, 8, 4, -0.3, 0, TAU); ctx.fill();
+
+  ctx.fillStyle = '#fff7e6';
+  ctx.strokeStyle = '#3a1010'; ctx.lineWidth = 1.5;
+  [[-14,-18,5],[10,-22,4],[18,-8,4],[-22,-6,3.5]].forEach(([dx,dy,r])=>{
+    ctx.beginPath(); ctx.arc(cx+dx, cy+dy, r, 0, TAU); ctx.fill(); ctx.stroke();
+  });
+
+  ctx.restore();
+}
+
+// --- Demo loop --------------------------------------------------
+const state = createVFXState();
+let autoFire = false;
+let autoTimer = 0;
+let lastT = performance.now();
+
+document.getElementById('btnAuto').onclick = () => autoFire = !autoFire;
+document.getElementById('btnClear').onclick = () => state.particles.length = 0;
+
+function fireAt(clientX, clientY) {
+  const w = window.innerWidth, h = window.innerHeight;
+  const heroX = w * 0.5, heroY = h * 0.55;
+  spawnStabVFX(state, heroX, heroY, clientX, clientY);
+}
+
+canvas.addEventListener('pointerdown', e => fireAt(e.clientX, e.clientY));
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+
+  const w = window.innerWidth, h = window.innerHeight;
+
+  const { shx, shy } = getShakeOffset(state, dt);
+
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.drawImage(bgCanvas, 0, 0, w, h);
+
+  ctx.setTransform(DPR, 0, 0, DPR, shx*DPR, shy*DPR);
+  drawMushroom(ctx, w * 0.5, h * 0.55, now / 1000);
+
+  if (autoFire) {
+    autoTimer -= dt;
+    if (autoTimer <= 0) {
+      autoTimer = 0.6;
+      const ang = (now / 1000) * 1.4;
+      const r = Math.min(w, h) * 0.32;
+      const cx = w * 0.5 + Math.cos(ang) * r;
+      const cy = h * 0.55 + Math.sin(ang) * r;
+      fireAt(cx, cy);
+    }
+  }
+
+  updateParticles(state, dt);
+  renderParticles(ctx, state.particles);
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

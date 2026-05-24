@@ -1,0 +1,11 @@
+{
+  "name": "knights_longsword",
+  "image": "weapon-knights-longsword.png",
+  "width": 150,
+  "height": 150,
+  "pivot_px": [15, 135],
+  "pivot_norm": [0.1, 0.9],
+  "baseline_rotation_deg": -45,
+  "kind": "melee",
+  "note": "Era 2 knight longsword — clone of pike pivot convention."
+}

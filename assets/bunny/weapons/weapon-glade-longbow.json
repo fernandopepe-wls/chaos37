@@ -1,0 +1,11 @@
+{
+  "name": "glade_longbow",
+  "image": "weapon-glade-longbow.png",
+  "width": 150,
+  "height": 150,
+  "pivot_px": [15, 135],
+  "pivot_norm": [0.1, 0.9],
+  "baseline_rotation_deg": -45,
+  "kind": "ranged",
+  "note": "Era 2 longbow — ranged weapon, no hand-render today but cached for future."
+}

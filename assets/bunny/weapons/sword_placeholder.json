@@ -1,0 +1,17 @@
+{
+  "name": "sword_placeholder",
+  "image": "sword_placeholder.png",
+  "width": 96,
+  "height": 128,
+  "pivot_px": [
+    48,
+    99
+  ],
+  "pivot_norm": [
+    0.5,
+    0.7734375
+  ],
+  "baseline_rotation_deg": 0,
+  "kind": "melee",
+  "note": "Pivot is at the grip \u2014 aligns to the bunny's hand anchor."
+}

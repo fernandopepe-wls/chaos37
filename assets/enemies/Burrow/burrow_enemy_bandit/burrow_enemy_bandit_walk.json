@@ -1,0 +1,18 @@
+{
+  "character": "burrow_enemy_bandit",
+  "state": "walk",
+  "frames": 30,
+  "fps": 30,
+  "frame_width": 256,
+  "frame_height": 256,
+  "cols": 6,
+  "rows": 5,
+  "sheet_width": 1536,
+  "sheet_height": 1280,
+  "loop": true,
+  "method": "procedural-v1",
+  "files": {
+    "spritesheet": "burrow_enemy_bandit_walk.png",
+    "webp": "burrow_enemy_bandit_walk.webp"
+  }
+}

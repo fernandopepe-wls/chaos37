@@ -1,0 +1,225 @@
+{
+  "character": "bunny",
+  "state": "melee",
+  "frames": 8,
+  "fps": 30,
+  "frame_width": 256,
+  "frame_height": 256,
+  "cols": 8,
+  "rows": 1,
+  "sheet_width": 2048,
+  "sheet_height": 256,
+  "loop": false,
+  "method": "sprite-sheet-v2",
+  "weapon_baked_in": true,
+  "weapon": null,
+  "hand_anchor_norm_in_bunny_bbox": [
+    0.85,
+    0.62
+  ],
+  "track": [
+    {
+      "frame": 0,
+      "bunny": {
+        "dx": 0,
+        "dy": 0,
+        "rot_deg": 0,
+        "sx": 1,
+        "sy": 1,
+        "alpha": 1,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        164.8,
+        171.6
+      ],
+      "weapon": {
+        "offset_x": 0,
+        "offset_y": 0,
+        "rot_local_deg": -15,
+        "rot_world_deg": -15
+      }
+    },
+    {
+      "frame": 1,
+      "bunny": {
+        "dx": 0,
+        "dy": 0,
+        "rot_deg": 0,
+        "sx": 1,
+        "sy": 1,
+        "alpha": 1,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        164.8,
+        171.6
+      ],
+      "weapon": {
+        "offset_x": 0,
+        "offset_y": 0,
+        "rot_local_deg": 11.033024347053487,
+        "rot_world_deg": 11.033024347053487
+      }
+    },
+    {
+      "frame": 2,
+      "bunny": {
+        "dx": 0,
+        "dy": 0,
+        "rot_deg": 0,
+        "sx": 1,
+        "sy": 1,
+        "alpha": 1,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        164.8,
+        171.6
+      ],
+      "weapon": {
+        "offset_x": 0,
+        "offset_y": 0,
+        "rot_local_deg": 31.909888948081786,
+        "rot_world_deg": 31.909888948081786
+      }
+    },
+    {
+      "frame": 3,
+      "bunny": {
+        "dx": 0,
+        "dy": 0,
+        "rot_deg": 0,
+        "sx": 1,
+        "sy": 1,
+        "alpha": 1,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        164.8,
+        171.6
+      ],
+      "weapon": {
+        "offset_x": 0,
+        "offset_y": 0,
+        "rot_local_deg": 43.495674730909414,
+        "rot_world_deg": 43.495674730909414
+      }
+    },
+    {
+      "frame": 4,
+      "bunny": {
+        "dx": 0,
+        "dy": 0,
+        "rot_deg": 0,
+        "sx": 1,
+        "sy": 1,
+        "alpha": 1,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        164.8,
+        171.6
+      ],
+      "weapon": {
+        "offset_x": 0,
+        "offset_y": 0,
+        "rot_local_deg": 43.495674730909414,
+        "rot_world_deg": 43.495674730909414
+      }
+    },
+    {
+      "frame": 5,
+      "bunny": {
+        "dx": 0,
+        "dy": 0,
+        "rot_deg": 0,
+        "sx": 1,
+        "sy": 1,
+        "alpha": 1,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        164.8,
+        171.6
+      ],
+      "weapon": {
+        "offset_x": 0,
+        "offset_y": 0,
+        "rot_local_deg": 31.909888948081793,
+        "rot_world_deg": 31.909888948081793
+      }
+    },
+    {
+      "frame": 6,
+      "bunny": {
+        "dx": 0,
+        "dy": 0,
+        "rot_deg": 0,
+        "sx": 1,
+        "sy": 1,
+        "alpha": 1,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        164.8,
+        171.6
+      ],
+      "weapon": {
+        "offset_x": 0,
+        "offset_y": 0,
+        "rot_local_deg": 11.033024347053495,
+        "rot_world_deg": 11.033024347053495
+      }
+    },
+    {
+      "frame": 7,
+      "bunny": {
+        "dx": 0,
+        "dy": 0,
+        "rot_deg": 0,
+        "sx": 1,
+        "sy": 1,
+        "alpha": 1,
+        "pivot_norm": [
+          0.5,
+          0.85
+        ]
+      },
+      "hand_anchor_canvas": [
+        164.8,
+        171.6
+      ],
+      "weapon": {
+        "offset_x": 0,
+        "offset_y": 0,
+        "rot_local_deg": -14.999999999999993,
+        "rot_world_deg": -14.999999999999993
+      }
+    }
+  ],
+  "files": {
+    "spritesheet": "bunny_attack_spritesheet.png"
+  }
+}

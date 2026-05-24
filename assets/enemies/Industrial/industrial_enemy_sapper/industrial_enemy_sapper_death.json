@@ -1,0 +1,19 @@
+{
+  "character": "industrial_enemy_sapper",
+  "state": "death",
+  "frames": 15,
+  "fps": 30,
+  "frame_width": 256,
+  "frame_height": 256,
+  "cols": 6,
+  "rows": 3,
+  "sheet_width": 1536,
+  "sheet_height": 768,
+  "loop": false,
+  "method": "procedural-v1",
+  "files": {
+    "spritesheet": "industrial_enemy_sapper_death.png",
+    "webp": "industrial_enemy_sapper_death.webp"
+  },
+  "ends_at_full_transparency": true
+}
