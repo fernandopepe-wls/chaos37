@@ -1,6 +1,6 @@
 {
   "appId": "com.hackathon37.group34.bunnychaos",
-  "appName": "bunny-chaos-37",
+  "appName": "Bunny Chaos!",
   "webDir": "dist",
   "plugins": {
     "CapacitorHttp": {
