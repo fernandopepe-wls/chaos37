@@ -1205,35 +1205,40 @@
     color:#3a2a18;
     box-shadow:0 2px 4px rgba(0,0,0,0.08);
   }
-  /* X close — espelho da tag, no canto superior direito. Round + hit area
-     generosa pra dedo (44×44 conforme HIG do iOS). Reusável: qualquer
-     .forge-popup-card que receba esse botão ganha o X no canto. */
+  /* X close — round vermelho com contorno preto chunky, estilo cartoon
+     dos botões grandes do jogo (ZZZ / AUTO). Espelho da tag "Equipado"
+     no canto esquerdo, top-right do card. Hit area 44×44 (HIG iOS).
+     Reusável: qualquer .forge-popup-card com esse botão ganha o X. */
   .forge-popup-close{
     position:absolute;
-    top:-12px;right:10px;
-    width:30px;height:30px;
-    border:1.5px solid #d6cfc1;
+    top:-14px;right:-8px;
+    width:34px;height:34px;
+    border:2.5px solid #1a0e08;
     border-radius:50%;
-    background:#f5ecd2;
-    color:#3a2a18;
+    background:linear-gradient(180deg, #ff7070 0%, #d83a3a 55%, #b51e1e 100%);
+    color:#fff7e0;
     font-family:'Fredoka', system-ui, sans-serif;
-    font-size:14px;font-weight:bold;line-height:1;
+    font-size:15px;font-weight:900;line-height:1;
     cursor:pointer;
-    box-shadow:0 2px 4px rgba(0,0,0,0.08);
+    /* Drop shadow chunky pra contraste com fundos claros (popup cream) */
+    box-shadow:0 3px 0 #1a0e08, 0 5px 8px rgba(0,0,0,0.35);
+    /* Glyph stroke pra leitura sobre o vermelho */
+    text-shadow:0 1px 0 rgba(0,0,0,0.55);
     padding:0;
     display:flex;align-items:center;justify-content:center;
-    transition:transform 0.08s ease, background 0.12s ease;
-    /* Hit area extended via padding (visual stays 30×30, tap stays 44×44) */
+    transition:transform 0.08s ease, box-shadow 0.08s ease, filter 0.12s ease;
     -webkit-tap-highlight-color:transparent;
   }
+  /* Hit area extension invisible (44×44 effective tap) */
   .forge-popup-close::before{
     content:'';
     position:absolute;
-    inset:-8px;
+    inset:-6px;
   }
   .forge-popup-close:active{
-    transform:scale(0.92);
-    background:#e8dfc4;
+    transform:translateY(2px) scale(0.94);
+    box-shadow:0 1px 0 #1a0e08, 0 2px 4px rgba(0,0,0,0.35);
+    filter:brightness(0.92);
   }
   /* Linha de item (slot + info) */
   .forge-popup-row{
@@ -7724,8 +7729,14 @@ function _coalesceCarrotPickupPop(gameX, gameY, amount){
   if(!_cccCanvRect)  _cccCanvRect  = _cccGameCanv.getBoundingClientRect();
   if(!_cccLayerRect) _cccLayerRect = _cccLayer.getBoundingClientRect();
   const cr = _cccCanvRect, lr = _cccLayerRect;
-  const scaleX = cr.width  / _cccGameCanv.width;
-  const scaleY = cr.height / _cccGameCanv.height;
+  // BUG FIX: scale deve ser CSS px por LOGICAL unit, não por backing px.
+  // canvas.width = r.width * dpr (setado em fitCanvas), então usar
+  // cr.width/canvas.width dá 1/dpr — converte de backing px, não logical.
+  // arena.bx e LAYOUT.* são LOGICAL (W=360 range), então scale correto
+  // é cr.width / W. Antes: pillCx=310 → vx ≈ 155 CSS (centro-topo).
+  // Agora: vx = 310 * (414/360) ≈ 356 CSS (direita do screen, na pill).
+  const scaleX = cr.width  / W;
+  const scaleY = cr.height / H;
   // Pop AGORA sobe DA carrot pill (top-right HUD) em vez de cima do bunny.
   // Reforça visualmente que o contador do pill subiu. gameX/gameY ignorados.
   // Spawna logo abaixo do centro do pill — animação faz float-up que cruza
