@@ -2593,24 +2593,22 @@
   .stats-breakdown .stb-total .stb-power{color:#3a230b;font-size:16px;}
 
   /* Quest popup card — lista de missões com progress + RESGATAR.
-     max-height + flex column garante que o card cabe na viewport mesmo
-     com 18 quests; #questList scroll. */
+     Card compacto, altura auto. Lista interna tem max-height fixa que
+     mostra ~5 rows; o resto scrolla. */
   .quest-card{
     max-width:320px;
     margin:0 auto;
-    max-height: calc(100vh - 60px);
     display: flex;
     flex-direction: column;
   }
-  /* Lista scrollável — overflow só nessa região, não no card inteiro.
-     Mantém header (tag + título) e footer (botão Voltar) fixos visíveis. */
+  /* Lista scrollável — altura fixa ~5 rows visíveis (~80px/row × 5 ≈ 400px).
+     min() garante que cai pra altura menor em iPhones pequenos (SE: 667h) e
+     mantém ~400px em telas maiores (14 Pro: 852h). Resto scrolla touch. */
   #questList{
-    flex: 1 1 auto;
+    max-height: min(400px, calc(100vh - 220px));
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    /* padding lateral mantém o respiro do shadow das quest-rows */
     padding-right: 4px;
-    /* scrollbar estilizada (Chrome/WebKit) */
     scrollbar-width: thin;
     scrollbar-color: #b07a3a transparent;
   }
@@ -2624,9 +2622,9 @@
     background:#fff7e0;
     border:2px solid #b07a3a;
     border-radius:10px;
-    padding:10px 12px;
-    margin:8px 0;
-    display:flex;flex-direction:column;gap:6px;
+    padding:7px 10px;
+    margin:5px 0;
+    display:flex;flex-direction:column;gap:4px;
     color:#3a230b;
   }
   .quest-row.claimed{opacity:0.5;background:#e9dcc0;}
