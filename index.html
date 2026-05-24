@@ -4267,22 +4267,13 @@ const Music = (function(){
         }
       } catch(_){}
     }
-    // 3) SFX prewarm — cria Audio() pra TODAS as SFX do catálogo no primeiro
-    //    gesture. iOS WebKit decode-on-first-play stalla a main thread por
-    //    50-200ms quando combo_full/jackpot/etc toca pela 1ª vez (justamente
-    //    no momento da cerimônia de dados → match com o user report).
-    //    _getSfxAudio seta preload='auto' → browser começa o decode em bg.
-    try {
-      if(typeof AUDIO_CATALOG !== 'undefined' && typeof _getSfxAudio === 'function'){
-        for(const asset of AUDIO_CATALOG){
-          if(!asset || !asset.files) continue;
-          if(asset.category === 'music') continue; // música já é warmed acima
-          for(const src of asset.files){
-            try { _getSfxAudio(src); } catch(_){}
-          }
-        }
-      }
-    } catch(_){}
+    // SFX prewarm REMOVIDO — antes criava Audio() pra ~60 arquivos no
+    // primeiro gesture (todo asset SFX/UI do catalog). User report: audio
+    // parou de funcionar em iOS+Android. Suspeita: iOS tem limite histórico
+    // de simultaneous Audio elements (~30-50 dep. de versão); criar 60+
+    // de uma vez pode disparar quota exhaustion → BLOQUEIA música também.
+    // Cost de não prewarmar: 1ª play de cada SFX faz lazy decode (~50ms iOS).
+    // Trade-off aceitável vs audio system inteiro morto.
   }
   document.addEventListener('pointerdown', _primeAudioSession, { capture: true, once: true });
   document.addEventListener('touchstart',  _primeAudioSession, { capture: true, once: true, passive: true });
