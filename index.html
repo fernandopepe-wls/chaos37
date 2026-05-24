@@ -1495,14 +1495,19 @@
        evitar layer churn permanente. */
     will-change: transform;
   }
-  /* Sprite position por face: cada cell é 1/6 (16.666%) da sheet width.
-     N=1 mostra do offset 0%; N=2 mostra -100%; ... N=6 mostra -500%. */
-  #arenaDiceRow .forge-die[data-face="1"]{ background-position:    0% 0; }
-  #arenaDiceRow .forge-die[data-face="2"]{ background-position: -100% 0; }
-  #arenaDiceRow .forge-die[data-face="3"]{ background-position: -200% 0; }
-  #arenaDiceRow .forge-die[data-face="4"]{ background-position: -300% 0; }
-  #arenaDiceRow .forge-die[data-face="5"]{ background-position: -400% 0; }
-  #arenaDiceRow .forge-die[data-face="6"]{ background-position: -500% 0; }
+  /* Sprite position por face: com background-size:600% 100%, a imagem fica
+     6× a largura do container. Pra mostrar cada face, usa-se a fórmula CSS
+     padrão de percentage positioning: pos = (container - image) × pct / 100.
+     Com image_w = 6 × container_w, os valores corretos pra alinhar cada
+     face com o container são 0%, 20%, 40%, 60%, 80%, 100%.
+     (Valores negativos tipo -100% NÃO funcionam porque a fórmula projeta
+     a imagem PRA FORA do container → renderiza vazio em todos browsers.) */
+  #arenaDiceRow .forge-die[data-face="1"]{ background-position:   0% 0; }
+  #arenaDiceRow .forge-die[data-face="2"]{ background-position:  20% 0; }
+  #arenaDiceRow .forge-die[data-face="3"]{ background-position:  40% 0; }
+  #arenaDiceRow .forge-die[data-face="4"]{ background-position:  60% 0; }
+  #arenaDiceRow .forge-die[data-face="5"]{ background-position:  80% 0; }
+  #arenaDiceRow .forge-die[data-face="6"]{ background-position: 100% 0; }
   /* CSS pips no longer used — sprite carries the pip art now. */
   .forge-die .pip{ display:none; }
 
