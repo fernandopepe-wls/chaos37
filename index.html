@@ -10039,10 +10039,10 @@ function drawArenaHUD(){
   ctx.textAlign = 'center';
   // texto deslocado N px à direita: o ícone fica baked-in no pill (esquerda).
   // Offset configurável via UI Tool (carrotPillTextOffsetX).
-  // Abrevia pra max 5 chars (99999, 100K, 1.23M, 12.3M, ...) — evita
-  // overflow do pill conforme o jogo escala.
+  // Abrevia pra max 4 chars (9999 cap → 10K, 1.2M, 12.3T, ...) — evita
+  // overflow do pill conforme o jogo escala. User pediu abreviar APÓS 4 dígitos.
   const caTxtOffsetY = LAYOUT.carrotPillTextOffsetY || 0;
-  ctx.fillText(fmtCompact(arena.carrots || 0, 5), essX+essW/2+LAYOUT.carrotPillTextOffsetX, essY+essH/2+1+caTxtOffsetY);
+  ctx.fillText(fmtCompact(arena.carrots || 0, 4), essX+essW/2+LAYOUT.carrotPillTextOffsetX, essY+essH/2+1+caTxtOffsetY);
 
   // === Gem pill (moeda premium) — design igual ZZZ/AUTO: gradient azul,
   // border preto, sem drop shadow. Gem rhombus chapado (pink/red gradient,
@@ -11474,41 +11474,44 @@ function drawCosmicBeams(){
 // ============== FORGE — UPGRADE (design-forge-upgrade.md) ==============
 // Cada nivel agora custa cenouras + tempo (cooldown). Substitui o sistema
 // anterior baseado em kills.
+// timeSec: cooldown pra evoluir o nivel da forja. Todos os valores dobraram
+// (+100%) vs os originais — pace de mid-late game está rápido demais,
+// player chega no Lv 20+ sem fricção. Custo em cenouras inalterado.
 const FORGE_UPGRADES = [
-  { from: 1,  to: 2,  cost: 10,      timeSec: 5,    branches: 1  },
-  { from: 2,  to: 3,  cost: 25,      timeSec: 10,   branches: 1  },
-  { from: 3,  to: 4,  cost: 50,      timeSec: 20,   branches: 1  },
-  { from: 4,  to: 5,  cost: 100,     timeSec: 40,   branches: 1  },
-  { from: 5,  to: 6,  cost: 250,     timeSec: 60,   branches: 1  },
-  { from: 6,  to: 7,  cost: 600,     timeSec: 90,   branches: 1  },
-  { from: 7,  to: 8,  cost: 1200,    timeSec: 120,  branches: 1  },
-  { from: 8,  to: 9,  cost: 1000,    timeSec: 150,  branches: 3  },
-  { from: 9,  to: 10, cost: 1500,    timeSec: 180,  branches: 3  },
-  { from: 10, to: 11, cost: 2500,    timeSec: 210,  branches: 3  },
-  { from: 11, to: 12, cost: 3500,    timeSec: 240,  branches: 3  },
-  { from: 12, to: 13, cost: 4000,    timeSec: 270,  branches: 4  },
-  { from: 13, to: 14, cost: 5500,    timeSec: 300,  branches: 4  },
-  { from: 14, to: 15, cost: 6000,    timeSec: 330,  branches: 5  },
-  { from: 15, to: 16, cost: 8000,    timeSec: 360,  branches: 5  },
-  { from: 16, to: 17, cost: 9000,    timeSec: 390,  branches: 6  },
-  { from: 17, to: 18, cost: 10500,   timeSec: 420,  branches: 7  },
-  { from: 18, to: 19, cost: 12000,   timeSec: 450,  branches: 8  },
-  { from: 19, to: 20, cost: 14000,   timeSec: 480,  branches: 9  },
-  { from: 20, to: 21, cost: 17000,   timeSec: 510,  branches: 10 },
-  { from: 21, to: 22, cost: 23000,   timeSec: 540,  branches: 10 },
-  { from: 22, to: 23, cost: 30000,   timeSec: 570,  branches: 10 },
-  { from: 23, to: 24, cost: 40000,   timeSec: 600,  branches: 10 },
-  { from: 24, to: 25, cost: 55000,   timeSec: 630,  branches: 10 },
-  { from: 25, to: 26, cost: 65000,   timeSec: 660,  branches: 10 },
-  { from: 26, to: 27, cost: 78000,   timeSec: 690,  branches: 10 },
-  { from: 27, to: 28, cost: 95000,   timeSec: 720,  branches: 10 },
-  { from: 28, to: 29, cost: 115000,  timeSec: 780,  branches: 10 },
-  { from: 29, to: 30, cost: 140000,  timeSec: 840,  branches: 10 },
-  { from: 30, to: 31, cost: 170000,  timeSec: 900,  branches: 10 },
-  { from: 31, to: 32, cost: 200000,  timeSec: 960,  branches: 10 },
-  { from: 32, to: 33, cost: 240000,  timeSec: 1020, branches: 10 },
-  { from: 33, to: 34, cost: 290000,  timeSec: 1080, branches: 10 },
-  { from: 34, to: 35, cost: 350000,  timeSec: 1200, branches: 10 },
+  { from: 1,  to: 2,  cost: 10,      timeSec: 10,   branches: 1  },
+  { from: 2,  to: 3,  cost: 25,      timeSec: 20,   branches: 1  },
+  { from: 3,  to: 4,  cost: 50,      timeSec: 40,   branches: 1  },
+  { from: 4,  to: 5,  cost: 100,     timeSec: 80,   branches: 1  },
+  { from: 5,  to: 6,  cost: 250,     timeSec: 120,  branches: 1  },
+  { from: 6,  to: 7,  cost: 600,     timeSec: 180,  branches: 1  },
+  { from: 7,  to: 8,  cost: 1200,    timeSec: 240,  branches: 1  },
+  { from: 8,  to: 9,  cost: 1000,    timeSec: 300,  branches: 3  },
+  { from: 9,  to: 10, cost: 1500,    timeSec: 360,  branches: 3  },
+  { from: 10, to: 11, cost: 2500,    timeSec: 420,  branches: 3  },
+  { from: 11, to: 12, cost: 3500,    timeSec: 480,  branches: 3  },
+  { from: 12, to: 13, cost: 4000,    timeSec: 540,  branches: 4  },
+  { from: 13, to: 14, cost: 5500,    timeSec: 600,  branches: 4  },
+  { from: 14, to: 15, cost: 6000,    timeSec: 660,  branches: 5  },
+  { from: 15, to: 16, cost: 8000,    timeSec: 720,  branches: 5  },
+  { from: 16, to: 17, cost: 9000,    timeSec: 780,  branches: 6  },
+  { from: 17, to: 18, cost: 10500,   timeSec: 840,  branches: 7  },
+  { from: 18, to: 19, cost: 12000,   timeSec: 900,  branches: 8  },
+  { from: 19, to: 20, cost: 14000,   timeSec: 960,  branches: 9  },
+  { from: 20, to: 21, cost: 17000,   timeSec: 1020, branches: 10 },
+  { from: 21, to: 22, cost: 23000,   timeSec: 1080, branches: 10 },
+  { from: 22, to: 23, cost: 30000,   timeSec: 1140, branches: 10 },
+  { from: 23, to: 24, cost: 40000,   timeSec: 1200, branches: 10 },
+  { from: 24, to: 25, cost: 55000,   timeSec: 1260, branches: 10 },
+  { from: 25, to: 26, cost: 65000,   timeSec: 1320, branches: 10 },
+  { from: 26, to: 27, cost: 78000,   timeSec: 1380, branches: 10 },
+  { from: 27, to: 28, cost: 95000,   timeSec: 1440, branches: 10 },
+  { from: 28, to: 29, cost: 115000,  timeSec: 1560, branches: 10 },
+  { from: 29, to: 30, cost: 140000,  timeSec: 1680, branches: 10 },
+  { from: 30, to: 31, cost: 170000,  timeSec: 1800, branches: 10 },
+  { from: 31, to: 32, cost: 200000,  timeSec: 1920, branches: 10 },
+  { from: 32, to: 33, cost: 240000,  timeSec: 2040, branches: 10 },
+  { from: 33, to: 34, cost: 290000,  timeSec: 2160, branches: 10 },
+  { from: 34, to: 35, cost: 350000,  timeSec: 2400, branches: 10 },
 ];
 const FORGE_MAX_LEVEL = 35;
 
