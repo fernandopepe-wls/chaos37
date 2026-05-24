@@ -14360,15 +14360,11 @@ function openForgeCompare(){
   const newItem = arena.pendingForgeItem;
   if(!newItem) return;
   const oldItem = arena.items[newItem.slot];
-  // Flag pra skip renderArena() durante popup — game logic continua
-  // (updateArena no fixed-step), só pausa o DRAW do canvas. Player tá
-  // focado lendo stats do item, canvas atrás não precisa atualizar.
-  // Em iOS isso libera 100% do GPU pro popup transição (não compete
-  // com canvas 60fps). Skip aplica SOMENTE em modo manual — auto-forge
-  // continua renderizando pra manter continuidade visual entre rolls.
-  if(!forgeRoll.autoMode){
-    arena.forgeComparePopupOpen = true;
-  }
+  // Skip renderArena durante popup REMOVIDO — user observou que canvas
+  // congelar quando item aparece quebra a sensação de gameplay vivo
+  // (player vê inimigos parados/bunny parado enquanto lê stats). Custo
+  // perf preferível à pausa visual. Flag forgeComparePopupOpen continua
+  // existindo mas nunca é setada como true — main loop sempre renderiza.
   // SFX: card slide-in pop when the compare popup opens.
   if(typeof playSfx === 'function') playSfx('sfx_forge_popup_open');
 
