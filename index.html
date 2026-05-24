@@ -33,6 +33,17 @@
       window.Capacitor.Plugins.SplashScreen.hide();
     }
   } catch (e) { /* no-op */ }
+  // iOS WebKit perf gate — adicionado ANTES do primeiro paint pra que os
+  // CSS overrides scoped em `html.ios-perf` peguem desde o boot. Detecta
+  // iPhone/iPad/iPod via UA + iPadOS 13+ que reporta como MacIntel mas tem
+  // touch. WKWebView WebKit tem custos altos com filter:drop-shadow,
+  // mix-blend-mode:screen, filter:blur — overrides em CSS abaixam o custo.
+  try {
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPad|iPhone|iPod/.test(ua) ||
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS) document.documentElement.classList.add('ios-perf');
+  } catch (e) { /* no-op */ }
 </script>
 <style>
   :root{
@@ -1559,6 +1570,23 @@
         brightness(1.18);
     }
   }
+  /* iOS WebKit: drop-shadow 2× empilhado em loop infinito força re-raster
+     da silhueta + soft-shadow por frame, fora do compositor fast-path. Com
+     5 dados glowing + scale(1.32) do row-rolling, o custo despenca FPS.
+     Override: box-shadow estático + scale pulse via animation-name swap.
+     Compensação: box-shadow estático colorido pra manter "aura" visual.
+     User report: "lentidão começa pouco antes dos VFX" → comboPulse acende
+     quando cada dado POUSA (antes do banner), match exato com o sintoma. */
+  @keyframes comboPulseIOS{
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.06); }
+  }
+  html.ios-perf #arenaDiceRow .forge-die.combo-glow{
+    animation-name: comboPulseIOS !important;
+    box-shadow:
+      0 0 6px var(--combo-color, #FFCC3D),
+      0 0 12px var(--combo-color, #FFCC3D);
+  }
 
   /* === JUICE: dice anticipation / settle / combo flash / screen shake === */
 
@@ -1657,6 +1685,9 @@
     background: radial-gradient(circle, var(--flash-color, #ffcc3d) 0%, rgba(0,0,0,0) 65%);
     mix-blend-mode: screen;
   }
+  /* iOS WebKit: ver comentário em #forgeRays — drop screen blend pra
+     evitar fullscreen software composite. Flash continua visível. */
+  html.ios-perf #forgeComboFlash{ mix-blend-mode: normal; }
   #forgeComboFlash.fire{
     animation-name: forgeComboFlash;
     animation-timing-function: ease-out;
@@ -1750,6 +1781,13 @@
     mix-blend-mode: screen;
     filter: blur(2px);
   }
+  /* iOS WebKit: filter:blur em elemento 120vw forçando bitmap blur re-raster
+     a cada slide. Gradient já tem soft edges — blur(2px) é redundante.
+     mix-blend-mode:screen também derruba performance em fullscreen-ish. */
+  html.ios-perf #forgeSweepBar{
+    filter: none;
+    mix-blend-mode: normal;
+  }
   #forgeSweepBar.fire{ animation: forgeSweepBar .85s ease-out; }
   @keyframes forgeSweepBar{
     0%   { left: -120vw; opacity: 0; }
@@ -1788,6 +1826,10 @@
             mask: radial-gradient(circle, transparent 0%, black 30%, black 70%, transparent 95%);
     mix-blend-mode: screen;
   }
+  /* iOS WebKit: mix-blend-mode:screen em fullscreen-ish elem força
+     software blending da tela inteira por baixo. Sem screen, raio fica
+     ligeiramente menos vibrante mas a animação continua legível. */
+  html.ios-perf #forgeRays{ mix-blend-mode: normal; }
   #forgeRays.fire{ animation: forgeRaysSpin 1.1s ease-out; }
   @keyframes forgeRaysSpin{
     0%   { transform: scale(.3) rotate(0deg);   opacity: 0; }
@@ -4137,6 +4179,22 @@ const Music = (function(){
         }
       } catch(_){}
     }
+    // 3) SFX prewarm — cria Audio() pra TODAS as SFX do catálogo no primeiro
+    //    gesture. iOS WebKit decode-on-first-play stalla a main thread por
+    //    50-200ms quando combo_full/jackpot/etc toca pela 1ª vez (justamente
+    //    no momento da cerimônia de dados → match com o user report).
+    //    _getSfxAudio seta preload='auto' → browser começa o decode em bg.
+    try {
+      if(typeof AUDIO_CATALOG !== 'undefined' && typeof _getSfxAudio === 'function'){
+        for(const asset of AUDIO_CATALOG){
+          if(!asset || !asset.files) continue;
+          if(asset.category === 'music') continue; // música já é warmed acima
+          for(const src of asset.files){
+            try { _getSfxAudio(src); } catch(_){}
+          }
+        }
+      }
+    } catch(_){}
   }
   document.addEventListener('pointerdown', _primeAudioSession, { capture: true, once: true });
   document.addEventListener('touchstart',  _primeAudioSession, { capture: true, once: true, passive: true });
