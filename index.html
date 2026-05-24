@@ -13773,13 +13773,15 @@ function spawnDieValuePop(dieEl, value){
 // burst) — these are bigger, slower, and use star glyphs for a magical feel.
 function spawnSparkles(dieEl, color, count){
   if(!dieEl) return;
+  // iOS: skip TOTAL — user report (várias rodadas) sparkles em massa causam
+  // lag percebível no spin/combo land. Mesmo cap em 3-5 ainda era visível.
+  // Visual: tier text + flash + combo glow no dado + body shake já dão
+  // feedback suficiente do combo. Sparkles era polish, não essencial.
+  if(_IS_IOS_PERF) return;
   const rect = dieEl.getBoundingClientRect();
   const cx = rect.left + rect.width/2;
   const cy = rect.top  + rect.height/2;
-  // iOS: cap em 5 (vs 7 desktop). Mais denso que o cap 3 anterior, mas
-  // ainda 28% menos que desktop. 5 glow dice × 5 = 25 sparkles (vs 35
-  // original / vs 15 do cap 3). User pediu mais juice nos combos top.
-  const n = _IS_IOS_PERF ? Math.min(5, count || 5) : (count || 6);
+  const n = count || 6;
   const glyphs = ['✦', '✧', '✨', '★'];
   for(let i=0; i<n; i++){
     const sp = document.createElement('div');
@@ -13805,14 +13807,16 @@ function spawnSparkles(dieEl, color, count){
 // var --pdx / --pdy for end translation so each particle has its own vector.
 function spawnDieParticles(dieEl, color){
   if(!dieEl) return;
+  // iOS: skip TOTAL. Esses spawnam a cada die land (5×) E 2× por glow die
+  // no combo land. Burst total worst case = 5+80 = 85 DOM nodes em 1-2
+  // frames — mesmo com cap em 3-5, iOS WebKit ainda layout-thrash.
+  // Visual: o .settled keyframe (bounce do dado individual) já comunica
+  // "dado caiu". Combo glow + flash cobrem o resto.
+  if(_IS_IOS_PERF) return;
   const rect = dieEl.getBoundingClientRect();
   const cx = rect.left + rect.width/2;
   const cy = rect.top  + rect.height/2;
-  // iOS: cap em 5 (vs 8 desktop). User pediu mais juice. 5 dice × 5 = 25
-  // particles no settle (vs 15 do cap 3, vs 40 original). Combo land 2×
-  // burst per glow die = 50 mais (vs 30, vs 80 original). Total 75 (vs 45,
-  // vs 120). Ainda 38% redução, mas burst visual mais denso.
-  const count = _IS_IOS_PERF ? 5 : 8;
+  const count = 8;
   for(let i=0; i<count; i++){
     const p = document.createElement('div');
     p.className = 'forge-die-particle';
@@ -13909,11 +13913,11 @@ function triggerRays(color){
 }
 
 function spawnConfetti(count){
-  // iOS: cap em 15 (vs 40 desktop). User pediu chuva de volta no jackpot.
-  // 15 emoji ainda é spawn pesado em 1 frame (mais que sparkles/particles)
-  // mas spread over 1.6-2.8s de duração (random per piece) → DOM thrash
-  // menos concentrado vs spawnSparkles/spawnDieParticles que duram 480ms.
-  if(_IS_IOS_PERF) count = Math.min(15, count);
+  // iOS: skip TOTAL — user report lag de volta na cerimônia. Confetti era
+  // só em combo FIVE (jackpot) e 15 emojis spawn em 1 frame ainda era
+  // pesado. Tier text "JACKPOT!!" + bigIOS shake + flash já comunicam
+  // o impacto sem DOM burst.
+  if(_IS_IOS_PERF) return;
   for(let i=0; i<count; i++){
     const p = document.createElement('div');
     p.className = 'forge-confetti';
