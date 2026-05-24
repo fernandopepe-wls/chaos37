@@ -4513,6 +4513,18 @@ const SPLASH_ASSETS = [
   'assets/ui-roll-forge.png',    // usado via CSS background
   'assets/ui-bg-bottom.png',     // usado via canvas drawUIImage
   'assets/ui-panel-card.png',    // BOTTOM CARD 9-slice background (1024 PNG for cross-device compat)
+  // Dice faces — CSS background-image dos .forge-die. SEM preload, iOS
+  // WebKit decoda os 6 PNGs main-thread no PRIMEIRO clique no ROLAR
+  // (data-face muda → CSS resolve url() → fetch + decode síncronos).
+  // Cada decode ~30-50ms em iPhone 11 Pro → 180-300ms de freeze visível
+  // logo após o tap do ROLAR. Preload no splash desloca esse custo pro
+  // boot e o 1º roll fica fluido.
+  'assets/forge/face1.png',
+  'assets/forge/face2.png',
+  'assets/forge/face3.png',
+  'assets/forge/face4.png',
+  'assets/forge/face5.png',
+  'assets/forge/face6.png',
 ];
 (function runSplashScreen(){
   const splash = document.getElementById('splashScreen');
@@ -13852,13 +13864,10 @@ function animateForgeRoll(onDone){
         }
       }
       renderForgeDice();
-      for(let i=0;i<5;i++){
-        const el = _forgeDie(i);
-        if(el){
-          if(forgeRoll.held[i]) el.classList.remove('rolling');
-          else el.classList.add('rolling');
-        }
-      }
+      // PERF iOS: loop de classList.add('rolling') no tick foi REMOVIDO —
+      // class já foi adicionada antes do setInterval (loop acima). Re-add
+      // a cada tick era no-op funcional mas forçava style recalc (5 dados
+      // × 8 ticks = 40 ops redundantes/spin, especialmente caro em WKWebView).
       frame++;
       if(frame >= totalFrames){
         clearInterval(tick);
