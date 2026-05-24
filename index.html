@@ -1655,7 +1655,14 @@
     will-change: auto;
   }
   html.ios-perf .forge-dice-row.row-rolling{
-    transform: scale(1.18);
+    /* iOS: swish do row scale desliga (scale(1) = sem transform). User
+       intuition: parent transform 220ms + 5 children animando (.rolling)
+       simultaneamente força layer composite churn na GPU iOS. Tirar o
+       swish do parent mantém só as animations dos children (cheap).
+       Visual: dados não crescem visivelmente no ROLAR, mas a CSS animation
+       do .rolling + .settled bounce dos dados individuais ainda dão
+       o "spin energy". */
+    transform: scale(1);
   }
 
   /* Settle: per-die bounce when spin ends. Replaces .rolling for ~280ms. */
@@ -13753,7 +13760,10 @@ function spawnSparkles(dieEl, color, count){
   const rect = dieEl.getBoundingClientRect();
   const cx = rect.left + rect.width/2;
   const cy = rect.top  + rect.height/2;
-  const n = count || 6;
+  // iOS: cap em 3 (vs 7 desktop). 5 glow dice × 7 = 35 DOM nodes em 1 frame
+  // no combo land. Cap → 15 nodes total. Sparkles ainda lê visualmente como
+  // "magic burst" mas iOS WebKit não sufoca em style invalidation.
+  const n = _IS_IOS_PERF ? Math.min(3, count || 3) : (count || 6);
   const glyphs = ['✦', '✧', '✨', '★'];
   for(let i=0; i<n; i++){
     const sp = document.createElement('div');
@@ -13782,7 +13792,11 @@ function spawnDieParticles(dieEl, color){
   const rect = dieEl.getBoundingClientRect();
   const cx = rect.left + rect.width/2;
   const cy = rect.top  + rect.height/2;
-  const count = 8;
+  // iOS: cap em 3 (vs 8 desktop). Settle gera 5 dice × 8 = 40 DOM particles
+  // em 350ms staggered. Combo land chama isso 2× por glow die = 80 mais.
+  // Cap em 3 reduz pra 15 (settle) + 30 (combo) = 45 vs 120 antes.
+  // Cada appendChild ao body forçava style invalidation propagada.
+  const count = _IS_IOS_PERF ? 3 : 8;
   for(let i=0; i<count; i++){
     const p = document.createElement('div');
     p.className = 'forge-die-particle';
@@ -13809,6 +13823,13 @@ const _SHAKE_CLS = {
 };
 const _SHAKE_MS = { tiny: 250, small: 360, big: 560, mega: 820 };
 function triggerScreenShake(intensity){
+  // iOS: body transform força recompose fullscreen (canvas + popups + HUD).
+  // 'big' = 12px×500ms, 'mega' = 12px×750ms são os piores. Downgrade pra
+  // 'small' (3px×320ms) que ainda comunica impacto mas com 1/4 do custo.
+  // 'tiny' e 'small' já passam direto (transform pequeno + curto).
+  if(_IS_IOS_PERF && (intensity === 'big' || intensity === 'mega')){
+    intensity = 'small';
+  }
   const cls = _SHAKE_CLS[intensity];
   if(!cls) return;
   // Strip all shake classes so a new one restarts cleanly.
@@ -13867,6 +13888,11 @@ function triggerRays(color){
 }
 
 function spawnConfetti(count){
+  // iOS: skip confetti — 40 emoji 🥕 DOM com animation em 1 frame =
+  // explosão de layout work. Emoji é text-render via font (mais caro que
+  // sprite). Combo FIVE perde a chuva de cenoura mas flash + rays + sweep
+  // + text 'JACKPOT!!' + sparkles ainda comunicam o impacto.
+  if(_IS_IOS_PERF) return;
   for(let i=0; i<count; i++){
     const p = document.createElement('div');
     p.className = 'forge-confetti';
