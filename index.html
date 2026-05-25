@@ -10322,10 +10322,34 @@ const _DiceCanvas = (() => {
     const PAD_X = 8 * scale;
     const GAP   = 6 * scale;
     const innerW = stripBaseW - PAD_X * 2;
-    const dieSize = Math.min(stripBaseH * 0.9, (innerW - GAP * 4) / 5);
+    // DOM original: cada .forge-die tem flex:1 + aspect-ratio:1/1 com
+    // overflow:visible no parent. Logo o dado é dimensionado pela LARGURA
+    // disponível dividida entre 5 (com gaps) e transborda verticalmente.
+    // Match exato do DOM: tamanho width-based, sem clamp pela altura.
+    const dieSize = (innerW - GAP * 4) / 5;
     const totalW = dieSize * 5 + GAP * 4;
     const startX = stripLeftX + (stripBaseW - totalW) / 2;
     const dieY = stripTopY + (stripBaseH - dieSize) / 2;
+    // Row-rolling scale: durante a cerimônia, o DOM aplica scale(1.32) no
+    // .forge-dice-row. Replicar via flag spinning em qualquer dado: enquanto
+    // ALGUM dado tá rodando ou no settle, escalamos o grupo todo (transform
+    // origin = centro do strip).
+    let rowScale = 1.0;
+    let anyActive = false;
+    for(const s of state){
+      if(s.spinning || s.settling) { anyActive = true; break; }
+    }
+    if(anyActive) rowScale = 1.32;
+
+    // Wrap o desenho dos 5 dados em UM transform pra row-rolling scale
+    // (mesmo que o CSS .forge-dice-row.row-rolling { transform: scale(1.32) }).
+    // Origem do scale = centro do strip; transform applies to all dice equally.
+    const stripCenterX = stripLeftX + stripBaseW / 2;
+    const stripCenterY = stripTopY  + stripBaseH / 2;
+    ctx.save();
+    ctx.translate(stripCenterX, stripCenterY);
+    ctx.scale(rowScale, rowScale);
+    ctx.translate(-stripCenterX, -stripCenterY);
 
     for(let i=0; i<5; i++){
       const face = forgeRoll.dice[i] || 1;
@@ -10365,6 +10389,7 @@ const _DiceCanvas = (() => {
 
       ctx.restore();
     }
+    ctx.restore(); // close row-rolling scale wrap
   }
 
   return { startSpin, stopSpin, setComboGlow, clearAllGlow, resetAll, tick, draw, state };
