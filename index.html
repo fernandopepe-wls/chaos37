@@ -603,6 +603,57 @@
   .stats .row{display:flex;justify-content:space-between;padding:4px 0;}
   .stats .row span:last-child{color:var(--accent);font-weight:bold;}
 
+  /* Death overlay — cinemática pré-respawn (2s + fade-out 0.5s).
+     Layout: cobre frame inteiro (inset:0). O fundo é um gradient solid-black
+     no topo que desce até pouco antes do bottom card, daí faz fade-out pra
+     transparente — efeito visual de "preto atrás" do bottom card (cream).
+     z-index: 7 cobre canvas (1) + float buttons HUD top (6, settings/quest/IAP).
+     Float buttons ZZZ/AUTO posicionados na região de fade ficam parcialmente
+     visíveis durante a cinemática. */
+  #deathOverlay{
+    position:absolute;
+    inset:0;
+    display:none;
+    background: linear-gradient(
+      to bottom,
+      #000 0,
+      #000 calc(100% - var(--gameplay-bottom-offset, 200px) - 60px),
+      rgba(0,0,0,0) calc(100% - var(--gameplay-bottom-offset, 200px) + 20px),
+      rgba(0,0,0,0) 100%
+    );
+    opacity:1;
+    pointer-events:none;
+    z-index:7;
+    /* Fade-out controlado via JS (style.transition = 'opacity .5s ease') */
+  }
+  #deathOverlay.show{display:block;}
+  /* Texto "VOCÊ MORREU" — vermelho com stroke preto chunky, mesma fonte/peso
+     do DERROTADO e da FASE no canvas. Position absoluto centralizado na ÁREA
+     DE GAMEPLAY (não no centro do frame inteiro): top = metade da distância
+     até onde o bottom card começa. */
+  #deathOverlay .death-text{
+    position:absolute;
+    left:50%;
+    top: calc((100% - var(--gameplay-bottom-offset, 200px)) / 2);
+    transform: translate(-50%, -50%);
+    font-family:'Fredoka', system-ui, sans-serif;
+    font-size:42px;
+    font-weight:900;
+    color:#ff5252;
+    letter-spacing:2px;
+    white-space:nowrap;
+    text-shadow:
+      -2.5px -2.5px 0 #1a0e08,
+       2.5px -2.5px 0 #1a0e08,
+      -2.5px  2.5px 0 #1a0e08,
+       2.5px  2.5px 0 #1a0e08,
+      -2.5px  0    0 #1a0e08,
+       2.5px  0    0 #1a0e08,
+       0    -2.5px 0 #1a0e08,
+       0     2.5px 0 #1a0e08,
+       0     6px   24px rgba(0,0,0,0.6);
+  }
+
   /* joystick */
   #joy{
     position:absolute;left:0;right:0;bottom:0;height:42%;
@@ -748,11 +799,17 @@
   }
   /* texto principal (ROLAR / REROLAR / FORJAR) — +30% vs anterior */
   .forge-main-btn .lbl{
+    display:block;            /* full-width pra text-align center funcionar */
+    width:100%;
+    text-align:center;
     font-size:clamp(14px, 4.4cqw, 18px);
     line-height:1;
   }
-  /* sub-texto (🥬 N — total de folhas disponíveis) */
+  /* sub-texto (🥬 N — total de folhas disponíveis), centralizado abaixo do ROLAR */
   .forge-main-btn .sub{
+    display:block;
+    width:100%;
+    text-align:center;
     font-size:clamp(10px, 3.25cqw, 13px);
     letter-spacing:0.3px;
     line-height:1;
@@ -3103,6 +3160,11 @@
       <div id="splashLabel">CARREGANDO…</div>
     </div>
     <canvas id="game"></canvas>
+
+    <!-- Death overlay — preto cobre HUD top + gameplay, gradient fade pra
+         transparente perto do bottom card (revela items/dice/buttons por baixo).
+         z-index entre float buttons (6) e popups (100+). -->
+    <div id="deathOverlay"><span class="death-text">VOCÊ MORREU</span></div>
 
     <!-- joystick zone -->
     <div id="joy"></div>
@@ -6135,7 +6197,39 @@ function challengeBoss(){
   if(window.Analytics) Analytics.send('boss_engaged', { via: 'manual' });
 }
 
+// Death cinematic helper — exibe overlay preto + "VOCÊ MORREU" por 2s,
+// depois fade-out 0.5s revelando o canvas (já com player respawned).
+// Re-entrant: se player morrer 2x em sequência (raro mas possível em PvP/
+// chain damage), o segundo call cancela o timer pendente e reinicia.
+let _deathOverlayTimers = [];
+function _showDeathOverlay(){
+  const el = document.getElementById('deathOverlay');
+  if(!el) return;
+  // Cancela timers anteriores se overlay ainda em fade-out
+  _deathOverlayTimers.forEach(t => clearTimeout(t));
+  _deathOverlayTimers = [];
+  // Frame 0: instantâneo opaco (sem transition pra não fazer fade-IN)
+  el.style.transition = 'none';
+  el.style.opacity = '1';
+  el.classList.add('show');
+  // Force reflow pra a transition-removal pegar antes do próximo paint
+  void el.offsetHeight;
+  // t=2000ms: começa fade-out 0.5s
+  _deathOverlayTimers.push(setTimeout(() => {
+    el.style.transition = 'opacity 0.5s ease';
+    el.style.opacity = '0';
+    // t=2500ms: hide
+    _deathOverlayTimers.push(setTimeout(() => {
+      el.classList.remove('show');
+    }, 500));
+  }, 2000));
+}
+
 function onArenaDeath(){
+  // Death cinematic: tela preta + "VOCÊ MORREU" por 2s, depois fade-out 0.5s.
+  // Cobre o canvas durante o respawn (HP/posição/wave resetam imediatamente
+  // logo abaixo, mas o player só VÊ depois do fade-out — sem flash visual).
+  _showDeathOverlay();
   // SFX: death cry + defeat banner sting. Defeat sting (music category) fires
   // on top of the gameplay music — fade-out wired in the catalog entry.
   if(typeof playSfx === 'function'){
@@ -6410,6 +6504,12 @@ function _applyLayoutCSSVars(){
   root.style.setProperty('--card-top',    `calc(100% - ${px(cardTopFromBottom)} - var(--safe-bottom, 0px))`);
   root.style.setProperty('--card-bottom', px(LAYOUT.bottomCapBottomGapPx));
   root.style.setProperty('--card-radius', px(LAYOUT.bottomCapRadius));
+  // Death overlay bounds — ancora o overlay APENAS na área de gameplay
+  // (entre o HUD top e o bottom card). 130 logical px de top dá folga abaixo
+  // das pills (sword/carrot/diamond) e do stage label. Bottom usa o mesmo
+  // anchor do bottom card (cardTopFromBottom) pra terminar onde o card começa.
+  root.style.setProperty('--gameplay-top', px(130));
+  root.style.setProperty('--gameplay-bottom-offset', `calc(${px(cardTopFromBottom)} + var(--safe-bottom, 0px))`);
 
   // Forge container (#arenaForgeInline) virou só um positioning context
   // de tela inteira (display:none toggle). Dice strip e action row agora têm
@@ -12125,7 +12225,7 @@ const Tutorial = (function(){
     // O asset original do paw já é uma pata com pad no topo + tufo no bottom — fica
     // natural com finger up. Balão fica abaixo da pata.
     if(_step === 'roll'){
-      FTUE.point({ target:'#arenaForgeRollBtn', text:'Jogue os dados pra apostar na sorte!', position:'below' });
+      FTUE.point({ target:'#arenaForgeRollBtn', text:'JOGUE OS DADOS PARA APOSTAR NA SORTE E ENCONTRAR ITENS INCRÍVEIS', position:'below' });
     } else if(_step === 'forge'){
       // No-op visual: o botão FORJAR foi removido do fluxo (popup #forgeCompare
       // abre direto após o roll). Mantemos o estado pra preservar a transição
