@@ -4995,14 +4995,21 @@ window.addEventListener('keydown', e=>{
   if((e.key === 'l' || e.key === 'L') && !e.repeat && typeof cheatLevelUpForge === 'function'){
     cheatLevelUpForge();
   }
-  // === CHEAT: tecla "K" reseta FTUE + quests pra testar do zero ===
+  // === CHEAT: tecla "K" reseta SAVE COMPLETO — stage 1, FTUE, quests, forge, ===
+  // diamonds, IAP, offline, mixer. Varre todas as keys 'bunnyChaos.*' do localStorage.
   if((e.key === 'k' || e.key === 'K') && !e.repeat){
+    // Bloqueia os auto-saves (setInterval 5s + pagehide + beforeunload + appStateChange)
+    // de regravar arenaState DEPOIS do removeItem mas ANTES do reload terminar.
+    window._SAVE_DISABLED = true;
     try {
-      localStorage.removeItem('bunnyChaos.ftueStep');
-      localStorage.removeItem('bunnyChaos.quests');
-      localStorage.removeItem('bunnyChaos.arenaState'); // reseta gameplay state
-    } catch(err){}
-    console.log('[cheat] FTUE + quests reset — recarregando...');
+      const toRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('bunnyChaos.')) toRemove.push(k);
+      }
+      toRemove.forEach(k => localStorage.removeItem(k));
+      console.log(`[cheat] save reset (${toRemove.length} keys) — recarregando...`);
+    } catch(err){ console.warn('[cheat] reset falhou', err); }
     setTimeout(() => location.reload(), 80);
   }
   // === CHEAT: tecla "J" cicla weapon equipada (preview de hand-sprite) ===
@@ -5783,12 +5790,21 @@ function initArena(){
   arena.forgeUpgradeStartedAt = null;
   arena.forgeUpgradeTargetLevel = null;
   arena.forgeUpgradeTimeSec = null;
+  arena.forgeUpgradePaidBlocks = 0; // bloco-a-bloco: quantos slots já foram pagos
   if(typeof loadForgeProgress === 'function'){
     const p = loadForgeProgress();
     if(p){
-      arena.forgeUpgradeStartedAt = p.startedAt;
-      arena.forgeUpgradeTargetLevel = p.target;
-      arena.forgeUpgradeTimeSec = p.timeSec;
+      arena.forgeUpgradeStartedAt = p.startedAt || null;
+      arena.forgeUpgradeTargetLevel = p.target || null;
+      arena.forgeUpgradeTimeSec = p.timeSec || null;
+      // Migration v1→v2: saves antigos com startedAt mas sem paidBlocks → assume
+      // todos blocos pagos (timer já rodando sob a regra antiga).
+      if(p.paidBlocks != null){
+        arena.forgeUpgradePaidBlocks = p.paidBlocks|0;
+      } else if(p.startedAt){
+        const info = (typeof getForgeUpgradeInfo === 'function') ? getForgeUpgradeInfo(arena.forgeLevel) : null;
+        arena.forgeUpgradePaidBlocks = info ? info.blocks : 1;
+      }
       // se ja completou offline, aplica imediatamente
       if(isForgeUpgradeReady()) applyForgeUpgradeIfReady();
     }
@@ -6177,15 +6193,19 @@ const LAYOUT_DEFAULTS = {
   bgOverlapPx: 160,
   bgFadeHpx: 28,
   // Play area (npc + bunny walk/spawn)
-  playInsetTop: 136,
-  playInsetBottom: 60,
-  playInsetLeft: 20,
-  playInsetRight: 20,
+  playInsetTop: 140,
+  playInsetBottom: 56,
+  playInsetLeft: 30,
+  playInsetRight: 30,
+  // Offset Y do play area inteiro (move TOP + BOT juntos, preservando altura).
+  // Positivo = desce a arena toda; negativo = sobe. Útil pra ajustar
+  // posicionamento sem mexer no tamanho.
+  playOffsetY: 0,
   // Corner radius do play area: 0 = retângulo perfeito.
   // > 0 = arredonda as 4 quinas. Subindo, o play area vira "stadium" e depois
   // "círculo/oval" (quando o radius = min(W/2, H/2) da PLAY box).
   // Bunny + inimigos respeitam essa shape pra não andar fora dos cantos.
-  playCornerRadius: 140,
+  playCornerRadius: 168,
   // Spawn zones — 2 retângulos espelhados nos cantos INFERIORES esquerdo +
   // direito (visualmente, as aberturas entre arbustos das eras). Inimigos
   // só nascem dentro dessas zonas — nunca do topo ou centro inferior.
@@ -6317,8 +6337,9 @@ try {
 const PLAY = { TOP_Y: 0, BOT_Y: 0, LEFT_X: 0, RIGHT_X: 0 };
 function _computePlayBounds(){
   if(typeof ARENA === 'undefined') return;
-  PLAY.TOP_Y   = ARENA.TOP_Y   + LAYOUT.playInsetTop;
-  PLAY.BOT_Y   = ARENA.BOT_Y   - LAYOUT.playInsetBottom;
+  const offY = LAYOUT.playOffsetY || 0; // desloca TOP+BOT juntos (preserva altura)
+  PLAY.TOP_Y   = ARENA.TOP_Y   + LAYOUT.playInsetTop    + offY;
+  PLAY.BOT_Y   = ARENA.BOT_Y   - LAYOUT.playInsetBottom + offY;
   PLAY.LEFT_X  = ARENA.LEFT_X  + LAYOUT.playInsetLeft;
   PLAY.RIGHT_X = ARENA.RIGHT_X - LAYOUT.playInsetRight;
 }
@@ -6933,6 +6954,8 @@ const LAYOUT_SCHEMA = [
   { key:'playInsetBottom', label:'Inset bottom',   min:0,    max:400,  step:2 },
   { key:'playInsetLeft',   label:'Inset left',     min:0,    max:200,  step:2 },
   { key:'playInsetRight',  label:'Inset right',    min:0,    max:200,  step:2 },
+  // Offset Y: move arena inteira (preserva altura) — positivo desce, negativo sobe
+  { key:'playOffsetY',     label:'Offset Y (↑/↓ tudo)', min:-200, max:200, step:1 },
   // Corner radius: 0 = retângulo, ↑ = arredonda quinas, máximo ≈ círculo/oval
   { key:'playCornerRadius', label:'Corner radius (◯)', min:0, max:200, step:1 },
   { section:'Spawn zones (cantos inferiores L/R)' },
@@ -10838,12 +10861,12 @@ const ERA_FULL_BG_SRC = [
   { video: 'assets/backgrounds/env-era1-burrow-NEW.mp4', poster: 'assets/env-era1-burrow-NEW.webp' }, // 0 — Burrow Age (vídeo loop)
   { video: 'assets/backgrounds/env-era2-meadow-NEW.mp4', poster: 'assets/env-era2-meadow-NEW.webp' }, // 1 — The Meadow Kingdom (vídeo loop)
   { video: 'assets/backgrounds/env-era3-hutch-NEW.mp4', poster: 'assets/env-era3-hutch-NEW.webp' },   // 2 — The Industrial Hutch (vídeo loop)
-  'assets/env-era4-skyhop-NEW.webp',       // 3 — The Skyhop Era
-  'assets/env-era5-cosmic-NEW.webp',       // 4 — The Cosmic Carrot Age
+  { video: 'assets/backgrounds/env-era4-skyhop-NEW.mp4', poster: 'assets/env-era4-skyhop-NEW.webp' }, // 3 — The Skyhop Era (vídeo loop)
+  { video: 'assets/backgrounds/env-era5-cosmic-NEW.mp4', poster: 'assets/env-era5-cosmic-NEW.webp' }, // 4 — The Cosmic Carrot Age (vídeo loop)
   'assets/env-era6-glimmerwarp-NEW.webp',  // 5 — The Glimmerwarp
   'assets/env-era7-dreamburrow-NEW.webp',  // 6 — The Dreamburrow
-  'assets/env-era8-hollow-NEW.webp',       // 7 — The Hollow Realm
-  'assets/env-era9-emberforge-NEW.webp',   // 8 — The Emberforge Underdeep
+  { video: 'assets/backgrounds/env-era8-hollow-NEW.mp4', poster: 'assets/env-era8-hollow-NEW.webp' }, // 7 — The Hollow Realm (vídeo loop)
+  { video: 'assets/backgrounds/env-era9-emberforge-NEW.mp4', poster: 'assets/env-era9-emberforge-NEW.webp' }, // 8 — The Emberforge Underdeep (vídeo loop)
   'assets/env-era10-verdant-NEW.webp',     // 9 — The Verdant Eternal
 ];
 const ERA_FULL_BG_MEDIA = ERA_FULL_BG_SRC.map(src => {
@@ -11547,41 +11570,45 @@ function drawCosmicBeams(){
 // 2 minutos no Lv 1→2 (gating mais sério do early game). Curva: +30s/level
 // nos primeiros 5, +60s/level até Lv 11, +120s/level até Lv 34, salto final
 // pro cap de 1h em Lv 34→35. Custo em cenouras inalterado.
+// Tabela espelhada do Forge Masters (Legend of Mushroom-like). Cada upgrade
+// é dividido em N "blocos" de unitCost — player paga bloco por bloco e só
+// quando todos estiverem pagos é que o timer de timeSec começa a contar.
+// branches = mesmo valor de blocks (visual: quantidade de slots no popup).
 const FORGE_UPGRADES = [
-  { from: 1,  to: 2,  cost: 10,      timeSec: 120,  branches: 1  },
-  { from: 2,  to: 3,  cost: 25,      timeSec: 150,  branches: 1  },
-  { from: 3,  to: 4,  cost: 50,      timeSec: 180,  branches: 1  },
-  { from: 4,  to: 5,  cost: 100,     timeSec: 210,  branches: 1  },
-  { from: 5,  to: 6,  cost: 250,     timeSec: 240,  branches: 1  },
-  { from: 6,  to: 7,  cost: 600,     timeSec: 300,  branches: 1  },
-  { from: 7,  to: 8,  cost: 1200,    timeSec: 360,  branches: 1  },
-  { from: 8,  to: 9,  cost: 1000,    timeSec: 420,  branches: 3  },
-  { from: 9,  to: 10, cost: 1500,    timeSec: 480,  branches: 3  },
-  { from: 10, to: 11, cost: 2500,    timeSec: 540,  branches: 3  },
-  { from: 11, to: 12, cost: 3500,    timeSec: 600,  branches: 3  },
-  { from: 12, to: 13, cost: 4000,    timeSec: 720,  branches: 4  },
-  { from: 13, to: 14, cost: 5500,    timeSec: 840,  branches: 4  },
-  { from: 14, to: 15, cost: 6000,    timeSec: 960,  branches: 5  },
-  { from: 15, to: 16, cost: 8000,    timeSec: 1080, branches: 5  },
-  { from: 16, to: 17, cost: 9000,    timeSec: 1200, branches: 6  },
-  { from: 17, to: 18, cost: 10500,   timeSec: 1320, branches: 7  },
-  { from: 18, to: 19, cost: 12000,   timeSec: 1440, branches: 8  },
-  { from: 19, to: 20, cost: 14000,   timeSec: 1560, branches: 9  },
-  { from: 20, to: 21, cost: 17000,   timeSec: 1680, branches: 10 },
-  { from: 21, to: 22, cost: 23000,   timeSec: 1800, branches: 10 },
-  { from: 22, to: 23, cost: 30000,   timeSec: 1920, branches: 10 },
-  { from: 23, to: 24, cost: 40000,   timeSec: 2040, branches: 10 },
-  { from: 24, to: 25, cost: 55000,   timeSec: 2160, branches: 10 },
-  { from: 25, to: 26, cost: 65000,   timeSec: 2280, branches: 10 },
-  { from: 26, to: 27, cost: 78000,   timeSec: 2400, branches: 10 },
-  { from: 27, to: 28, cost: 95000,   timeSec: 2520, branches: 10 },
-  { from: 28, to: 29, cost: 115000,  timeSec: 2640, branches: 10 },
-  { from: 29, to: 30, cost: 140000,  timeSec: 2760, branches: 10 },
-  { from: 30, to: 31, cost: 170000,  timeSec: 2880, branches: 10 },
-  { from: 31, to: 32, cost: 200000,  timeSec: 3000, branches: 10 },
-  { from: 32, to: 33, cost: 240000,  timeSec: 3120, branches: 10 },
-  { from: 33, to: 34, cost: 290000,  timeSec: 3240, branches: 10 },
-  { from: 34, to: 35, cost: 350000,  timeSec: 3600, branches: 10 },
+  { from: 1,  to: 2,  unitCost: 400,      blocks: 1,  timeSec: 300,      branches: 1  }, // 5m
+  { from: 2,  to: 3,  unitCost: 700,      blocks: 1,  timeSec: 900,      branches: 1  }, // 15m
+  { from: 3,  to: 4,  unitCost: 1500,     blocks: 1,  timeSec: 1800,     branches: 1  }, // 30m
+  { from: 4,  to: 5,  unitCost: 3500,     blocks: 1,  timeSec: 3600,     branches: 1  }, // 1h
+  { from: 5,  to: 6,  unitCost: 10000,    blocks: 1,  timeSec: 7140,     branches: 1  }, // 1h59m
+  { from: 6,  to: 7,  unitCost: 25000,    blocks: 1,  timeSec: 27180,    branches: 1  }, // 7h33m
+  { from: 7,  to: 8,  unitCost: 50000,    blocks: 1,  timeSec: 47160,    branches: 1  }, // 13h6m
+  { from: 8,  to: 9,  unitCost: 33300,    blocks: 3,  timeSec: 67140,    branches: 3  }, // 18h39m
+  { from: 9,  to: 10, unitCost: 50000,    blocks: 3,  timeSec: 133200,   branches: 3  }, // 1d13h
+  { from: 10, to: 11, unitCost: 83300,    blocks: 3,  timeSec: 126000,   branches: 3  }, // 1d11h
+  { from: 11, to: 12, unitCost: 112000,   blocks: 3,  timeSec: 176400,   branches: 3  }, // 2d1h
+  { from: 12, to: 13, unitCost: 113000,   blocks: 4,  timeSec: 234000,   branches: 4  }, // 2d17h
+  { from: 13, to: 14, unitCost: 153000,   blocks: 4,  timeSec: 306000,   branches: 4  }, // 3d13h
+  { from: 14, to: 15, unitCost: 166000,   blocks: 5,  timeSec: 385200,   branches: 5  }, // 4d11h
+  { from: 15, to: 16, unitCost: 224000,   blocks: 5,  timeSec: 464400,   branches: 5  }, // 5d9h
+  { from: 16, to: 17, unitCost: 252000,   blocks: 6,  timeSec: 540000,   branches: 6  }, // 6d7h
+  { from: 17, to: 18, unitCost: 291000,   blocks: 7,  timeSec: 626400,   branches: 7  }, // 7d6h
+  { from: 18, to: 19, unitCost: 344000,   blocks: 8,  timeSec: 705600,   branches: 8  }, // 8d4h
+  { from: 19, to: 20, unitCost: 413000,   blocks: 9,  timeSec: 784800,   branches: 9  }, // 9d2h
+  { from: 20, to: 21, unitCost: 502000,   blocks: 10, timeSec: 867180,   branches: 10 }, // 10d53m
+  { from: 21, to: 22, unitCost: 678000,   blocks: 10, timeSec: 947760,   branches: 10 }, // 10d23h
+  { from: 22, to: 23, unitCost: 916000,   blocks: 10, timeSec: 1026000,  branches: 10 }, // 11d21h
+  { from: 23, to: 24, unitCost: 1230000,  blocks: 10, timeSec: 1105200,  branches: 10 }, // 12d19h
+  { from: 24, to: 25, unitCost: 1660000,  blocks: 10, timeSec: 1184400,  branches: 10 }, // 13d17h
+  { from: 25, to: 26, unitCost: 2000000,  blocks: 10, timeSec: 1263600,  branches: 10 }, // 14d15h
+  { from: 26, to: 27, unitCost: 2400000,  blocks: 10, timeSec: 1346400,  branches: 10 }, // 15d14h
+  { from: 27, to: 28, unitCost: 2880000,  blocks: 10, timeSec: 1425600,  branches: 10 }, // 16d12h
+  { from: 28, to: 29, unitCost: 3460000,  blocks: 10, timeSec: 1504800,  branches: 10 }, // 17d10h
+  { from: 29, to: 30, unitCost: 4150000,  blocks: 10, timeSec: 1584000,  branches: 10 }, // 18d8h
+  { from: 30, to: 31, unitCost: 4980000,  blocks: 10, timeSec: 1666800,  branches: 10 }, // 19d7h
+  { from: 31, to: 32, unitCost: 5980000,  blocks: 10, timeSec: 1746000,  branches: 10 }, // 20d5h
+  { from: 32, to: 33, unitCost: 7170000,  blocks: 10, timeSec: 1825200,  branches: 10 }, // 21d3h
+  { from: 33, to: 34, unitCost: 8610000,  blocks: 10, timeSec: 1904400,  branches: 10 }, // 22d1h
+  { from: 34, to: 35, unitCost: 10300000, blocks: 10, timeSec: 1987200,  branches: 10 }, // 23d
 ];
 const FORGE_MAX_LEVEL = 35;
 
@@ -11606,6 +11633,7 @@ const ARENA_STATE_KEY = 'bunnyChaos.arenaState';
 const ARENA_STATE_VER = 1; // bump pra invalidar saves antigos em mudança de schema
 function saveArenaState(){
   if(typeof arena === 'undefined') return;
+  if(window._SAVE_DISABLED) return; // cheat K em curso — não regravar após removeItem
   try {
     localStorage.setItem(ARENA_STATE_KEY, JSON.stringify({
       v:     ARENA_STATE_VER,
@@ -12803,23 +12831,25 @@ function autoForgeSmartThreshold(){
 //   HACKATHON (atual):         COST = 20.0, TIME = 0.5   → bem caro, rampa rápida
 //   STANDARD  (mid-term):      COST = 1.0,  TIME = 1.0   → ~4h, ~2M
 //   LONG_BURN (pré-launch):    COST = 5.0,  TIME = 10.0  → ~40h, ~10M
-// Subido de 1.0 → 20.0 a pedido — força player a sentir o peso do upgrade.
-const FORGE_COST_MULT = 20.0;
-const FORGE_TIME_MULT = 0.5;
+// Tabela base é Forge Masters direta. Multiplicadores em 1.0 (tweakar aqui).
+const FORGE_COST_MULT = 1.0;
+const FORGE_TIME_MULT = 1.0;
 
 function getForgeUpgradeInfo(level){
   const raw = FORGE_UPGRADES.find(u => u.from === level);
   if(!raw) return null;
-  // Aplica multiplicadores na hora da leitura — toda a UI/economia herda
-  // automaticamente (cost no botão, timer, balanceamento, etc).
+  const unitCost = Math.max(1, Math.round(raw.unitCost * FORGE_COST_MULT));
+  const blocks   = raw.blocks || 1;
+  const timeSec  = Math.max(1, Math.round(raw.timeSec * FORGE_TIME_MULT));
   return {
     from: raw.from,
     to: raw.to,
     branches: raw.branches,
-    cost:    Math.max(1, Math.round(raw.cost    * FORGE_COST_MULT)),
-    timeSec: Math.max(1, Math.round(raw.timeSec * FORGE_TIME_MULT)),
-    // raw mantido pra debug / display de "valor base"
-    rawCost: raw.cost,
+    unitCost,
+    blocks,
+    cost: unitCost * blocks, // total — kept pra compat com chamadas antigas
+    timeSec,
+    rawUnitCost: raw.unitCost,
     rawTimeSec: raw.timeSec,
   };
 }
@@ -12833,12 +12863,17 @@ function loadForgeLevel(){
   } catch(e){ return 1; }
 }
 function saveForgeProgress(){
+  if(window._SAVE_DISABLED) return; // cheat K em curso
   try {
-    if(arena.forgeUpgradeStartedAt && arena.forgeUpgradeTargetLevel){
+    const paidBlocks = arena.forgeUpgradePaidBlocks|0;
+    const hasTimer = !!(arena.forgeUpgradeStartedAt && arena.forgeUpgradeTargetLevel);
+    if(hasTimer || paidBlocks > 0){
       localStorage.setItem(FORGE_PROGRESS_KEY, JSON.stringify({
-        startedAt: arena.forgeUpgradeStartedAt,
-        target: arena.forgeUpgradeTargetLevel,
-        timeSec: arena.forgeUpgradeTimeSec,
+        v: 2,
+        startedAt: arena.forgeUpgradeStartedAt || null,
+        target: arena.forgeUpgradeTargetLevel || null,
+        timeSec: arena.forgeUpgradeTimeSec || null,
+        paidBlocks,
       }));
     } else {
       localStorage.removeItem(FORGE_PROGRESS_KEY);
@@ -12863,23 +12898,60 @@ function isForgeUpgradeReady(){
 function isForgeUpgradeInProgress(){
   return !!arena.forgeUpgradeStartedAt && !isForgeUpgradeReady();
 }
+// === BLOCK PAYMENT SYSTEM (Forge Masters / LoM-style) ===
+// Cada upgrade tem N blocos. Cada bloco custa info.unitCost cenouras.
+// Player paga bloco a bloco; quando todos pagos, libera o "Iniciar" que
+// dispara o timer de timeSec. Estado persiste em forgeUpgradePaidBlocks.
+function getForgeUpgradePaidBlocks(){
+  return arena.forgeUpgradePaidBlocks|0;
+}
+function areAllForgeBlocksPaid(){
+  const info = getForgeUpgradeInfo(arena.forgeLevel);
+  if(!info) return false;
+  return getForgeUpgradePaidBlocks() >= info.blocks;
+}
+function canPayForgeBlock(){
+  if(arena.forgeLevel >= FORGE_MAX_LEVEL) return { ok: false, reason: 'MAX' };
+  if(arena.forgeUpgradeStartedAt) return { ok: false, reason: 'IN_PROGRESS' };
+  const info = getForgeUpgradeInfo(arena.forgeLevel);
+  if(!info) return { ok: false, reason: 'NO_INFO' };
+  if(getForgeUpgradePaidBlocks() >= info.blocks) return { ok: false, reason: 'ALL_PAID', info };
+  if(arena.carrots < info.unitCost) return { ok: false, reason: 'NOT_ENOUGH_CARROTS', needed: info.unitCost, info };
+  return { ok: true, info };
+}
+function payForgeUpgradeBlock(){
+  const r = canPayForgeBlock();
+  if(!r.ok) return false;
+  arena.carrots -= r.info.unitCost;
+  arena.forgeUpgradePaidBlocks = (arena.forgeUpgradePaidBlocks|0) + 1;
+  saveForgeProgress();
+  if(window.Analytics) Analytics.send('forge_block_paid', {
+    level_from: arena.forgeLevel, level_to: r.info.to,
+    block: arena.forgeUpgradePaidBlocks, total_blocks: r.info.blocks,
+    unit_cost: r.info.unitCost,
+  });
+  return true;
+}
+
 function canStartForgeUpgrade(){
   if(arena.forgeLevel >= FORGE_MAX_LEVEL) return { ok: false, reason: 'MAX' };
   if(arena.forgeUpgradeStartedAt) return { ok: false, reason: 'IN_PROGRESS' };
   const info = getForgeUpgradeInfo(arena.forgeLevel);
   if(!info) return { ok: false, reason: 'NO_INFO' };
-  if(arena.carrots < info.cost) return { ok: false, reason: 'NOT_ENOUGH_CARROTS', needed: info.cost };
+  // Forge Masters: só libera o timer quando TODOS os blocos foram pagos
+  if(getForgeUpgradePaidBlocks() < info.blocks) return { ok: false, reason: 'NEED_BLOCKS', info };
   return { ok: true, info };
 }
 // Compat: alguns trechos antigos chamavam canUpgradeForge() pra saber se da
-// pra subir (visual). Mantemos pra mostrar o glow no botao LV.
+// pra subir (visual). Glow do botão LV quando: pode pagar bloco, pode iniciar
+// timer, ou está pronto pra coletar.
 function canUpgradeForge(){
-  return canStartForgeUpgrade().ok || isForgeUpgradeReady();
+  return canPayForgeBlock().ok || canStartForgeUpgrade().ok || isForgeUpgradeReady();
 }
 function tryStartForgeUpgrade(){
   const r = canStartForgeUpgrade();
   if(!r.ok) return false;
-  arena.carrots -= r.info.cost;
+  // Cenouras já foram debitadas via payForgeUpgradeBlock — só dispara o timer.
   arena.forgeUpgradeTargetLevel = r.info.to;
   arena.forgeUpgradeStartedAt = Date.now();
   arena.forgeUpgradeTimeSec = r.info.timeSec;
@@ -12892,6 +12964,7 @@ function applyForgeUpgradeIfReady(){
   arena.forgeUpgradeStartedAt = null;
   arena.forgeUpgradeTargetLevel = null;
   arena.forgeUpgradeTimeSec = null;
+  arena.forgeUpgradePaidBlocks = 0; // reseta pra próxima fornada de blocos
   saveForgeLevel();
   saveForgeProgress();
   // Quests: sync quests de forge level (forge_lvl_5/10/15/20/25)
@@ -13018,14 +13091,60 @@ function buildForgeLevelInfo(){
         <div style="height:100%;width:${pct.toFixed(1)}%;background:linear-gradient(180deg,#aff067,#6fc220);border-radius:3px;transition:width .25s"></div>
       </div>`;
     } else if(info){
-      const enough = arena.carrots >= info.cost;
-      footer = `<p style="text-align:center;margin-top:10px;font-size:12px;color:#6f5a3a;font-weight:bold">
-        Custo: <b style="color:${enough?'#b45a14':'#c43030'}">🥕 ${info.cost.toLocaleString('pt-BR')}</b> · Tempo: <b style="color:#3a8ad6">${formatOfflineTime(info.timeSec)}</b>
-      </p>`;
+      footer = _buildForgeBlocksRow(info);
     }
   }
 
   return header + `<div class="forge-prob-list">${rows}</div>` + footer;
+}
+
+// Formata cenouras em formato compacto (10.3M, 33.3k, 400) — pra caber em slot pequeno.
+function _fmtCarrotShort(n){
+  if(n >= 1000000) return (n/1000000).toFixed(n >= 10000000 ? 0 : 1).replace(/\.0$/,'') + 'M';
+  if(n >= 1000)    return (n/1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/,'') + 'k';
+  return String(n);
+}
+
+// Renderiza a fileira de blocos de pagamento (Forge Masters-style).
+// Cada bloco mostra: pago (✓ verde) ou a-pagar (🥕 unitCost). Slot clicável é o próximo.
+function _buildForgeBlocksRow(info){
+  if(!info) return '';
+  const paid = getForgeUpgradePaidBlocks();
+  const blocks = info.blocks;
+  const enough = arena.carrots >= info.unitCost;
+  let slotsHtml = '';
+  for(let i=0; i<blocks; i++){
+    const isPaid = i < paid;
+    const isNext = (!isPaid && i === paid);
+    let bg, border, color, content, cursor;
+    if(isPaid){
+      bg = 'linear-gradient(180deg,#6fc220,#4a8a10)'; border = '#3a8a10'; color = '#fff';
+      content = '<span style="font-size:20px;font-weight:900">✓</span>';
+      cursor = 'default';
+    } else if(isNext && enough){
+      bg = 'linear-gradient(180deg,#fff3c4,#e0c272)'; border = '#9a6a14'; color = '#3a2a18';
+      content = `<span style="font-size:14px">🥕</span><span style="font-size:10px;font-weight:900">${_fmtCarrotShort(info.unitCost)}</span>`;
+      cursor = 'pointer';
+    } else {
+      bg = 'rgba(58,42,24,0.14)'; border = '#8a7a5a'; color = '#6f5a3a';
+      content = `<span style="font-size:13px;opacity:.6">🥕</span><span style="font-size:10px;opacity:.7">${_fmtCarrotShort(info.unitCost)}</span>`;
+      cursor = 'default';
+    }
+    slotsHtml += `<div class="forge-block-slot${isNext ? ' next' : ''}${isPaid ? ' paid' : ''}" data-block-idx="${i}"
+      style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+      height:48px;border-radius:8px;border:2px solid ${border};background:${bg};color:${color};cursor:${cursor};
+      transition:transform .12s ease, box-shadow .12s ease;
+      ${isNext && enough ? 'box-shadow:0 0 10px rgba(255,200,80,0.55);' : ''}">${content}</div>`;
+  }
+  const allPaid = paid >= blocks;
+  const labelTxt = allPaid
+    ? `✅ Todos os blocos pagos — pronto pra iniciar! ⏱ ${formatOfflineTime(info.timeSec)}`
+    : `Pague <b>${paid}/${blocks}</b> blocos · Total: 🥕 ${info.cost.toLocaleString('pt-BR')} · ⏱ ${formatOfflineTime(info.timeSec)}`;
+  return `
+    <div style="margin-top:10px;">
+      <p style="text-align:center;margin:0 0 6px;font-size:11px;color:#6f5a3a;font-weight:bold;line-height:1.3">${labelTxt}</p>
+      <div class="forge-blocks-row" style="display:flex;gap:5px;padding:0 8px;">${slotsHtml}</div>
+    </div>`;
 }
 
 let _forgeLevelRefreshInterval = null;
@@ -13053,8 +13172,7 @@ function refreshForgeLevelPopup(){
   }
   if(isForgeUpgradeReady()){
     // Timer terminou — APLICA automaticamente o upgrade sem precisar do
-    // player clicar "Coletar". UX mais fluido + remove botão estranho
-    // (o ⚡ renderizava esquisito em algumas fontes do iOS).
+    // player clicar "Coletar". UX mais fluido + remove botão estranho.
     // Após apply, o estado vira "pode iniciar próximo level" → cai no
     // branch canStartForgeUpgrade abaixo no próximo refresh.
     applyForgeUpgradeIfReady();
@@ -13065,14 +13183,28 @@ function refreshForgeLevelPopup(){
     upBtn.textContent = `⏳ ${formatOfflineTime(Math.ceil(getForgeUpgradeRemainingSec()))}`;
     return;
   }
-  const r = canStartForgeUpgrade();
-  if(r.ok){
+  // Forge Masters: 3 estados pro botão verde
+  //   1. Todos blocos pagos    → "▶ Iniciar"        (dispara o timer)
+  //   2. Pode pagar próximo    → "🥕 Pagar X/N"     (debita unitCost, marca slot pago)
+  //   3. Sem cenouras suficientes → "🥕 unitCost"  (desabilitado)
+  const startR = canStartForgeUpgrade();
+  if(startR.ok){
     upBtn.disabled = false;
-    upBtn.textContent = `🥕 Iniciar (${r.info.cost.toLocaleString('pt-BR')})`;
+    upBtn.textContent = `▶ Iniciar`;
+    return;
+  }
+  const info = getForgeUpgradeInfo(arena.forgeLevel);
+  const payR = canPayForgeBlock();
+  if(payR.ok && info){
+    const paidNow = getForgeUpgradePaidBlocks();
+    upBtn.disabled = false;
+    upBtn.textContent = `🥕 Pagar ${paidNow+1}/${info.blocks}`;
+  } else if(info){
+    upBtn.disabled = true;
+    upBtn.textContent = `🥕 ${_fmtCarrotShort(info.unitCost)}`;
   } else {
     upBtn.disabled = true;
-    const info = getForgeUpgradeInfo(arena.forgeLevel);
-    upBtn.textContent = info ? `🥕 ${info.cost.toLocaleString('pt-BR')}` : 'Indisponível';
+    upBtn.textContent = 'Indisponível';
   }
 }
 
@@ -13093,11 +13225,13 @@ function closeForgeLevel(){
 }
 
 function upgradeForgeLevel(){
-  // Botão Iniciar / Coletar — comportamento depende do estado atual
+  // Botão Pagar Bloco / Iniciar / Coletar — comportamento depende do estado
   if(isForgeUpgradeReady()){
     applyForgeUpgradeIfReady();
   } else if(canStartForgeUpgrade().ok){
     tryStartForgeUpgrade();
+  } else if(canPayForgeBlock().ok){
+    payForgeUpgradeBlock();
   } else {
     return;
   }
@@ -13565,6 +13699,16 @@ document.getElementById('forgeLevelSkipBtn').addEventListener('click', () => {
   if(trySkipForgeUpgrade()){
     refreshForgeLevelPopup();
     if(typeof vibrate === 'function') vibrate(15); // feedback
+  }
+});
+// Forge Masters: clicar direto num slot "next" também paga o bloco — atalho
+// pra quem prefere interagir com a fileira ao invés do botão verde.
+document.getElementById('forgeLevelInfo').addEventListener('click', (ev) => {
+  const slot = ev.target && ev.target.closest && ev.target.closest('.forge-block-slot');
+  if(!slot || !slot.classList.contains('next')) return;
+  if(payForgeUpgradeBlock()){
+    refreshForgeLevelPopup();
+    if(typeof vibrate === 'function') vibrate(12);
   }
 });
 
@@ -15181,6 +15325,7 @@ const OFFLINE_PENDING_TIME_KEY = 'bunnyChaos.offlinePendingSec'; // tempo acumul
 const OFFLINE_CAP_MS = 12 * 3600 * 1000; // 12h cap
 
 function saveLastSeen(){
+  if(window._SAVE_DISABLED) return; // cheat K em curso
   try { localStorage.setItem(OFFLINE_KEY, String(Date.now())); } catch(e){}
 }
 function loadLastSeen(){
@@ -15195,6 +15340,7 @@ function loadPending(){
   } catch(e){ return { carrots: 0, lettuce: 0 }; }
 }
 function savePending(p){
+  if(window._SAVE_DISABLED) return; // cheat K em curso
   try { localStorage.setItem(OFFLINE_PENDING_KEY, JSON.stringify(p)); } catch(e){}
 }
 function loadPendingSec(){
