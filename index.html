@@ -44,6 +44,10 @@
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (isIOS) document.documentElement.classList.add('ios-perf');
   } catch (e) { /* no-op */ }
+  // Canvas dice migration (refactor/dice-canvas-ios): flag-gated.
+  // Quando true, esconde os DOM dice (#arenaDiceRow) e o canvas pinta os 5
+  // dados via _DiceCanvas. Sync com USE_CANVAS_DICE no script principal.
+  document.documentElement.classList.add('canvas-dice');
 </script>
 <style>
   :root{
@@ -1559,6 +1563,14 @@
      face com o container são 0%, 20%, 40%, 60%, 80%, 100%.
      (Valores negativos tipo -100% NÃO funcionam porque a fórmula projeta
      a imagem PRA FORA do container → renderiza vazio em todos browsers.) */
+  /* Canvas dice migration: quando html.canvas-dice tá ativo, os 5 dados
+     são pintados no canvas (_DiceCanvas.draw). Os DOM dice ainda existem
+     pra preservar wiring (renderForgeDice, hit handlers, FTUE selector
+     #arenaForgeRollBtn) mas ficam invisíveis. Sprite-sheet image + state
+     classes (held/rolling/combo-glow) viram no-op visualmente. */
+  html.canvas-dice #arenaDiceRow .forge-die{
+    visibility: hidden !important;
+  }
   #arenaDiceRow .forge-die[data-face="1"]{ background-position:   0% 0; }
   #arenaDiceRow .forge-die[data-face="2"]{ background-position:  20% 0; }
   #arenaDiceRow .forge-die[data-face="3"]{ background-position:  40% 0; }
@@ -10172,6 +10184,184 @@ function _drawEmptySlotCard(sx, sy, slotW, slotH, label){
   }
 }
 
+// ========================================================================
+// CANVAS DICE RENDERER — port da cerimônia dos dados pro canvas 2D.
+//
+// PORQUÊ: no iOS WKWebView, animar 5 DOM elements com CSS animations
+// (rotate keyframes + sprite-sheet background-position + drop-shadow
+// pulse + scale do container) em paralelo com o canvas de gameplay
+// força composite layer churn no main thread (Safari não paraleliza
+// CSS animations + canvas RAF), derrubando FPS pra 20-30. Android Chrome
+// e desktop Blink fazem tudo em GPU layer separado → 60+ fps tranquilo.
+//
+// SOLUÇÃO: portar a renderização e animações dos dados pro próprio canvas.
+// Um único RAF, um único pipeline. Sem composite churn.
+//
+// FEATURE FLAG: USE_CANVAS_DICE controla qual stack roda. Quando ligado,
+// DOM dice ficam display:none (via html.canvas-dice class) e o canvas
+// desenha os 5 dados. Estado de animação (spinning, landing, rotation)
+// vive em _DiceCanvas.state[i] e é dirigido pelo animateForgeRoll.
+const USE_CANVAS_DICE = true; // toggle pra reverter pro DOM em caso de regressão
+
+const _DiceCanvas = (() => {
+  // Sprite sheet: 6 faces 1×N row, 96px cada (assumindo 576×96). drawImage
+  // usa srcX/srcW pra recortar a face certa.
+  const SHEET_PATH = 'assets/forge/dice_faces_sheet.png';
+  let sheetImg = null;
+  let sheetReady = false;
+  let sheetCellW = 96;
+  let sheetCellH = 96;
+  function _loadSheet(){
+    if(sheetImg) return;
+    sheetImg = new Image();
+    sheetImg.onload = () => {
+      sheetReady = true;
+      sheetCellW = sheetImg.naturalWidth / 6; // 6 faces na horizontal
+      sheetCellH = sheetImg.naturalHeight;
+    };
+    sheetImg.src = SHEET_PATH;
+  }
+
+  // Per-die animation state. faceIndex (1-6) é lido de forgeRoll.dice[i].
+  // Aqui rastreamos só o que CANVAS-only precisa (rotation, scale, glow).
+  const state = [
+    { rotation: 0, spinning: false, settleT: 0, settling: false, comboColor: null },
+    { rotation: 0, spinning: false, settleT: 0, settling: false, comboColor: null },
+    { rotation: 0, spinning: false, settleT: 0, settling: false, comboColor: null },
+    { rotation: 0, spinning: false, settleT: 0, settling: false, comboColor: null },
+    { rotation: 0, spinning: false, settleT: 0, settling: false, comboColor: null },
+  ];
+
+  // === API PRA O STATE MACHINE (animateForgeRoll chama esses) ===
+  function startSpin(i){
+    state[i].spinning = true;
+    state[i].rotation = 0;
+    state[i].settling = false;
+    state[i].comboColor = null;
+  }
+  function stopSpin(i){
+    state[i].spinning = false;
+    state[i].rotation = 0;
+    state[i].settling = true;
+    state[i].settleT = 0;
+  }
+  function setComboGlow(i, color){
+    state[i].comboColor = color || null;
+  }
+  function clearAllGlow(){
+    for(const s of state) s.comboColor = null;
+  }
+  function resetAll(){
+    for(const s of state){
+      s.rotation = 0;
+      s.spinning = false;
+      s.settling = false;
+      s.settleT = 0;
+      s.comboColor = null;
+    }
+  }
+
+  // === TICK (chamado por frame; dt em ms) ===
+  function tick(dt){
+    for(const s of state){
+      if(s.spinning){
+        // Rotação rápida — equivalente da CSS animation diceRoll .12s linear
+        // (15deg max). Aqui é rotação contínua pra dar sentido de spin.
+        s.rotation += dt * 0.018; // rad/ms ≈ 16° por 16ms frame
+        if(s.rotation > Math.PI * 2) s.rotation -= Math.PI * 2;
+      }
+      if(s.settling){
+        s.settleT += dt / 280; // 280ms de settle (match do CSS .settled .3s)
+        if(s.settleT >= 1){
+          s.settling = false;
+          s.settleT = 0;
+        }
+      }
+    }
+  }
+
+  // === DRAW (chamado no fim do render arena, em CSS px → canvas px) ===
+  // Lê posições do --dice-* CSS vars que JS emite em _applyLayoutCSSVars.
+  // Como o canvas faz scaling W=360 logical, multiplico LAYOUT.dice* por
+  // uiScale pra bater com a posição real do dice strip DOM (caso voltemos
+  // pro DOM, fica visual exato).
+  function draw(){
+    if(!USE_CANVAS_DICE) return;
+    if(!sheetReady) { _loadSheet(); return; }
+    if(typeof forgeRoll === 'undefined' || typeof LAYOUT === 'undefined') return;
+
+    // Posicionamento canvas-side (logical px, pre-scaled pelo canvas transform).
+    // Replica o que CSS faz com #arenaDiceRow:
+    //   bottom: dice-bottom-y, width: dice-w, height: dice-h, scale: dice-scale,
+    //   gap: 6px (entre dados), padding: 0 8px (laterais)
+    const stripW = LAYOUT.diceW;
+    const stripH = LAYOUT.diceH;
+    const scale = LAYOUT.diceScale;
+    const offsetX = LAYOUT.diceOffsetX || 0;
+    const bottomY = LAYOUT.diceBottomY;
+    const safeBot = (typeof SAFE !== 'undefined') ? SAFE.bottomLogical : 0;
+
+    // Container center-x do strip:
+    const cx = W / 2 + offsetX;
+    const stripBaseW = stripW * scale;
+    const stripBaseH = stripH * scale;
+    // Strip top-y (logical px from canvas top):
+    const stripBottomLogical = H - bottomY - safeBot;
+    const stripTopY = stripBottomLogical - stripBaseH;
+    const stripLeftX = cx - stripBaseW / 2;
+
+    // 5 dados, gap=6, padding 8 horizontal — replicate
+    const PAD_X = 8 * scale;
+    const GAP   = 6 * scale;
+    const innerW = stripBaseW - PAD_X * 2;
+    const dieSize = Math.min(stripBaseH * 0.9, (innerW - GAP * 4) / 5);
+    const totalW = dieSize * 5 + GAP * 4;
+    const startX = stripLeftX + (stripBaseW - totalW) / 2;
+    const dieY = stripTopY + (stripBaseH - dieSize) / 2;
+
+    for(let i=0; i<5; i++){
+      const face = forgeRoll.dice[i] || 1;
+      const s = state[i];
+      const x = startX + i * (dieSize + GAP);
+      const y = dieY;
+
+      ctx.save();
+      // Center transform pra rotação/scale sair do centro do dado
+      ctx.translate(x + dieSize/2, y + dieSize/2);
+
+      // Settle bounce: scale up→down arc (1 → 1.1 → 1.0)
+      if(s.settling){
+        const t = s.settleT;
+        const scaleVal = 1 + 0.10 * Math.sin(t * Math.PI);
+        ctx.scale(scaleVal, scaleVal);
+      }
+
+      // Spinning rotation
+      if(s.spinning){
+        ctx.rotate(s.rotation);
+      }
+
+      // Combo glow halo via shadow blur (drawn 1× in shadow pass)
+      if(s.comboColor){
+        ctx.shadowColor = s.comboColor;
+        ctx.shadowBlur = 12 * scale;
+      }
+
+      // Draw face from sprite sheet
+      const srcX = (face - 1) * sheetCellW;
+      ctx.drawImage(
+        sheetImg,
+        srcX, 0, sheetCellW, sheetCellH,
+        -dieSize/2, -dieSize/2, dieSize, dieSize
+      );
+
+      ctx.restore();
+    }
+  }
+
+  return { startSpin, stopSpin, setComboGlow, clearAllGlow, resetAll, tick, draw, state };
+})();
+
 function drawArenaHUD(){
   // ===== HUD flutuante (pills) sobreposto ao grid =====
   // Player column UNIFICADA na esquerda: HP, LV+XP, Power, Kills e Essences
@@ -11599,6 +11789,10 @@ function renderArena(){
   }
 
   drawArenaHUD();
+
+  // Canvas dice render (feature-flagged: USE_CANVAS_DICE = true). Desenha
+  // depois do HUD pra ficar visualmente acima (sobreposto na strip).
+  if(typeof _DiceCanvas !== 'undefined') _DiceCanvas.draw();
 
   // === COSMIC BEAM — drawn last so it sits ON TOP of every game element ===
   // Solid colors (no translucency), bright stacked layers, juicier charge.
@@ -14018,13 +14212,15 @@ function renderForgeDice(){
     // Novo fluxo: dados nunca são interativos (hold-for-reroll foi removido
     // junto com a 2ª tela REROLAR/FORJAR). Mantém-se só pra exibição.
     el.classList.toggle('disabled', true);
-    // combo glow
+    // combo glow — sync DOM + canvas state machine
     if(highlightSet && highlightSet.set.has(i)){
       el.classList.add('combo-glow');
       el.style.setProperty('--combo-color', highlightSet.color);
+      if(typeof _DiceCanvas !== 'undefined') _DiceCanvas.setComboGlow(i, highlightSet.color);
     } else {
       el.classList.remove('combo-glow');
       el.style.removeProperty('--combo-color');
+      if(typeof _DiceCanvas !== 'undefined') _DiceCanvas.setComboGlow(i, null);
     }
   }
   // combo inline (alface agora vive dentro do botão ROLAR)
@@ -14407,6 +14603,11 @@ function animateForgeRoll(onDone){
   setTimeout(() => {
     // SFX: dice tumble one-shot fires when spin actually starts (t≈130ms).
     if(typeof playSfx === 'function') playSfx('sfx_dice_roll');
+    // Canvas dice: inicia spin no state machine (parallel ao CSS abaixo)
+    if(typeof _DiceCanvas !== 'undefined') {
+      _DiceCanvas.clearAllGlow();
+      for(let i=0; i<5; i++) if(!forgeRoll.held[i]) _DiceCanvas.startSpin(i);
+    }
     for(const el of _forgeDice()) {
       // Don't spin held dice
       const i = +(el.dataset.i || 0);
@@ -14440,12 +14641,16 @@ function animateForgeRoll(onDone){
           if(forgeRoll.held[i]){ el.classList.remove('rolling'); continue; }
           const delay = landIdx * SETTLE_STAGGER_MS;
           landIdx++;
+          // capture i locally for the timeout closure
+          const dieIdx = i;
           setTimeout(() => {
             el.classList.remove('rolling');
             el.classList.remove('settled');
             void el.offsetWidth;
             el.classList.add('settled');
             spawnDieParticles(el);
+            // Canvas dice: stop spin + trigger settle bounce
+            if(typeof _DiceCanvas !== 'undefined') _DiceCanvas.stopSpin(dieIdx);
             // SFX: tock per die landing — pitch random gives 5 staggered tocks variety.
             if(typeof playSfx === 'function') playSfx('sfx_die_land');
             // Value pop removed — read as floating damage numbers in gameplay.
@@ -15728,7 +15933,12 @@ function loop(now){
       _lastRenderTime = now;
     }
   }
-  if(_shouldRender && !arena.forgeComparePopupOpen) renderArena();
+  if(_shouldRender && !arena.forgeComparePopupOpen) {
+    // Tick canvas dice ANTES do render pra rotation/settle bounce serem
+    // refletidas no mesmo frame. dt = frame (variable ms desde último loop).
+    if(typeof _DiceCanvas !== 'undefined') _DiceCanvas.tick(frame);
+    renderArena();
+  }
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
