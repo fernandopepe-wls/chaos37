@@ -25,7 +25,8 @@
     "apk:production": "node scripts/build-apk.js production",
     "apk:dev:fresh": "node scripts/build-apk.js development --clean --install",
     "apk:staging:fresh": "node scripts/build-apk.js staging --clean --install",
-    "apk:production:fresh": "node scripts/build-apk.js production --clean --install"
+    "apk:production:fresh": "node scripts/build-apk.js production --clean --install",
+    "deploy:pages": "node scripts/deploy-pages.js"
   },
   "dependencies": {
     "@capacitor/app": "^7.0.1",
