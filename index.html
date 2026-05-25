@@ -1192,12 +1192,12 @@
   .forge-popup-card{
     position:relative;
     align-self:center;
-    width:100%;max-width:380px;
+    width:100%;max-width:340px;
     background:#f5ecd2;
     border-radius:14px;
     border:1.5px solid #d6cfc1;
     box-shadow:0 8px 24px rgba(0,0,0,0.45);
-    padding:24px 16px 16px;
+    padding:18px 12px 12px;
     color:#3a2a18;
     font-family:'Fredoka', system-ui, sans-serif;
   }
@@ -1265,8 +1265,8 @@
   .forge-popup-slot{
     position:relative;
     flex-shrink:0;
-    width:72px;height:72px;
-    border-radius:14px;
+    width:60px;height:60px;
+    border-radius:12px;
     background:var(--slot-bg, #ffe89a);
     border:2.5px solid #3a2a18;
     box-shadow:
@@ -1275,7 +1275,7 @@
       0 -2.5px 0 rgba(0,0,0,0.10) inset;
     display:flex;align-items:center;justify-content:center;
   }
-  .forge-popup-slot .ico{font-size:34px;line-height:1;}
+  .forge-popup-slot .ico{font-size:28px;line-height:1;}
   .forge-popup-slot .lv{
     position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);
     background:#fff;
@@ -1295,21 +1295,21 @@
   /* Info lateral (nome, stats, substats) */
   .forge-popup-info{flex:1;min-width:0;}
   .forge-popup-info .nm{
-    font-size:15px;font-weight:bold;letter-spacing:0.2px;
+    font-size:13px;font-weight:bold;letter-spacing:0.2px;
     line-height:1.2;
   }
   .forge-popup-info .nm .era-tag{font-weight:bold;}
   .forge-popup-info .primary{
-    margin-top:4px;
-    font-size:14px;font-weight:bold;color:#3a2a18;
+    margin-top:3px;
+    font-size:12px;font-weight:bold;color:#3a2a18;
     display:flex;align-items:center;gap:4px;
   }
-  .forge-popup-info .primary .delta{font-size:13px;}
+  .forge-popup-info .primary .delta{font-size:11px;}
   .forge-popup-info .primary .up{color:#4ac76a;}
   .forge-popup-info .primary .down{color:#e25555;}
   .forge-popup-info .subs{
-    margin-top:4px;
-    font-size:12px;color:#7a7163;
+    margin-top:3px;
+    font-size:11px;color:#7a7163;
     line-height:1.35;
   }
 
@@ -1390,8 +1390,8 @@
   .forge-popup-info .subs .row{display:block;}
   /* Linha de ações: 2 botões grandes coloridos */
   .forge-popup-actions{
-    display:flex;gap:10px;
-    margin-top:16px;
+    display:flex;gap:8px;
+    margin-top:12px;
   }
   .forge-popup-btn{
     position:relative;
@@ -1400,11 +1400,11 @@
     appearance:none;
     /* contorno preto chunky no botão */
     border:2.5px solid #1a0e08;
-    padding:14px 8px;
-    border-radius:14px;
+    padding:11px 6px;
+    border-radius:12px;
     font-family:inherit;
-    font-size:18px;font-weight:bold;
-    color:#fff;letter-spacing:0.4px;
+    font-size:15px;font-weight:bold;
+    color:#fff;letter-spacing:0.3px;
     cursor:pointer;
     /* contorno preto no TEXTO via multi-shadow (8 direções pra cobrir cantos) */
     text-shadow:
@@ -1438,7 +1438,7 @@
     background:linear-gradient(180deg, #6bc764 0%, #3f9b3a 100%);
   }
   .forge-popup-btn.x10{
-    flex:0 0 90px; /* compacto pro ×10 ao lado do MELHORAR principal */
+    flex:0 0 76px; /* compacto pro ×10 ao lado do MELHORAR principal */
   }
   /* === Level bar inline do item popup ===
      Mostra "Lv X/Y" + fill bar verde dentro de um sub-card bege escurecido */
