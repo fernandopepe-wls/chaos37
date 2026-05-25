@@ -1080,12 +1080,19 @@
   }
 
   /* forge level probabilities — agora dentro do forge-popup-card cream */
-  /* Layer overrides pro popup nivel: centraliza horizontalmente o card */
-  #forgeLevelLayer{align-items:center;justify-content:center;}
+  /* Layer overrides pro popup nivel: centraliza horizontalmente o card.
+     Padding lateral reduzido (24→10) pra dar mais espaço horizontal ao card
+     em viewports estreitos — nomes de era longos (ex: "Forja Abissal das
+     Brasas") cabiam em uma linha só com isso. Y mantém respiro pro tag/título. */
+  #forgeLevelLayer{
+    align-items:center;justify-content:center;
+    padding:24px 10px;
+    overflow-y:auto;  /* permite scroll se card exceder altura do frame */
+  }
   .forge-level-card{
     max-width:380px;
-    /* mais respiro no topo pra acomodar o tag + título + descrição */
-    padding:24px 16px 16px;
+    /* padding horizontal apertado (16→10) pra liberar mais espaço pros rows */
+    padding:24px 10px 16px;
   }
   .forge-level-title{
     text-align:center;
@@ -1116,31 +1123,32 @@
   .forge-level-cols .col-next{color:#b45a14;}
   .forge-prob-list{display:flex;flex-direction:column;gap:4px;}
   .forge-prob-row{
-    display:flex;align-items:center;gap:8px;
+    display:flex;align-items:center;gap:6px;
     border-radius:8px;
-    padding:8px 10px;
+    padding:6px 8px;
     border:1.5px solid #3a2a18;
     box-shadow:
       0 2px 0 rgba(0,0,0,0.18),
       0 1px 0 rgba(255,255,255,0.55) inset;
   }
   .forge-prob-row.locked{opacity:0.55;filter:grayscale(0.3);}
-  .forge-prob-row .ico{font-size:18px;width:24px;text-align:center;line-height:1;
+  .forge-prob-row .ico{font-size:16px;width:20px;text-align:center;line-height:1;
     filter:drop-shadow(0 1px 0 rgba(0,0,0,0.25));}
   .forge-prob-row .name{
-    flex:1;font-size:13px;font-weight:bold;
+    flex:1;min-width:0;font-size:12px;font-weight:bold;
     color:#3a2a18;
+    line-height:1.2;
     /* contorno branco fino pra legibilidade no gradient colorido */
     text-shadow:
       -1px -1px 0 rgba(255,255,255,0.6),
        1px -1px 0 rgba(255,255,255,0.6),
       -1px  1px 0 rgba(255,255,255,0.6),
        1px  1px 0 rgba(255,255,255,0.6);
-    letter-spacing:.3px;
+    letter-spacing:0;
   }
   .forge-prob-row .pct{
-    font-size:12px;font-weight:bold;
-    min-width:46px;text-align:right;
+    font-size:11px;font-weight:bold;
+    min-width:34px;text-align:right;
     color:#3a2a18;
     text-shadow:
       -1px -1px 0 rgba(255,255,255,0.6),
