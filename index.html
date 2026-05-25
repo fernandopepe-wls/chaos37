@@ -1571,6 +1571,14 @@
   html.canvas-dice #arenaDiceRow .forge-die{
     visibility: hidden !important;
   }
+  /* Tray DOM (background beige decorativo atrás dos dados) também precisa
+     sumir — em z-order ele fica EM CIMA do canvas, então cobria os dados
+     canvas-renderizados. Sem o tray, os dados flutuam direto sobre o card
+     cream do HUD bottom — limpo o suficiente. Se quiser visual "afundado"
+     de volta, pintar um rounded rect no _DiceCanvas.draw() antes dos dados. */
+  html.canvas-dice #forgeDiceTray{
+    display: none;
+  }
   #arenaDiceRow .forge-die[data-face="1"]{ background-position:   0% 0; }
   #arenaDiceRow .forge-die[data-face="2"]{ background-position:  20% 0; }
   #arenaDiceRow .forge-die[data-face="3"]{ background-position:  40% 0; }
