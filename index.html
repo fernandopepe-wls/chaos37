@@ -12490,22 +12490,48 @@ const FTUE = (function(){
   // canto da tela. Aqui escondemos overlay+balão mas NÃO limpamos _target,
   // pra reaparecer sozinho se o target voltar (ex: popup reabre, navegou
   // pra outra tab e voltou).
-  function _loop(){
-    if(_target){
-      const r = _target.getBoundingClientRect();
-      const visible = r.width > 0 && r.height > 0;
-      const ov = _el('ftueOverlay');
-      const bb = _el('ftueBubble');
-      if(!visible){
-        if(ov && ov.classList.contains('show')) ov.classList.remove('show');
-        if(bb && bb.classList.contains('show')) bb.classList.remove('show');
-      } else {
-        if(ov && !ov.classList.contains('show')) ov.classList.add('show');
-        if(bb && !bb.classList.contains('show')) bb.classList.add('show');
-        _reposition();
-      }
-    }
+  // PERF: este loop era RAF puro (60fps), e cada iteração com target ativo
+  // fazia 4× getBoundingClientRect (1 no loop + 3 no _reposition) DEPOIS de
+  // escrever styles do hand/bubble → layout thrashing clássico. Em iOS WKWebView
+  // isso era o MAIOR custo da cerimônia (~3s de forced reflow num trace 6×
+  // throttled), porque a mãozinha fica apontando ROLAR→EQUIPAR o tempo todo.
+  //
+  // Fix: (1) throttle pra ~7Hz (a posição do target — um botão — quase nunca
+  // muda); (2) só chama _reposition() quando o rect do target REALMENTE mudou
+  // desde a última medição (cache de l/t/w/h). Frame budget livre pro canvas.
+  const _LOOP_INTERVAL_MS = 140;
+  let _lastLoopTs = 0;
+  let _lastRect = null;
+  function _rectChanged(r){
+    if(!_lastRect) return true;
+    return Math.abs(r.left - _lastRect.left) > 0.5
+        || Math.abs(r.top  - _lastRect.top)  > 0.5
+        || Math.abs(r.width  - _lastRect.width)  > 0.5
+        || Math.abs(r.height - _lastRect.height) > 0.5;
+  }
+  function _loop(ts){
     requestAnimationFrame(_loop);
+    if(!_target) { _lastRect = null; return; }
+    // Throttle: só processa a cada _LOOP_INTERVAL_MS
+    if(ts - _lastLoopTs < _LOOP_INTERVAL_MS) return;
+    _lastLoopTs = ts;
+    const r = _target.getBoundingClientRect();
+    const visible = r.width > 0 && r.height > 0;
+    const ov = _el('ftueOverlay');
+    const bb = _el('ftueBubble');
+    if(!visible){
+      if(ov && ov.classList.contains('show')) ov.classList.remove('show');
+      if(bb && bb.classList.contains('show')) bb.classList.remove('show');
+      _lastRect = null;
+      return;
+    }
+    if(ov && !ov.classList.contains('show')) ov.classList.add('show');
+    if(bb && !bb.classList.contains('show')) bb.classList.add('show');
+    // Só reposiciona (4× getBoundingClientRect + style writes) se o target moveu.
+    if(_rectChanged(r)){
+      _lastRect = { left: r.left, top: r.top, width: r.width, height: r.height };
+      _reposition();
+    }
   }
   requestAnimationFrame(_loop);
   return { point, hide };
@@ -16060,11 +16086,18 @@ function loop(now){
   }
 
   // joystick zone: restringe à play area da arena (grid onde o coelho pode andar)
+  // PERF: ARENA.TOP_Y/BOT_Y só mudam em resize/orientation. Escrever top/bottom
+  // inline TODO frame invalidava layout → forçava reflow síncrono no próximo
+  // getBoundingClientRect (carrot pop, etc). Cacheia + só escreve quando muda.
   const joyEl = _loopEls.joy;
   if(state === STATE.ARENA_PLAY){
-    joyEl.style.top = (ARENA.TOP_Y/H*100) + '%';
-    joyEl.style.bottom = ((H-ARENA.BOT_Y)/H*100) + '%';
-    joyEl.style.height = 'auto';
+    const jt = (ARENA.TOP_Y/H*100), jb = ((H-ARENA.BOT_Y)/H*100);
+    if(joyEl._lastJt !== jt || joyEl._lastJb !== jb){
+      joyEl._lastJt = jt; joyEl._lastJb = jb;
+      joyEl.style.top = jt + '%';
+      joyEl.style.bottom = jb + '%';
+      joyEl.style.height = 'auto';
+    }
     joyEl.classList.remove('disabled');
   } else {
     joyEl.classList.add('disabled');
