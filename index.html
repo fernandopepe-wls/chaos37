@@ -11336,7 +11336,19 @@ const ERA_FULL_BG_SRC = [
   { video: 'assets/backgrounds/env-era9-emberforge-NEW.mp4', poster: 'assets/env-era9-emberforge-NEW.webp' }, // 8 — The Emberforge Underdeep (vídeo loop)
   'assets/env-era10-verdant-NEW.webp',     // 9 — The Verdant Eternal
 ];
-const ERA_FULL_BG_MEDIA = ERA_FULL_BG_SRC.map(src => {
+// === LAZY BG MEDIA (iOS memory fix) ===
+// ANTES: .map() criava os 7 <video> de fundo NO BOOT, todos com autoplay +
+// preload='auto'. No iOS WKWebView isso = 7 decoders de vídeo concorrentes,
+// cada um bufferizando 1080×1920 — estoura o limite de memória/decoders do
+// WebKit → eviction de texturas/imagens decodificadas → hitches (o lag que
+// "piora do nada" e só acontece no iPhone). Desktop/Android aguentam.
+// AGORA: 1 vídeo vivo por vez. Só a era ATIVA tem <video>; ao trocar de era,
+// o vídeo anterior é liberado (pause + src='' + load) pra devolver o decoder.
+const ERA_FULL_BG_MEDIA = new Array(ERA_FULL_BG_SRC.length).fill(null);
+let _activeBgEraIdx = -1;
+
+function _buildEraMedia(idx){
+  const src = ERA_FULL_BG_SRC[idx];
   if(!src) return null;
   if(typeof src === 'string'){
     const img = new Image();
@@ -11344,16 +11356,13 @@ const ERA_FULL_BG_MEDIA = ERA_FULL_BG_SRC.map(src => {
     return { type:'image', el:img, poster:null };
   }
   // {video, poster} — cria <video> em loop + muted (necessário pra autoplay).
-  // O poster é usado como fallback enquanto o vídeo ainda carrega.
   const video = document.createElement('video');
-  video.src = src.video;
   video.loop = true;
   video.muted = true;
   video.playsInline = true;
   video.autoplay = true;
   video.preload = 'auto';
-  // Promise.play() falha se autoplay bloqueado mesmo com muted (raro). Cai
-  // no listener de primeira interação pra reanimar.
+  video.src = src.video;
   const tryPlay = () => video.play().catch(() => {
     const onTap = () => {
       document.removeEventListener('pointerdown', onTap);
@@ -11363,15 +11372,37 @@ const ERA_FULL_BG_MEDIA = ERA_FULL_BG_SRC.map(src => {
     document.addEventListener('pointerdown', onTap, { once:true });
     document.addEventListener('touchstart', onTap, { once:true, passive:true });
   });
-  // Aguarda metadata pra primeira play (alguns browsers exigem)
   if(video.readyState >= 2) tryPlay();
   else video.addEventListener('loadedmetadata', tryPlay, { once:true });
-  // Poster PNG como fallback enquanto vídeo não tem frames
   const posterImg = src.poster ? (() => { const p = new Image(); p.src = src.poster; return p; })() : null;
   return { type:'video', el:video, poster:posterImg };
-});
+}
+
+// Libera o decoder de vídeo de uma era (pause + src vazio + load). Descarta o
+// objeto media — recriado barato via _buildEraMedia se a era voltar.
+function _releaseEraMedia(idx){
+  const m = ERA_FULL_BG_MEDIA[idx];
+  if(m && m.type === 'video' && m.el){
+    try { m.el.pause(); m.el.removeAttribute('src'); m.el.load(); } catch(e){}
+  }
+  ERA_FULL_BG_MEDIA[idx] = null;
+}
+
+// Garante que SÓ a era ativa tem media criada; libera o vídeo da era anterior.
+// Chamado todo frame por getEraFullBg — early-return barato se idx não mudou.
+function _ensureActiveEraMedia(idx){
+  if(idx === _activeBgEraIdx && ERA_FULL_BG_MEDIA[idx]) return;
+  if(_activeBgEraIdx >= 0 && _activeBgEraIdx !== idx){
+    _releaseEraMedia(_activeBgEraIdx);
+  }
+  if(!ERA_FULL_BG_MEDIA[idx]) ERA_FULL_BG_MEDIA[idx] = _buildEraMedia(idx);
+  _activeBgEraIdx = idx;
+}
+
 function getEraFullBg(){
-  const media = ERA_FULL_BG_MEDIA[currentArenaEra()];
+  const idx = currentArenaEra();
+  _ensureActiveEraMedia(idx);
+  const media = ERA_FULL_BG_MEDIA[idx];
   if(!media) return null;
   if(media.type === 'image'){
     return (media.el && media.el.complete && media.el.naturalWidth > 0) ? media.el : null;
