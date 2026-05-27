@@ -11716,8 +11716,11 @@ function renderArena(){
     const BG_TARGET_ASPECT = 1920 / 1080; // aspect dos videos MP4
     const naturalDrawH = W * BG_TARGET_ASPECT;
     const drawH = Math.min(Math.max(0, LAYOUT.bgImageHeightPx), naturalDrawH);
+    // PERF iOS: 'high' força resampling bicúbico no downscale 1080→360 do frame
+    // de vídeo TODO frame — caro no WKWebView. 'low' (bilinear) é ~imperceptível
+    // num vídeo em movimento e bem mais barato. Custo baseline do renderArena.
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+    ctx.imageSmoothingQuality = 'low';
     if(drawH > 0){
       const srcH = bgH * (drawH / naturalDrawH);
       ctx.drawImage(fullBg, 0, 0, bgW, srcH, 0, 0, W, drawH);
@@ -14903,11 +14906,15 @@ function animateForgeRoll(onDone){
           if(combo){
             const color = (typeof COMBO_GLOW_COLOR !== 'undefined' && COMBO_GLOW_COLOR[combo.id]) || combo.color || '#ffcc3d';
             const intensity = comboShakeIntensity(combo.id);
-            // Freeze-frame on big tiers — gameplay halts briefly so the player
-            // registers what they just rolled before the effects burst.
+            // Freeze-frame on big tiers — gameplay halts brevemente pro player
+            // registrar o combo. PERF iOS: pular/encurtar — num device que já
+            // luta com FPS, um freeze de 180-280ms NO COMBO BEAT é percebido
+            // como LAG (não como juice). O tier text + glow já comunicam o hit.
             if(intensity === 'big' || intensity === 'mega'){
-              const freezeMs = intensity === 'mega' ? 280 : 180;
-              arena.freezeUntil = performance.now() + freezeMs;
+              const freezeMs = _IS_IOS_PERF
+                ? 0                                   // iOS: sem freeze
+                : (intensity === 'mega' ? 280 : 180); // desktop/Android: juice
+              if(freezeMs > 0) arena.freezeUntil = performance.now() + freezeMs;
             }
             triggerComboFlash(color, intensity);
             if(intensity) triggerScreenShake(intensity);
