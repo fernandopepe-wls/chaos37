@@ -44,6 +44,10 @@
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (isIOS) document.documentElement.classList.add('ios-perf');
   } catch (e) { /* no-op */ }
+  // Canvas dice migration (refactor/dice-canvas-ios): flag-gated.
+  // Quando true, esconde os DOM dice (#arenaDiceRow) e o canvas pinta os 5
+  // dados via _DiceCanvas. Sync com USE_CANVAS_DICE no script principal.
+  document.documentElement.classList.add('canvas-dice');
 </script>
 <style>
   :root{
@@ -1559,6 +1563,22 @@
      face com o container são 0%, 20%, 40%, 60%, 80%, 100%.
      (Valores negativos tipo -100% NÃO funcionam porque a fórmula projeta
      a imagem PRA FORA do container → renderiza vazio em todos browsers.) */
+  /* Canvas dice migration: quando html.canvas-dice tá ativo, os 5 dados
+     são pintados no canvas (_DiceCanvas.draw). Os DOM dice ainda existem
+     pra preservar wiring (renderForgeDice, hit handlers, FTUE selector
+     #arenaForgeRollBtn) mas ficam invisíveis. Sprite-sheet image + state
+     classes (held/rolling/combo-glow) viram no-op visualmente. */
+  html.canvas-dice #arenaDiceRow .forge-die{
+    visibility: hidden !important;
+  }
+  /* Tray DOM (background beige decorativo atrás dos dados) também precisa
+     sumir — em z-order ele fica EM CIMA do canvas, então cobria os dados
+     canvas-renderizados. Sem o tray, os dados flutuam direto sobre o card
+     cream do HUD bottom — limpo o suficiente. Se quiser visual "afundado"
+     de volta, pintar um rounded rect no _DiceCanvas.draw() antes dos dados. */
+  html.canvas-dice #forgeDiceTray{
+    display: none;
+  }
   #arenaDiceRow .forge-die[data-face="1"]{ background-position:   0% 0; }
   #arenaDiceRow .forge-die[data-face="2"]{ background-position:  20% 0; }
   #arenaDiceRow .forge-die[data-face="3"]{ background-position:  40% 0; }
@@ -10173,6 +10193,329 @@ function _drawEmptySlotCard(sx, sy, slotW, slotH, label){
   }
 }
 
+// ========================================================================
+// CANVAS DICE RENDERER — port da cerimônia dos dados pro canvas 2D.
+//
+// PORQUÊ: no iOS WKWebView, animar 5 DOM elements com CSS animations
+// (rotate keyframes + sprite-sheet background-position + drop-shadow
+// pulse + scale do container) em paralelo com o canvas de gameplay
+// força composite layer churn no main thread (Safari não paraleliza
+// CSS animations + canvas RAF), derrubando FPS pra 20-30. Android Chrome
+// e desktop Blink fazem tudo em GPU layer separado → 60+ fps tranquilo.
+//
+// SOLUÇÃO: portar a renderização e animações dos dados pro próprio canvas.
+// Um único RAF, um único pipeline. Sem composite churn.
+//
+// FEATURE FLAG: USE_CANVAS_DICE controla qual stack roda. Quando ligado,
+// DOM dice ficam display:none (via html.canvas-dice class) e o canvas
+// desenha os 5 dados. Estado de animação (spinning, landing, rotation)
+// vive em _DiceCanvas.state[i] e é dirigido pelo animateForgeRoll.
+const USE_CANVAS_DICE = true; // toggle pra reverter pro DOM em caso de regressão
+
+const _DiceCanvas = (() => {
+  // Sprite sheet: 6 faces 1×N row, 96px cada (assumindo 576×96). drawImage
+  // usa srcX/srcW pra recortar a face certa.
+  const SHEET_PATH = 'assets/forge/dice_faces_sheet.png';
+  let sheetImg = null;
+  let sheetReady = false;
+  let sheetCellW = 96;
+  let sheetCellH = 96;
+  function _loadSheet(){
+    if(sheetImg) return;
+    sheetImg = new Image();
+    sheetImg.onload = () => {
+      sheetReady = true;
+      sheetCellW = sheetImg.naturalWidth / 6; // 6 faces na horizontal
+      sheetCellH = sheetImg.naturalHeight;
+    };
+    sheetImg.src = SHEET_PATH;
+  }
+
+  // Per-die animation state. faceIndex (1-6) é lido de forgeRoll.dice[i].
+  // Aqui rastreamos só o que CANVAS-only precisa (rotation, scale, glow).
+  const state = [
+    { rotation: 0, spinning: false, settleT: 0, settling: false, comboColor: null },
+    { rotation: 0, spinning: false, settleT: 0, settling: false, comboColor: null },
+    { rotation: 0, spinning: false, settleT: 0, settling: false, comboColor: null },
+    { rotation: 0, spinning: false, settleT: 0, settling: false, comboColor: null },
+    { rotation: 0, spinning: false, settleT: 0, settling: false, comboColor: null },
+  ];
+
+  // === API PRA O STATE MACHINE (animateForgeRoll chama esses) ===
+  function startSpin(i){
+    state[i].spinning = true;
+    state[i].rotation = 0;
+    state[i].settling = false;
+    state[i].comboColor = null;
+  }
+  function stopSpin(i){
+    state[i].spinning = false;
+    state[i].rotation = 0;
+    state[i].settling = true;
+    state[i].settleT = 0;
+  }
+  function setComboGlow(i, color){
+    state[i].comboColor = color || null;
+  }
+  function clearAllGlow(){
+    for(const s of state) s.comboColor = null;
+  }
+
+  // === COMBO BANNER + TIER TEXT (canvas port dos #forgeComboBanner /
+  // #forgeComboTierText). Esses 2 eram os ÚNICOS VFX DOM que ainda rodavam
+  // no iOS (os outros — flash/sweep/rays/confetti/shake/particles — já estão
+  // gated em _IS_IOS_PERF). Portando-os, a cerimônia inteira fica canvas-only
+  // no iOS = zero composite churn. ===
+  const banner = { active: false, t: 0, dur: 1500, text: '', color: '#ffcc3d' };
+  const tier   = { active: false, t: 0, dur: 1200, text: '', color: '#ffcc3d', fontPx: 64 };
+
+  function showBanner(text, color){
+    banner.active = true; banner.t = 0;
+    banner.text = (text || '').toUpperCase();
+    banner.color = color || '#ffcc3d';
+  }
+  function showTierText(text, color, fontPx, ms){
+    tier.active = true; tier.t = 0;
+    tier.text = text || '';
+    tier.color = color || '#ffcc3d';
+    tier.fontPx = fontPx || 64;
+    tier.dur = ms || 1200;
+  }
+
+  // Keyframe lerp: stops ordenados por .t (0..1). Retorna props interpoladas.
+  function _kf(stops, tt){
+    if(tt <= stops[0].t) return stops[0];
+    const last = stops[stops.length-1];
+    if(tt >= last.t) return last;
+    for(let i=0; i<stops.length-1; i++){
+      const a = stops[i], b = stops[i+1];
+      if(tt >= a.t && tt <= b.t){
+        const f = (b.t === a.t) ? 0 : (tt - a.t) / (b.t - a.t);
+        const out = {};
+        for(const k in a){ if(k !== 't') out[k] = a[k] + (b[k] - a[k]) * f; }
+        return out;
+      }
+    }
+    return last;
+  }
+  // Banner keyframes (match @forgeComboBannerRise): y em logical px, scale, op
+  const _BANNER_KF = [
+    { t:0,    y:30,  scale:0.70, op:0 },
+    { t:0.25, y:-8,  scale:1.18, op:1 },
+    { t:0.40, y:-8,  scale:1.00, op:1 },
+    { t:0.78, y:-8,  scale:1.00, op:1 },
+    { t:1.0,  y:-52, scale:0.92, op:0 },
+  ];
+  // Tier text keyframes (match @forgeTierTextPop): yPct (% do fontPx), scale, rot(deg), op
+  const _TIER_KF = [
+    { t:0,    yPct:-30, scale:0.10, rot:-8, op:0 },
+    { t:0.18, yPct:-50, scale:1.35, rot: 2, op:1 },
+    { t:0.32, yPct:-50, scale:0.92, rot:-2, op:1 },
+    { t:0.44, yPct:-50, scale:1.05, rot: 0, op:1 },
+    { t:0.70, yPct:-50, scale:1.00, rot: 0, op:1 },
+    { t:1.0,  yPct:-80, scale:0.85, rot: 0, op:0 },
+  ];
+  function resetAll(){
+    for(const s of state){
+      s.rotation = 0;
+      s.spinning = false;
+      s.settling = false;
+      s.settleT = 0;
+      s.comboColor = null;
+    }
+  }
+
+  // === TICK (chamado por frame; dt em ms) ===
+  function tick(dt){
+    for(const s of state){
+      if(s.spinning){
+        // Rotação rápida — equivalente da CSS animation diceRoll .12s linear
+        // (15deg max). Aqui é rotação contínua pra dar sentido de spin.
+        s.rotation += dt * 0.018; // rad/ms ≈ 16° por 16ms frame
+        if(s.rotation > Math.PI * 2) s.rotation -= Math.PI * 2;
+      }
+      if(s.settling){
+        s.settleT += dt / 280; // 280ms de settle (match do CSS .settled .3s)
+        if(s.settleT >= 1){
+          s.settling = false;
+          s.settleT = 0;
+        }
+      }
+    }
+    // Banner + tier text timelines
+    if(banner.active){
+      banner.t += dt / banner.dur;
+      if(banner.t >= 1){ banner.active = false; banner.t = 0; }
+    }
+    if(tier.active){
+      tier.t += dt / tier.dur;
+      if(tier.t >= 1){ tier.active = false; tier.t = 0; }
+    }
+  }
+
+  // === DRAW (chamado no fim do render arena, em CSS px → canvas px) ===
+  // Lê posições do --dice-* CSS vars que JS emite em _applyLayoutCSSVars.
+  // Como o canvas faz scaling W=360 logical, multiplico LAYOUT.dice* por
+  // uiScale pra bater com a posição real do dice strip DOM (caso voltemos
+  // pro DOM, fica visual exato).
+  function draw(){
+    if(!USE_CANVAS_DICE) return;
+    if(!sheetReady) { _loadSheet(); return; }
+    if(typeof forgeRoll === 'undefined' || typeof LAYOUT === 'undefined') return;
+
+    // Posicionamento canvas-side (logical px, pre-scaled pelo canvas transform).
+    // Replica o que CSS faz com #arenaDiceRow:
+    //   bottom: dice-bottom-y, width: dice-w, height: dice-h, scale: dice-scale,
+    //   gap: 6px (entre dados), padding: 0 8px (laterais)
+    const stripW = LAYOUT.diceW;
+    const stripH = LAYOUT.diceH;
+    const scale = LAYOUT.diceScale;
+    const offsetX = LAYOUT.diceOffsetX || 0;
+    const bottomY = LAYOUT.diceBottomY;
+    const safeBot = (typeof SAFE !== 'undefined') ? SAFE.bottomLogical : 0;
+
+    // Container center-x do strip:
+    const cx = W / 2 + offsetX;
+    const stripBaseW = stripW * scale;
+    const stripBaseH = stripH * scale;
+    // Strip top-y (logical px from canvas top):
+    const stripBottomLogical = H - bottomY - safeBot;
+    const stripTopY = stripBottomLogical - stripBaseH;
+    const stripLeftX = cx - stripBaseW / 2;
+
+    // 5 dados, gap=6, padding 8 horizontal — replicate
+    const PAD_X = 8 * scale;
+    const GAP   = 6 * scale;
+    const innerW = stripBaseW - PAD_X * 2;
+    // DOM original: cada .forge-die tem flex:1 + aspect-ratio:1/1 com
+    // overflow:visible no parent. Logo o dado é dimensionado pela LARGURA
+    // disponível dividida entre 5 (com gaps) e transborda verticalmente.
+    // Match exato do DOM: tamanho width-based, sem clamp pela altura.
+    const dieSize = (innerW - GAP * 4) / 5;
+    const totalW = dieSize * 5 + GAP * 4;
+    const startX = stripLeftX + (stripBaseW - totalW) / 2;
+    const dieY = stripTopY + (stripBaseH - dieSize) / 2;
+    // Row-rolling scale: durante a cerimônia, o DOM aplica scale(1.32) no
+    // .forge-dice-row. Replicar via flag spinning em qualquer dado: enquanto
+    // ALGUM dado tá rodando ou no settle, escalamos o grupo todo (transform
+    // origin = centro do strip).
+    let rowScale = 1.0;
+    let anyActive = false;
+    for(const s of state){
+      if(s.spinning || s.settling) { anyActive = true; break; }
+    }
+    if(anyActive) rowScale = 1.32;
+
+    // Wrap o desenho dos 5 dados em UM transform pra row-rolling scale
+    // (mesmo que o CSS .forge-dice-row.row-rolling { transform: scale(1.32) }).
+    // Origem do scale = centro do strip; transform applies to all dice equally.
+    const stripCenterX = stripLeftX + stripBaseW / 2;
+    const stripCenterY = stripTopY  + stripBaseH / 2;
+    ctx.save();
+    ctx.translate(stripCenterX, stripCenterY);
+    ctx.scale(rowScale, rowScale);
+    ctx.translate(-stripCenterX, -stripCenterY);
+
+    for(let i=0; i<5; i++){
+      const face = forgeRoll.dice[i] || 1;
+      const s = state[i];
+      const x = startX + i * (dieSize + GAP);
+      const y = dieY;
+
+      ctx.save();
+      // Center transform pra rotação/scale sair do centro do dado
+      ctx.translate(x + dieSize/2, y + dieSize/2);
+
+      // Settle bounce: scale up→down arc (1 → 1.1 → 1.0)
+      if(s.settling){
+        const t = s.settleT;
+        const scaleVal = 1 + 0.10 * Math.sin(t * Math.PI);
+        ctx.scale(scaleVal, scaleVal);
+      }
+
+      // Spinning rotation
+      if(s.spinning){
+        ctx.rotate(s.rotation);
+      }
+
+      // Combo glow halo via shadow blur (drawn 1× in shadow pass)
+      if(s.comboColor){
+        ctx.shadowColor = s.comboColor;
+        ctx.shadowBlur = 12 * scale;
+      }
+
+      // Draw face from sprite sheet
+      const srcX = (face - 1) * sheetCellW;
+      ctx.drawImage(
+        sheetImg,
+        srcX, 0, sheetCellW, sheetCellH,
+        -dieSize/2, -dieSize/2, dieSize, dieSize
+      );
+
+      ctx.restore();
+    }
+    ctx.restore(); // close row-rolling scale wrap
+
+    // ===== COMBO BANNER (canvas) — acima do dice strip =====
+    if(banner.active){
+      const kf = _kf(_BANNER_KF, banner.t);
+      const bx = W / 2 + offsetX;
+      // Base Y: logo acima do topo do strip (stripTopY). kf.y é offset adicional.
+      const by = stripTopY - 14 + kf.y;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, kf.op));
+      ctx.translate(bx, by);
+      ctx.scale(kf.scale, kf.scale);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = `900 24px 'Fredoka', system-ui, sans-serif`;
+      // Stroke chunky preto + glow na cor do combo + fill na cor do combo
+      ctx.lineJoin = 'round';
+      ctx.miterLimit = 2;
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+      ctx.shadowColor = banner.color;
+      ctx.shadowBlur = 16;
+      ctx.strokeText(banner.text, 0, 0);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#fff';
+      ctx.fillText(banner.text, 0, 0);
+      ctx.restore();
+    }
+
+    // ===== TIER TEXT (canvas) — "JACKPOT!!" etc, centro-alto da arena =====
+    if(tier.active){
+      const kf = _kf(_TIER_KF, tier.t);
+      const tx = W / 2;
+      // top: 38% da altura do canvas (match do CSS top:38%) + drift vertical
+      const baseY = H * 0.38;
+      const ty = baseY + (kf.yPct / 100) * tier.fontPx;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, kf.op));
+      ctx.translate(tx, ty);
+      ctx.rotate(kf.rot * Math.PI / 180);
+      ctx.scale(kf.scale, kf.scale);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = `900 ${tier.fontPx}px 'Fredoka', system-ui, sans-serif`;
+      // Comic-book chunky outline (sem glow colorido — flat cartoon)
+      ctx.lineJoin = 'round';
+      ctx.miterLimit = 2;
+      ctx.lineWidth = 7;
+      ctx.strokeStyle = '#1a1208';
+      ctx.strokeText(tier.text, 0, 0);
+      ctx.fillStyle = tier.color;
+      ctx.fillText(tier.text, 0, 0);
+      ctx.restore();
+    }
+  }
+
+  return {
+    startSpin, stopSpin, setComboGlow, clearAllGlow, resetAll,
+    showBanner, showTierText, tick, draw, state,
+  };
+})();
+
 function drawArenaHUD(){
   // ===== HUD flutuante (pills) sobreposto ao grid =====
   // Player column UNIFICADA na esquerda: HP, LV+XP, Power, Kills e Essences
@@ -11600,6 +11943,10 @@ function renderArena(){
   }
 
   drawArenaHUD();
+
+  // Canvas dice render (feature-flagged: USE_CANVAS_DICE = true). Desenha
+  // depois do HUD pra ficar visualmente acima (sobreposto na strip).
+  if(typeof _DiceCanvas !== 'undefined') _DiceCanvas.draw();
 
   // === COSMIC BEAM — drawn last so it sits ON TOP of every game element ===
   // Solid colors (no translucency), bright stacked layers, juicier charge.
@@ -14005,7 +14352,20 @@ function renderForgeDice(){
       highlightSet = { set: new Set(idxs), color: glowColor };
     }
   }
+  // Canvas dice mode: os DOM dice estão visibility:hidden. Mexer em
+  // data-face / classList / style neles ainda dispara style-recalc no iOS
+  // (mesmo invisíveis), desperdiçando frame budget. Quando USE_CANVAS_DICE,
+  // só sincronizamos o combo glow pro state machine do canvas e pulamos
+  // TODA manipulação do DOM dice.
+  const _canvasDice = (typeof USE_CANVAS_DICE !== 'undefined' && USE_CANVAS_DICE);
   for(let i=0; i<5; i++){
+    if(_canvasDice){
+      // Só o glow vai pro canvas; nada de DOM.
+      if(typeof _DiceCanvas !== 'undefined'){
+        _DiceCanvas.setComboGlow(i, (highlightSet && highlightSet.set.has(i)) ? highlightSet.color : null);
+      }
+      continue;
+    }
     const el = _forgeDie(i);
     if(!el) continue;
     // CSS-based: data-face vira só metadado; pips são injetados como filhos
@@ -14348,8 +14708,17 @@ const _TIER_TEXT = {
 };
 function triggerComboTierText(comboId, color){
   const cfg = _TIER_TEXT[comboId];
+  if(!cfg) return;
+  // Canvas port: quando USE_CANVAS_DICE, renderiza no canvas (zero composite
+  // churn no iOS). DOM fica como fallback quando flag off.
+  if(typeof USE_CANVAS_DICE !== 'undefined' && USE_CANVAS_DICE){
+    if(typeof _DiceCanvas !== 'undefined') {
+      _DiceCanvas.showTierText(cfg.text, color || '#ffcc3d', cfg.fontPx, cfg.ms);
+    }
+    return;
+  }
   const el = document.getElementById('forgeComboTierText');
-  if(!el || !cfg) return;
+  if(!el) return;
   el.textContent = cfg.text;
   el.style.fontSize = cfg.fontPx + 'px';
   el.style.setProperty('--tier-color', color || '#ffcc3d');
@@ -14388,30 +14757,44 @@ function animateForgeRoll(onDone){
     batch: forgeRoll.autoRolls || 1,
   });
 
+  // Canvas dice: pula TODA manipulação DOM dos dados (.row-rolling / .windup /
+  // .rolling / .settled / spawnDieParticles). O canvas state machine cobre o
+  // spin + settle bounce + scale-up. Evita style-recalc em elementos hidden.
+  const _canvasDice = (typeof USE_CANVAS_DICE !== 'undefined' && USE_CANVAS_DICE);
+
   // Grow the dice row IMMEDIATELY (CSS transition smooths the grow-in).
   // Stays big through windup + spin + settle + combo beat — shrunk back
   // after the combo land effects have read (see post-combo timeout below).
   const diceRow = document.getElementById('arenaDiceRow');
-  if(diceRow) diceRow.classList.add('row-rolling');
+  if(!_canvasDice && diceRow) diceRow.classList.add('row-rolling');
 
   // Anticipation windup: brief squash on unheld dice before the spin starts.
-  // Sells the toss — 140ms then the .rolling spin kicks in.
-  for(let i=0; i<5; i++){
-    if(forgeRoll.held[i]) continue;
-    const el = _forgeDie(i);
-    if(!el) continue;
-    el.classList.add('windup');
-    setTimeout(() => el.classList.remove('windup'), 150);
+  // Sells the toss — 140ms then the .rolling spin kicks in. (DOM-only)
+  if(!_canvasDice){
+    for(let i=0; i<5; i++){
+      if(forgeRoll.held[i]) continue;
+      const el = _forgeDie(i);
+      if(!el) continue;
+      el.classList.add('windup');
+      setTimeout(() => el.classList.remove('windup'), 150);
+    }
   }
 
   // Kick the spin after windup completes
   setTimeout(() => {
     // SFX: dice tumble one-shot fires when spin actually starts (t≈130ms).
     if(typeof playSfx === 'function') playSfx('sfx_dice_roll');
-    for(const el of _forgeDice()) {
-      // Don't spin held dice
-      const i = +(el.dataset.i || 0);
-      if(!forgeRoll.held[i]) el.classList.add('rolling');
+    // Canvas dice: inicia spin no state machine (parallel ao CSS abaixo)
+    if(typeof _DiceCanvas !== 'undefined') {
+      _DiceCanvas.clearAllGlow();
+      for(let i=0; i<5; i++) if(!forgeRoll.held[i]) _DiceCanvas.startSpin(i);
+    }
+    if(!_canvasDice){
+      for(const el of _forgeDice()) {
+        // Don't spin held dice
+        const i = +(el.dataset.i || 0);
+        if(!forgeRoll.held[i]) el.classList.add('rolling');
+      }
     }
     let frame = 0;
     const totalFrames = 8;
@@ -14431,26 +14814,32 @@ function animateForgeRoll(onDone){
         clearInterval(tick);
 
         // Stagger settle: each unheld die stops L→R with ~70ms delay between.
-        // On land: remove .rolling, add .settled (one-shot bounce keyframe),
-        // spawn DOM particle burst at die center. Held dice skip entirely.
+        // On land: canvas stopSpin (bounce) + SFX. No modo DOM (flag off),
+        // também faz .rolling→.settled + spawnDieParticles. Held dice skip.
         const SETTLE_STAGGER_MS = 70;
         let landIdx = 0;
         for(let i=0; i<5; i++){
-          const el = _forgeDie(i);
-          if(!el) continue;
-          if(forgeRoll.held[i]){ el.classList.remove('rolling'); continue; }
+          if(forgeRoll.held[i]){
+            if(!_canvasDice){ const h = _forgeDie(i); if(h) h.classList.remove('rolling'); }
+            continue;
+          }
           const delay = landIdx * SETTLE_STAGGER_MS;
           landIdx++;
+          const dieIdx = i;                 // capture pro closure
+          const el = _canvasDice ? null : _forgeDie(i);
           setTimeout(() => {
-            el.classList.remove('rolling');
-            el.classList.remove('settled');
-            void el.offsetWidth;
-            el.classList.add('settled');
-            spawnDieParticles(el);
-            // SFX: tock per die landing — pitch random gives 5 staggered tocks variety.
+            // Canvas dice: stop spin + trigger settle bounce
+            if(typeof _DiceCanvas !== 'undefined') _DiceCanvas.stopSpin(dieIdx);
+            // SFX: tock per die landing.
             if(typeof playSfx === 'function') playSfx('sfx_die_land');
-            // Value pop removed — read as floating damage numbers in gameplay.
-            setTimeout(() => el.classList.remove('settled'), 300);
+            if(!_canvasDice && el){
+              el.classList.remove('rolling');
+              el.classList.remove('settled');
+              void el.offsetWidth;
+              el.classList.add('settled');
+              spawnDieParticles(el);
+              setTimeout(() => el.classList.remove('settled'), 300);
+            }
           }, delay);
         }
 
@@ -14493,21 +14882,25 @@ function animateForgeRoll(onDone){
               if(sfxId) playSfx(sfxId);
             }
             // Combo-bond burst: small star particles at each combo-participating die,
-            // tinted by combo color. Visually links the matched set the moment
-            // glow appears. Skipped for NONE/MAXROLL (no glow on those tiers).
-            const glowDice = document.querySelectorAll('#arenaDiceRow .forge-die.combo-glow');
-            for(const d of glowDice){
-              spawnDieParticles(d, color);
-              spawnDieParticles(d, color); // double burst = denser visual link
-              spawnSparkles(d, color, 7);  // magical star sparkle around outline
+            // tinted by combo color. DOM-only (já iOS-gated dentro de spawn*);
+            // no modo canvas, o glow do dado no canvas já comunica o vínculo.
+            if(!_canvasDice){
+              const glowDice = document.querySelectorAll('#arenaDiceRow .forge-die.combo-glow');
+              for(const d of glowDice){
+                spawnDieParticles(d, color);
+                spawnDieParticles(d, color); // double burst = denser visual link
+                spawnSparkles(d, color, 7);  // magical star sparkle around outline
+              }
             }
           }
-          // Shrink the dice row back to rest size ~700ms after the combo beat
-          // so the player reads all the BIG effects before things calm down.
-          setTimeout(() => {
-            const row = document.getElementById('arenaDiceRow');
-            if(row) row.classList.remove('row-rolling');
-          }, 700);
+          // Shrink the dice row back to rest size ~700ms after the combo beat.
+          // DOM-only — no modo canvas o rowScale cai sozinho quando settling acaba.
+          if(!_canvasDice){
+            setTimeout(() => {
+              const row = document.getElementById('arenaDiceRow');
+              if(row) row.classList.remove('row-rolling');
+            }, 700);
+          }
           forgeAdvanceAfterRoll();
         }, totalSettleMs);
       }
@@ -14543,9 +14936,19 @@ function forgeAdvanceAfterRoll(){
 // Cor + glow do banner herdam o COMBO_GLOW_COLOR do combo (degradê amarelo→
 // vermelho). Termina chamando onDone — usado pra disparar o popup do item.
 function showComboBanner(combo, onDone){
+  const color = COMBO_GLOW_COLOR[combo.id] || combo.color || '#ffcc3d';
+  // Canvas port: renderiza o banner no canvas quando USE_CANVAS_DICE. O timing
+  // (1500ms) é o mesmo; o onDone dispara depois desse tempo pra manter o fluxo
+  // (banner → popup) idêntico ao DOM.
+  if(typeof USE_CANVAS_DICE !== 'undefined' && USE_CANVAS_DICE){
+    if(typeof _DiceCanvas !== 'undefined') {
+      _DiceCanvas.showBanner(combo.name || '—', color);
+    }
+    setTimeout(() => { if(onDone) onDone(); }, 1500);
+    return;
+  }
   const banner = document.getElementById('forgeComboBanner');
   if(!banner){ if(onDone) onDone(); return; }
-  const color = COMBO_GLOW_COLOR[combo.id] || combo.color || '#ffcc3d';
   banner.style.setProperty('--banner-color', color);
   banner.style.setProperty('--banner-glow', color);
   banner.textContent = combo.name || '—';
@@ -15729,7 +16132,12 @@ function loop(now){
       _lastRenderTime = now;
     }
   }
-  if(_shouldRender && !arena.forgeComparePopupOpen) renderArena();
+  if(_shouldRender && !arena.forgeComparePopupOpen) {
+    // Tick canvas dice ANTES do render pra rotation/settle bounce serem
+    // refletidas no mesmo frame. dt = frame (variable ms desde último loop).
+    if(typeof _DiceCanvas !== 'undefined') _DiceCanvas.tick(frame);
+    renderArena();
+  }
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
