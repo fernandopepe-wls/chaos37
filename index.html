@@ -10280,6 +10280,21 @@ const _DiceCanvas = (() => {
     tier.color = color || '#ffcc3d';
     tier.fontPx = fontPx || 64;
     tier.dur = ms || 1200;
+    // Auto-fit: medir largura natural do texto na font final e calcular um
+    // scale extra pra que (largura × peak-keyframe-scale × fitScale) ≤ W*0.92.
+    // Sem isso, "JACKPOT!!" a 108px (× 1.35 do keyframe) vazava as laterais
+    // do canvas 360 logical. Aplicado em cima do scale do keyframe no draw.
+    tier.fitScale = 1;
+    if(tier.text && typeof W !== 'undefined' && typeof ctx !== 'undefined'){
+      ctx.save();
+      ctx.font = `900 ${tier.fontPx}px 'Fredoka', system-ui, sans-serif`;
+      const naturalW = ctx.measureText(tier.text).width;
+      ctx.restore();
+      const PEAK_KF_SCALE = 1.35; // maior scale do _TIER_KF
+      const maxW = W * 0.92;      // 8% margem nas laterais
+      const peakW = naturalW * PEAK_KF_SCALE;
+      if(peakW > maxW) tier.fitScale = maxW / peakW;
+    }
   }
 
   // Keyframe lerp: stops ordenados por .t (0..1). Retorna props interpoladas.
@@ -10517,7 +10532,10 @@ const _DiceCanvas = (() => {
       ctx.globalAlpha = Math.max(0, Math.min(1, kf.op));
       ctx.translate(tx, ty);
       ctx.rotate(kf.rot * Math.PI / 180);
-      ctx.scale(kf.scale, kf.scale);
+      // Auto-fit: tier.fitScale ≤ 1 garante que o texto caiba na largura mesmo
+      // no peak do keyframe (1.35x). Multiplicado em cima do scale do keyframe.
+      const fit = tier.fitScale || 1;
+      ctx.scale(kf.scale * fit, kf.scale * fit);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = `900 ${tier.fontPx}px 'Fredoka', system-ui, sans-serif`;
